@@ -1,0 +1,40 @@
+import { db } from "@/db"
+import { selections, galleries, stars } from "@/db/schema"
+import { eq, and } from "drizzle-orm"
+import { sendEmail } from "@/lib/email"
+import { users } from "@/db/schema"
+
+export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params
+  const { clientId } = await req.json()
+  if (!clientId) return Response.json({ error: "clientId required" }, { status: 400 })
+
+  const gallery = await db.query.galleries.findFirst({ where: eq(galleries.slug, slug) })
+  if (!gallery) return Response.json({ error: "Not found" }, { status: 404 })
+
+  // Snapshot starred photo IDs for this client
+  const starred = await db.query.stars.findMany({
+    where: and(eq(stars.galleryId, gallery.id), eq(stars.clientId, clientId)),
+  })
+  const photoIds = starred.map((s) => s.photoId)
+
+  const [selection] = await db.insert(selections).values({
+    id: crypto.randomUUID(),
+    galleryId: gallery.id,
+    photoIds,
+  }).returning()
+
+  // Notify photographer
+  const photographer = await db.query.users.findFirst({ where: eq(users.id, gallery.userId) })
+  if (photographer?.email) {
+    const shareUrl = `${process.env.AUTH_URL ?? "http://localhost:3000"}/g/${slug}`
+    await sendEmail({
+      to: photographer.email,
+      subject: `Client submitted selection — ${gallery.name}`,
+      html: `<p>Your client submitted a selection of <strong>${photoIds.length} photo${photoIds.length !== 1 ? "s" : ""}</strong> from <strong>${gallery.name}</strong>.</p>
+             <p><a href="${shareUrl}">View gallery</a></p>`,
+    }).catch(() => {}) // non-fatal
+  }
+
+  return Response.json({ selection })
+}
