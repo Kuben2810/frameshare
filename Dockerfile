@@ -22,5 +22,4 @@ COPY --from=builder /app/node_modules/@img ./node_modules/@img
 # drizzle migrations run at container start so schema is always up to date
 COPY --from=builder /app/drizzle ./drizzle
 COPY --from=builder /app/scripts/migrate.mjs ./scripts/migrate.mjs
-EXPOSE 3000
 CMD ["sh", "-c", "node scripts/migrate.mjs && node server.js"]
