@@ -1,6 +1,6 @@
 import { db } from "@/db"
 import { galleries, photos, stars, comments } from "@/db/schema"
-import { eq, and, asc } from "drizzle-orm"
+import { eq, and, asc, inArray } from "drizzle-orm"
 import { notFound } from "next/navigation"
 import { GalleryView } from "@/components/gallery-view"
 
@@ -44,18 +44,9 @@ export default async function GallerySharePage({
     where: eq(stars.galleryId, gallery.id),
   })
 
-  const galleryComments = await db.query.comments.findMany({
-    where: eq(
-      comments.photoId,
-      // get all photo ids
-      galleryPhotos[0]?.id ?? ""
-    ),
-  })
-
-  // Fetch all comments for all photos
   const allComments = galleryPhotos.length > 0
     ? await db.query.comments.findMany({
-        where: (c, { inArray }) => inArray(c.photoId, galleryPhotos.map((p) => p.id)),
+        where: inArray(comments.photoId, galleryPhotos.map((p) => p.id)),
         orderBy: [asc(comments.createdAt)],
       })
     : []
