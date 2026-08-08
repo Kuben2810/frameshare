@@ -19,7 +19,12 @@ COPY --from=builder /app/public ./public
 # sharp native binary must be copied explicitly — Next.js file tracer misses it
 COPY --from=builder /app/node_modules/sharp ./node_modules/sharp
 COPY --from=builder /app/node_modules/@img ./node_modules/@img
-# drizzle migrations run at container start so schema is always up to date
+# drizzle-orm migrator and pg are not file-traced by Next.js standalone — copy explicitly
+COPY --from=builder /app/node_modules/drizzle-orm ./node_modules/drizzle-orm
+COPY --from=builder /app/node_modules/pg ./node_modules/pg
+COPY --from=builder /app/node_modules/pg-protocol ./node_modules/pg-protocol
+COPY --from=builder /app/node_modules/pg-types ./node_modules/pg-types
+COPY --from=builder /app/node_modules/pgpass ./node_modules/pgpass
 COPY --from=builder /app/drizzle ./drizzle
 COPY --from=builder /app/scripts/migrate.mjs ./scripts/migrate.mjs
 CMD ["sh", "-c", "node scripts/migrate.mjs && node server.js"]
