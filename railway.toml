@@ -1,0 +1,8 @@
+[build]
+builder = "nixpacks"
+
+[deploy]
+preDeployCommand = "node scripts/migrate.mjs"
+startCommand = "npm start"
+healthcheckPath = "/login"
+healthcheckTimeout = 30
