@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { Star, MessageSquare, Download, ChevronLeft, ChevronRight, X, SlidersHorizontal, Grid3X3, Send } from "lucide-react"
+import { Star, MessageSquare, Download, ChevronLeft, ChevronRight, X, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import type { InferSelectModel } from "drizzle-orm"
@@ -43,7 +43,6 @@ export function GalleryView({
       return acc
     }, {})
   )
-  const [view, setView] = useState<"grid" | "slideshow">("grid")
   const [activeIdx, setActiveIdx] = useState<number | null>(null)
   const [commentPhotoId, setCommentPhotoId] = useState<string | null>(null)
   const [commentBody, setCommentBody] = useState("")
@@ -104,16 +103,9 @@ export function GalleryView({
               // eslint-disable-next-line @next/next/no-img-element
               <img src={imgUrl(gallery.logoKey)!} alt="" className="h-7 w-auto object-contain" />
             )}
-            <span className="font-medium text-[15px]">{gallery.name}</span>
+            <span className="font-semibold text-base">{gallery.name}</span>
           </div>
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost" size="icon"
-              onClick={() => setView(view === "grid" ? "slideshow" : "grid")}
-              title={view === "grid" ? "Slideshow" : "Grid"}
-            >
-              {view === "grid" ? <SlidersHorizontal className="h-4 w-4" /> : <Grid3X3 className="h-4 w-4" />}
-            </Button>
             {starredIds.size > 0 && !submitted && (
               <Button size="sm" onClick={submitSelection} disabled={submitting}
                 style={{ backgroundColor: accentColor, color: "#fff" }}>
@@ -129,61 +121,59 @@ export function GalleryView({
         </div>
       </header>
 
-      {/* Grid view */}
-      {view === "grid" && (
-        <div className="max-w-7xl mx-auto px-4 py-6">
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-            {photos.map((photo, idx) => {
-              const starred = starredIds.has(photo.id)
-              const commentCount = (commentMap[photo.id] ?? []).length
-              return (
-                <div
-                  key={photo.id}
-                  className={`group relative aspect-square bg-muted rounded-md overflow-hidden cursor-pointer transition-all duration-150 ${
-                    starred ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""
-                  }`}
-                  onClick={() => { setActiveIdx(idx); setView("slideshow") }}
-                >
-                  {photo.thumbKey && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={imgUrl(photo.thumbKey)!} alt={photo.filename}
-                      className="absolute inset-0 w-full h-full object-cover" />
+      {/* Grid */}
+      <div className="max-w-7xl mx-auto px-4 py-6">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+          {photos.map((photo, idx) => {
+            const starred = starredIds.has(photo.id)
+            const commentCount = (commentMap[photo.id] ?? []).length
+            return (
+              <div
+                key={photo.id}
+                style={{ animationDelay: `${idx * 35}ms` }}
+                className={`group relative aspect-square bg-muted rounded-md overflow-hidden cursor-pointer
+                  animate-in fade-in zoom-in-95 duration-300 fill-mode-both
+                  transition-transform hover:scale-[1.02] hover:shadow-lg
+                  ${starred ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
+                onClick={() => setActiveIdx(idx)}
+              >
+                {photo.thumbKey && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={imgUrl(photo.thumbKey)!} alt={photo.filename}
+                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
+                )}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors duration-200" />
+                <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); toggleStar(photo.id) }}
+                    className="p-1.5 rounded-full bg-white/90 shadow-sm transition-transform hover:scale-110 active:scale-95"
+                  >
+                    <Star className={`h-3.5 w-3.5 transition-colors ${starred ? "fill-yellow-400 text-yellow-400" : "text-neutral-600"}`} />
+                  </button>
+                  {commentCount > 0 && (
+                    <Badge className="text-xs bg-white/90 text-neutral-700 shadow-sm">{commentCount}</Badge>
                   )}
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
-                  <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); toggleStar(photo.id) }}
-                      className="p-1.5 rounded-full bg-white/90 shadow"
-                    >
-                      <Star className={`h-3.5 w-3.5 ${starred ? "fill-yellow-400 text-yellow-400" : "text-neutral-600"}`} />
-                    </button>
-                    {commentCount > 0 && (
-                      <Badge className="text-xs bg-white/90 text-neutral-700 shadow">{commentCount}</Badge>
-                    )}
-                  </div>
                 </div>
-              )
-            })}
-          </div>
+              </div>
+            )
+          })}
         </div>
-      )}
+      </div>
 
-      {/* Slideshow view */}
-      {view === "slideshow" && activePhoto && (
-        <div className="fixed inset-0 bg-black z-20 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 text-white">
-            <button onClick={() => setView("grid")} className="flex items-center gap-1 text-sm opacity-70 hover:opacity-100">
-              <X className="h-4 w-4" /> Close
-            </button>
-            <span className="text-sm opacity-70">{(activeIdx ?? 0) + 1} / {photos.length}</span>
+      {/* Lightbox */}
+      {activePhoto && (
+        <div className="fixed inset-0 bg-black z-20 flex flex-col animate-in fade-in duration-200">
+          {/* Lightbox header */}
+          <div className="flex items-center justify-between px-4 py-3 text-white shrink-0">
+            <span className="text-sm opacity-60">{(activeIdx ?? 0) + 1} / {photos.length}</span>
             <div className="flex items-center gap-2">
               <button onClick={() => toggleStar(activePhoto.id)}
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20">
-                <Star className={`h-4 w-4 ${starredIds.has(activePhoto.id) ? "fill-yellow-400 text-yellow-400" : "text-white"}`} />
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
+                <Star className={`h-4 w-4 transition-colors ${starredIds.has(activePhoto.id) ? "fill-yellow-400 text-yellow-400" : "text-white"}`} />
               </button>
               <button
                 onClick={() => setCommentPhotoId(commentPhotoId === activePhoto.id ? null : activePhoto.id)}
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 relative"
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors relative"
               >
                 <MessageSquare className="h-4 w-4 text-white" />
                 {(commentMap[activePhoto.id]?.length ?? 0) > 0 && (
@@ -196,34 +186,44 @@ export function GalleryView({
                 <a
                   href={imgUrl(gallery.downloadMode === "lowres" ? activePhoto.watermarkedKey : activePhoto.originalKey) ?? "#"}
                   download={activePhoto.filename}
-                  className="p-2 rounded-full bg-white/10 hover:bg-white/20"
+                  className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
                 >
                   <Download className="h-4 w-4 text-white" />
                 </a>
               )}
+              <button onClick={() => setActiveIdx(null)}
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
+                <X className="h-4 w-4 text-white" />
+              </button>
             </div>
           </div>
 
-          <div className="flex-1 relative flex items-center justify-center">
+          {/* Image — fills remaining height */}
+          <div className="relative flex-1 min-h-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={imgUrl(activePhoto.displayKey ?? activePhoto.originalKey)!}
+            <img
+              key={activePhoto.id}
+              src={imgUrl(activePhoto.displayKey ?? activePhoto.originalKey)!}
               alt={activePhoto.filename}
-              className="max-w-full max-h-full object-contain" />
-            <button onClick={() => setActiveIdx((i) => Math.max(0, (i ?? 0) - 1))}
+              className="absolute inset-0 w-full h-full object-contain animate-in fade-in zoom-in-[1.02] duration-200"
+            />
+            <button
+              onClick={() => setActiveIdx((i) => Math.max(0, (i ?? 0) - 1))}
               disabled={(activeIdx ?? 0) === 0}
-              className="absolute left-4 p-2 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-20">
+              className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-20 transition-all hover:scale-110">
               <ChevronLeft className="h-5 w-5 text-white" />
             </button>
-            <button onClick={() => setActiveIdx((i) => Math.min(photos.length - 1, (i ?? 0) + 1))}
+            <button
+              onClick={() => setActiveIdx((i) => Math.min(photos.length - 1, (i ?? 0) + 1))}
               disabled={(activeIdx ?? 0) === photos.length - 1}
-              className="absolute right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-20">
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-20 transition-all hover:scale-110">
               <ChevronRight className="h-5 w-5 text-white" />
             </button>
           </div>
 
           {/* Comment panel */}
           {commentPhotoId === activePhoto.id && (
-            <div className="bg-neutral-900 text-white px-4 py-3 max-h-64 overflow-y-auto space-y-3">
+            <div className="bg-neutral-900 text-white px-4 py-3 max-h-56 overflow-y-auto space-y-3 shrink-0 animate-in slide-in-from-bottom-2 duration-200">
               {(commentMap[activePhoto.id] ?? []).map((c) => (
                 <div key={c.id} className="text-sm">
                   <span className="font-medium opacity-70">{c.authorName ?? "Anonymous"}</span>
@@ -239,7 +239,7 @@ export function GalleryView({
                   className="bg-white/10 rounded px-2 py-1.5 text-sm flex-1 outline-none placeholder:opacity-50"
                   onKeyDown={(e) => e.key === "Enter" && submitComment(activePhoto.id)} />
                 <button onClick={() => submitComment(activePhoto.id)}
-                  className="p-1.5 rounded bg-white/20 hover:bg-white/30 shrink-0">
+                  className="p-1.5 rounded bg-white/20 hover:bg-white/30 shrink-0 transition-colors">
                   <Send className="h-3.5 w-3.5" />
                 </button>
               </div>

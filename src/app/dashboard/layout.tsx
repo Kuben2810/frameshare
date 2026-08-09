@@ -26,7 +26,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <div className="min-h-screen bg-background">
       <header className="bg-card border-b border-border sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/dashboard" className="text-[15px] font-medium tracking-[0.06em] text-foreground">
+          <Link href="/dashboard" className="text-xl font-semibold tracking-tight text-foreground">
             Frameshare
           </Link>
           <div className="flex items-center gap-1">
