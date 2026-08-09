@@ -1,5 +1,5 @@
 import { db } from "@/db"
-import { selections, galleries, stars } from "@/db/schema"
+import { selections, selectionPhotos, galleries, stars } from "@/db/schema"
 import { eq, and } from "drizzle-orm"
 import { sendEmail } from "@/lib/email"
 import { users } from "@/db/schema"
@@ -21,8 +21,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   const [selection] = await db.insert(selections).values({
     id: crypto.randomUUID(),
     galleryId: gallery.id,
-    photoIds,
   }).returning()
+
+  if (photoIds.length > 0) {
+    await db.insert(selectionPhotos).values(
+      photoIds.map((photoId) => ({ selectionId: selection.id, photoId }))
+    )
+  }
 
   // Notify photographer
   const photographer = await db.query.users.findFirst({ where: eq(users.id, gallery.userId) })

@@ -7,12 +7,12 @@ import { deletePhoto } from "@/app/actions/galleries"
 import { toast } from "sonner"
 import type { InferSelectModel } from "drizzle-orm"
 import type { galleries, photos } from "@/db/schema"
+import { ACCEPTED_TYPES, MAX_SIZE_BYTES } from "@/lib/photo-constraints"
 
 type Gallery = InferSelectModel<typeof galleries>
 type Photo = InferSelectModel<typeof photos>
 
-const ACCEPTED = { "image/jpeg": [], "image/png": [], "image/tiff": [], "image/webp": [] }
-const MAX_SIZE = 50 * 1024 * 1024
+const ACCEPTED = Object.fromEntries(ACCEPTED_TYPES.map((t) => [t, []]))
 
 export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gallery; photos: Photo[] }) {
   const [photoList, setPhotoList] = useState(initialPhotos)
@@ -63,7 +63,7 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     accept: ACCEPTED,
-    maxSize: MAX_SIZE,
+    maxSize: MAX_SIZE_BYTES,
     multiple: true,
   })
 

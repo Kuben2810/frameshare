@@ -31,6 +31,7 @@ export default async function GalleryPage({ params }: { params: Promise<{ id: st
     where: eq(selections.galleryId, id),
     orderBy: (s, { desc }) => [desc(s.submittedAt)],
     limit: 5,
+    with: { selectionPhotos: true },
   })
 
   const shareUrl = `${process.env.AUTH_URL ?? "http://localhost:3000"}/g/${gallery.slug}`
@@ -77,7 +78,7 @@ export default async function GalleryPage({ params }: { params: Promise<{ id: st
             {recentSelections.map((s) => (
               <div key={s.id} className="flex items-center justify-between bg-card border border-border rounded-lg p-3 text-sm">
                 <span className="text-muted-foreground">
-                  {new Date(s.submittedAt).toLocaleString()} — {s.photoIds.length} photo{s.photoIds.length !== 1 ? "s" : ""}
+                  {new Date(s.submittedAt).toLocaleString()} — {s.selectionPhotos.length} photo{s.selectionPhotos.length !== 1 ? "s" : ""}
                 </span>
               </div>
             ))}

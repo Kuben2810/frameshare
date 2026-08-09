@@ -1,39 +1,24 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Star, MessageSquare, Download, ChevronLeft, ChevronRight, X, Send, Play, Pause, SlidersHorizontal } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import type { InferSelectModel } from "drizzle-orm"
 import type { galleries, photos, stars, comments } from "@/db/schema"
+import { FILTERS } from "@/lib/gallery-filters"
+import { useGalleryInteraction } from "@/lib/hooks/use-gallery-interaction"
+import { useSlideshow } from "@/lib/hooks/use-slideshow"
 
 type Gallery = InferSelectModel<typeof galleries>
 type Photo = InferSelectModel<typeof photos>
 type Star = InferSelectModel<typeof stars>
 type Comment = InferSelectModel<typeof comments>
 
-function getClientId(): string {
-  let id = localStorage.getItem("frameshare_client_id")
-  if (!id) { id = crypto.randomUUID(); localStorage.setItem("frameshare_client_id", id) }
-  return id
-}
-
 function imgUrl(key: string | null | undefined) {
   if (!key) return null
   return `/api/s3/${key}`
 }
-
-const FILTERS: Record<string, string> = {
-  Normal:  "",
-  Warm:    "sepia(0.22) saturate(1.4) brightness(1.05)",
-  Cool:    "saturate(0.75) contrast(1.05) brightness(1.08)",
-  "B&W":   "grayscale(1) contrast(1.1)",
-  Vivid:   "saturate(1.7) contrast(1.12)",
-  Fade:    "brightness(1.15) contrast(0.78) saturate(0.65)",
-  Vintage: "sepia(0.5) contrast(1.1) brightness(0.90) saturate(1.15)",
-}
-
-const SLIDESHOW_INTERVAL = 4000
 
 function handleTilt(e: React.MouseEvent<HTMLDivElement>) {
   const el = e.currentTarget
@@ -59,33 +44,23 @@ export function GalleryView({
   initialStars: Star[]
   initialComments: Comment[]
 }) {
-  const [starredIds, setStarredIds] = useState<Set<string>>(
-    () => new Set(initialStars.map((s) => s.photoId))
-  )
-  const [commentMap, setCommentMap] = useState<Record<string, Comment[]>>(
-    () => initialComments.reduce<Record<string, Comment[]>>((acc, c) => {
-      acc[c.photoId] = [...(acc[c.photoId] ?? []), c]
-      return acc
-    }, {})
-  )
-  const [activeIdx, setActiveIdx] = useState<number | null>(null)
-  const [navDir, setNavDir] = useState<"right" | "left">("right")
-  const [isSlideshow, setIsSlideshow] = useState(false)
   const [showFilters, setShowFilters] = useState(false)
   const [activeFilter, setActiveFilter] = useState("Normal")
   const [commentPhotoId, setCommentPhotoId] = useState<string | null>(null)
   const [commentBody, setCommentBody] = useState("")
   const [commentName, setCommentName] = useState("")
-  const [submitting, setSubmitting] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
   const gridRef = useRef<HTMLDivElement>(null)
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const slug = gallery.slug
+  const { starredIds, commentMap, submitting, submitted, toggleStar, submitComment, submitSelection } =
+    useGalleryInteraction(gallery.slug, initialStars, initialComments)
+
+  const { activeIdx, navDir, isSlideshow, setIsSlideshow, openLightbox, closeLightbox, goNext, goPrev } =
+    useSlideshow(photos.length)
+
   const accentColor = gallery.accentColor ?? "#000000"
   const filterCss = FILTERS[activeFilter] ?? ""
+  const activePhoto = activeIdx !== null ? photos[activeIdx] : null
 
-  // Scroll-triggered reveal
   useEffect(() => {
     const grid = gridRef.current
     if (!grid) return
@@ -106,83 +81,10 @@ export function GalleryView({
     return () => observer.disconnect()
   }, [photos])
 
-  // Slideshow auto-advance
-  const goNext = useCallback(() => {
-    setNavDir("right")
-    setActiveIdx((i) => {
-      if (i === null || i >= photos.length - 1) { setIsSlideshow(false); return i }
-      return i + 1
-    })
-  }, [photos.length])
-
-  const goPrev = useCallback(() => {
-    setNavDir("left")
-    setActiveIdx((i) => Math.max(0, (i ?? 0) - 1))
-  }, [])
-
-  useEffect(() => {
-    if (!isSlideshow || activeIdx === null) return
-    timerRef.current = setTimeout(goNext, SLIDESHOW_INTERVAL)
-    return () => { if (timerRef.current) clearTimeout(timerRef.current) }
-  }, [isSlideshow, activeIdx, goNext])
-
-  // Keyboard nav
-  useEffect(() => {
-    if (activeIdx === null) return
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "ArrowRight") { setIsSlideshow(false); goNext() }
-      else if (e.key === "ArrowLeft") { setIsSlideshow(false); goPrev() }
-      else if (e.key === "Escape") { setIsSlideshow(false); setActiveIdx(null) }
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [activeIdx, goNext, goPrev])
-
-  function openLightbox(idx: number, slideshow = false) {
-    setNavDir("right")
-    setActiveIdx(idx)
-    setIsSlideshow(slideshow)
+  async function handleCommentSubmit(photoId: string) {
+    const ok = await submitComment(photoId, commentBody, commentName)
+    if (ok) { setCommentBody(""); setCommentPhotoId(null) }
   }
-
-  async function toggleStar(photoId: string) {
-    const clientId = getClientId()
-    const isStarred = starredIds.has(photoId)
-    setStarredIds((s) => { const n = new Set(s); isStarred ? n.delete(photoId) : n.add(photoId); return n })
-    await fetch(`/api/galleries/${slug}/stars`, {
-      method: isStarred ? "DELETE" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ photoId, clientId }),
-    })
-  }
-
-  async function submitComment(photoId: string) {
-    if (!commentBody.trim()) return
-    const res = await fetch(`/api/galleries/${slug}/comments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ photoId, body: commentBody, authorName: commentName }),
-    })
-    if (res.ok) {
-      const { comment } = await res.json()
-      setCommentMap((m) => ({ ...m, [photoId]: [...(m[photoId] ?? []), comment] }))
-      setCommentBody("")
-      setCommentPhotoId(null)
-    }
-  }
-
-  async function submitSelection() {
-    setSubmitting(true)
-    const clientId = getClientId()
-    await fetch(`/api/galleries/${slug}/select`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId }),
-    })
-    setSubmitted(true)
-    setSubmitting(false)
-  }
-
-  const activePhoto = activeIdx !== null ? photos[activeIdx] : null
 
   return (
     <div className="min-h-screen bg-background">
@@ -197,8 +99,7 @@ export function GalleryView({
             <span className="font-semibold text-base">{gallery.name}</span>
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => openLightbox(0, true)}
-              className="gap-1.5">
+            <Button variant="outline" size="sm" onClick={() => openLightbox(0, true)} className="gap-1.5">
               <Play className="h-3.5 w-3.5" /> Slideshow
             </Button>
             {starredIds.size > 0 && !submitted && (
@@ -261,19 +162,15 @@ export function GalleryView({
           <div className="flex items-center justify-between px-4 py-3 text-white shrink-0">
             <span className="text-sm opacity-60">{(activeIdx ?? 0) + 1} / {photos.length}</span>
             <div className="flex items-center gap-2">
-              {/* Filter toggle */}
               <button onClick={() => setShowFilters(f => !f)}
                 className={`p-2 rounded-full transition-colors ${showFilters ? "bg-white/25" : "bg-white/10 hover:bg-white/20"}`}
                 title="Filters">
                 <SlidersHorizontal className="h-4 w-4 text-white" />
               </button>
-              {/* Slideshow play/pause */}
               <button onClick={() => setIsSlideshow(s => !s)}
                 className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
                 title={isSlideshow ? "Pause slideshow" : "Play slideshow"}>
-                {isSlideshow
-                  ? <Pause className="h-4 w-4 text-white" />
-                  : <Play  className="h-4 w-4 text-white" />}
+                {isSlideshow ? <Pause className="h-4 w-4 text-white" /> : <Play className="h-4 w-4 text-white" />}
               </button>
               <button onClick={() => toggleStar(activePhoto.id)}
                 className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
@@ -296,7 +193,7 @@ export function GalleryView({
                   <Download className="h-4 w-4 text-white" />
                 </a>
               )}
-              <button onClick={() => { setIsSlideshow(false); setActiveIdx(null) }}
+              <button onClick={closeLightbox}
                 className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
                 <X className="h-4 w-4 text-white" />
               </button>
@@ -320,7 +217,6 @@ export function GalleryView({
 
           {/* Image area */}
           <div className="relative flex-1 min-h-0">
-            {/* Slide wrapper — handles slide direction */}
             <div key={`${activePhoto.id}-${navDir}`}
               className={`absolute inset-0 ${navDir === "right" ? "lb-slide-right" : "lb-slide-left"}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -332,8 +228,6 @@ export function GalleryView({
                   ${isSlideshow ? ((activeIdx ?? 0) % 2 === 0 ? "kb-even" : "kb-odd") : ""}`}
               />
             </div>
-
-            {/* Nav arrows */}
             <button onClick={() => { setIsSlideshow(false); goPrev() }}
               disabled={(activeIdx ?? 0) === 0}
               className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/25 disabled:opacity-20 transition-all hover:scale-110 z-10">
@@ -344,8 +238,6 @@ export function GalleryView({
               className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/25 disabled:opacity-20 transition-all hover:scale-110 z-10">
               <ChevronRight className="h-5 w-5 text-white" />
             </button>
-
-            {/* Slideshow progress bar */}
             {isSlideshow && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/20">
                 <div key={`bar-${activeIdx}`} className="h-full bg-white slideshow-bar" />
@@ -369,8 +261,8 @@ export function GalleryView({
                 <input value={commentBody} onChange={(e) => setCommentBody(e.target.value)}
                   placeholder="Add a comment…"
                   className="bg-white/10 rounded px-2 py-1.5 text-sm flex-1 outline-none placeholder:opacity-50"
-                  onKeyDown={(e) => e.key === "Enter" && submitComment(activePhoto.id)} />
-                <button onClick={() => submitComment(activePhoto.id)}
+                  onKeyDown={(e) => e.key === "Enter" && handleCommentSubmit(activePhoto.id)} />
+                <button onClick={() => handleCommentSubmit(activePhoto.id)}
                   className="p-1.5 rounded bg-white/20 hover:bg-white/30 shrink-0 transition-colors">
                   <Send className="h-3.5 w-3.5" />
                 </button>

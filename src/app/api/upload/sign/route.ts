@@ -6,9 +6,9 @@ import { PutObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { s3, BUCKET } from "@/lib/s3"
 import { sql } from "drizzle-orm"
+import { validatePhoto } from "@/lib/photo-constraints"
 
 const STORAGE_LIMIT = Number(process.env.STORAGE_LIMIT_BYTES ?? 10_737_418_240)
-const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/tiff", "image/webp"])
 
 export async function POST(req: Request) {
   const session = await auth()
@@ -16,8 +16,8 @@ export async function POST(req: Request) {
 
   const { galleryId, filename, fileSize, mimeType } = await req.json()
 
-  if (!ALLOWED_TYPES.has(mimeType)) return Response.json({ error: "Invalid file type" }, { status: 400 })
-  if (!fileSize || fileSize > 50 * 1024 * 1024) return Response.json({ error: "File too large" }, { status: 400 })
+  const v = validatePhoto({ type: mimeType, size: fileSize })
+  if (!v.ok) return Response.json({ error: v.error }, { status: 400 })
 
   // Verify gallery ownership
   const gallery = await db.query.galleries.findFirst({

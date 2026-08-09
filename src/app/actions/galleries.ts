@@ -7,14 +7,14 @@ import { eq, and, sql } from "drizzle-orm"
 import bcrypt from "bcryptjs"
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
+import { requireAuth } from "@/lib/require-auth"
 
 function randomSlug() {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 12)
 }
 
 export async function createGallery(formData: FormData) {
-  const session = await auth()
-  if (!session?.user?.id) redirect("/login")
+  const userId = await requireAuth()
 
   const name = (formData.get("name") as string).trim()
   if (!name) return { error: "Name required" }
@@ -28,7 +28,7 @@ export async function createGallery(formData: FormData) {
   const id = crypto.randomUUID()
   await db.insert(galleries).values({
     id,
-    userId: session.user.id,
+    userId,
     name,
     slug: randomSlug(),
     passwordHash,
@@ -40,11 +40,10 @@ export async function createGallery(formData: FormData) {
 }
 
 export async function updateGallery(id: string, formData: FormData) {
-  const session = await auth()
-  if (!session?.user?.id) redirect("/login")
+  const userId = await requireAuth()
 
   const gallery = await db.query.galleries.findFirst({
-    where: and(eq(galleries.id, id), eq(galleries.userId, session.user.id)),
+    where: and(eq(galleries.id, id), eq(galleries.userId, userId)),
   })
   if (!gallery) return { error: "Not found" }
 
@@ -67,11 +66,10 @@ export async function updateGallery(id: string, formData: FormData) {
 }
 
 export async function deleteGallery(id: string) {
-  const session = await auth()
-  if (!session?.user?.id) redirect("/login")
+  const userId = await requireAuth()
 
   await db.delete(galleries).where(
-    and(eq(galleries.id, id), eq(galleries.userId, session.user.id))
+    and(eq(galleries.id, id), eq(galleries.userId, userId))
   )
   redirect("/dashboard")
 }

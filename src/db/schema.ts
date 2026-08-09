@@ -5,7 +5,9 @@ import {
   integer,
   bigint,
   uniqueIndex,
+  primaryKey,
 } from "drizzle-orm/pg-core"
+import { relations } from "drizzle-orm"
 
 export const users = pgTable("users", {
   id:               text("id").primaryKey(),
@@ -96,6 +98,19 @@ export const comments = pgTable("comments", {
 export const selections = pgTable("selections", {
   id:          text("id").primaryKey(),
   galleryId:   text("gallery_id").notNull().references(() => galleries.id, { onDelete: "cascade" }),
-  photoIds:    text("photo_ids").array().notNull(),
   submittedAt: timestamp("submitted_at").defaultNow().notNull(),
 })
+
+export const selectionPhotos = pgTable("selection_photos", {
+  selectionId: text("selection_id").notNull().references(() => selections.id, { onDelete: "cascade" }),
+  photoId:     text("photo_id").notNull().references(() => photos.id, { onDelete: "cascade" }),
+}, (t) => [primaryKey({ columns: [t.selectionId, t.photoId] })])
+
+export const selectionsRelations = relations(selections, ({ many }) => ({
+  selectionPhotos: many(selectionPhotos),
+}))
+
+export const selectionPhotosRelations = relations(selectionPhotos, ({ one }) => ({
+  selection: one(selections, { fields: [selectionPhotos.selectionId], references: [selections.id] }),
+  photo: one(photos, { fields: [selectionPhotos.photoId], references: [photos.id] }),
+}))
