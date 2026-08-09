@@ -2,7 +2,6 @@
 builder = "nixpacks"
 
 [deploy]
-preDeployCommand = "node scripts/migrate.mjs"
-startCommand = "npm start"
+startCommand = "node scripts/migrate.mjs && npm start"
 healthcheckPath = "/api/health"
-healthcheckTimeout = 30
+healthcheckTimeout = 300
