@@ -159,9 +159,24 @@
   from { opacity: 0; transform: scale(0.94); }
   to   { opacity: 1; transform: scale(1); }
 }
-.lb-slide-right { animation: slide-from-right 0.28s cubic-bezier(0.25,0.46,0.45,0.94) both; }
-.lb-slide-left  { animation: slide-from-left  0.28s cubic-bezier(0.25,0.46,0.45,0.94) both; }
-.lb-open        { animation: lightbox-open    0.22s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+@keyframes kenburns {
+  0%   { transform: scale(1)    translate(0, 0); }
+  100% { transform: scale(1.09) translate(-1.5%, 0.8%); }
+}
+@keyframes kenburns-alt {
+  0%   { transform: scale(1.06) translate(1%, -0.5%); }
+  100% { transform: scale(1)    translate(0, 0); }
+}
+@keyframes slideshow-bar {
+  from { transform: scaleX(0); }
+  to   { transform: scaleX(1); }
+}
+.lb-slide-right  { animation: slide-from-right 0.28s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+.lb-slide-left   { animation: slide-from-left  0.28s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+.lb-open         { animation: lightbox-open    0.22s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+.kb-even         { animation: kenburns     4.8s ease-out both; }
+.kb-odd          { animation: kenburns-alt 4.8s ease-out both; }
+.slideshow-bar   { transform-origin: left; animation: slideshow-bar 4s linear both; }
 
 /* Masonry columns layout */
 .masonry-grid {
