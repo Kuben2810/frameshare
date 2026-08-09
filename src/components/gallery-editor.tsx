@@ -2,9 +2,8 @@
 
 import { useState, useCallback } from "react"
 import { useDropzone } from "react-dropzone"
-import { Button } from "@/components/ui/button"
-import { Trash2, Upload, Loader2, GripVertical } from "lucide-react"
-import { deletePhoto, updatePhotoOrder } from "@/app/actions/galleries"
+import { Trash2, Upload, Loader2 } from "lucide-react"
+import { deletePhoto } from "@/app/actions/galleries"
 import { toast } from "sonner"
 import type { InferSelectModel } from "drizzle-orm"
 import type { galleries, photos } from "@/db/schema"
@@ -13,7 +12,7 @@ type Gallery = InferSelectModel<typeof galleries>
 type Photo = InferSelectModel<typeof photos>
 
 const ACCEPTED = { "image/jpeg": [], "image/png": [], "image/tiff": [], "image/webp": [] }
-const MAX_SIZE = 50 * 1024 * 1024 // 50 MB
+const MAX_SIZE = 50 * 1024 * 1024
 
 export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gallery; photos: Photo[] }) {
   const [photoList, setPhotoList] = useState(initialPhotos)
@@ -24,7 +23,6 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
       setUploading((u) => [...u, { name: file.name, progress: 0 }])
 
       try {
-        // 1. Get presigned URL
         const res = await fetch("/api/upload/sign", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -33,7 +31,6 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
         if (!res.ok) { toast.error(`Failed to start upload: ${file.name}`); continue }
         const { url, photoId } = await res.json()
 
-        // 2. Upload directly to S3 via XHR for progress
         await new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest()
           xhr.upload.onprogress = (e) => {
@@ -47,7 +44,6 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
           xhr.send(file)
         })
 
-        // 3. Trigger processing (Sharp variants)
         const processRes = await fetch("/api/upload/process", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -81,24 +77,36 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
       <div
         {...getRootProps()}
         className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-          isDragActive ? "border-primary bg-primary/5" : "border-neutral-200 hover:border-neutral-300"
+          isDragActive
+            ? "border-primary bg-primary/5"
+            : "border-border hover:border-primary/40 bg-muted/30"
         }`}
       >
         <input {...getInputProps()} />
-        <Upload className="h-8 w-8 mx-auto mb-2 text-neutral-400" />
+        <Upload className="h-7 w-7 mx-auto mb-3 text-muted-foreground/40" />
         <p className="text-sm text-muted-foreground">
-          {isDragActive ? "Drop photos here" : "Drag photos here, or click to select"}
+          {isDragActive ? "Drop photos here" : "Drag photos here, or click to browse"}
         </p>
-        <p className="text-xs text-muted-foreground mt-1">JPEG, PNG, TIFF, WebP — max 50 MB each</p>
+        <p className="text-xs text-muted-foreground/60 mt-1">JPEG, PNG, TIFF, WebP — max 50 MB each</p>
       </div>
 
       {uploading.length > 0 && (
-        <div className="space-y-2">
+        <div className="space-y-3 py-1">
           {uploading.map((f) => (
-            <div key={f.name} className="flex items-center gap-3 text-sm">
-              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
-              <span className="flex-1 truncate">{f.name}</span>
-              <span className="text-muted-foreground tabular-nums">{Math.round(f.progress)}%</span>
+            <div key={f.name} className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Loader2 className="h-3 w-3 animate-spin shrink-0 text-primary" />
+                  <span className="truncate text-foreground">{f.name}</span>
+                </div>
+                <span className="text-muted-foreground tabular-nums ml-2 shrink-0">{Math.round(f.progress)}%</span>
+              </div>
+              <div className="h-0.5 bg-muted rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-primary rounded-full transition-all duration-150"
+                  style={{ width: `${f.progress}%` }}
+                />
+              </div>
             </div>
           ))}
         </div>
@@ -107,7 +115,7 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
       {photoList.length > 0 && (
         <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-2">
           {photoList.map((photo) => (
-            <div key={photo.id} className="group relative aspect-square bg-neutral-100 rounded-md overflow-hidden">
+            <div key={photo.id} className="group relative aspect-square bg-muted rounded overflow-hidden">
               {photo.thumbKey && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img

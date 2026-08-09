@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState } from "react"
 import { Star, MessageSquare, Download, ChevronLeft, ChevronRight, X, SlidersHorizontal, Grid3X3, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -95,16 +95,16 @@ export function GalleryView({
   const activePhoto = activeIdx !== null ? photos[activeIdx] : null
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b sticky top-0 bg-white z-10">
+      <header className="border-b border-border sticky top-0 bg-card z-10">
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {gallery.logoKey && (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={imgUrl(gallery.logoKey)!} alt="" className="h-7 w-auto object-contain" />
             )}
-            <span className="font-medium">{gallery.name}</span>
+            <span className="font-medium text-[15px]">{gallery.name}</span>
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -116,11 +116,15 @@ export function GalleryView({
             </Button>
             {starredIds.size > 0 && !submitted && (
               <Button size="sm" onClick={submitSelection} disabled={submitting}
-                style={{ backgroundColor: accentColor }}>
+                style={{ backgroundColor: accentColor, color: "#fff" }}>
                 {submitting ? "Submitting…" : `Submit ${starredIds.size} selected`}
               </Button>
             )}
-            {submitted && <Badge variant="outline" className="text-green-600 border-green-600">Selection submitted ✓</Badge>}
+            {submitted && (
+              <Badge variant="outline" className="text-primary border-primary/40">
+                Selection submitted ✓
+              </Badge>
+            )}
           </div>
         </div>
       </header>
@@ -133,8 +137,13 @@ export function GalleryView({
               const starred = starredIds.has(photo.id)
               const commentCount = (commentMap[photo.id] ?? []).length
               return (
-                <div key={photo.id} className="group relative aspect-square bg-neutral-100 rounded-md overflow-hidden cursor-pointer"
-                  onClick={() => { setActiveIdx(idx); setView("slideshow") }}>
+                <div
+                  key={photo.id}
+                  className={`group relative aspect-square bg-muted rounded-md overflow-hidden cursor-pointer transition-all duration-150 ${
+                    starred ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""
+                  }`}
+                  onClick={() => { setActiveIdx(idx); setView("slideshow") }}
+                >
                   {photo.thumbKey && (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img src={imgUrl(photo.thumbKey)!} alt={photo.filename}
@@ -142,19 +151,16 @@ export function GalleryView({
                   )}
                   <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
                   <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={(e) => { e.stopPropagation(); toggleStar(photo.id) }}
-                      className="p-1.5 rounded-full bg-white/90 shadow">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); toggleStar(photo.id) }}
+                      className="p-1.5 rounded-full bg-white/90 shadow"
+                    >
                       <Star className={`h-3.5 w-3.5 ${starred ? "fill-yellow-400 text-yellow-400" : "text-neutral-600"}`} />
                     </button>
                     {commentCount > 0 && (
                       <Badge className="text-xs bg-white/90 text-neutral-700 shadow">{commentCount}</Badge>
                     )}
                   </div>
-                  {starred && (
-                    <div className="absolute top-2 right-2">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 drop-shadow" />
-                    </div>
-                  )}
                 </div>
               )
             })}
@@ -175,8 +181,10 @@ export function GalleryView({
                 className="p-2 rounded-full bg-white/10 hover:bg-white/20">
                 <Star className={`h-4 w-4 ${starredIds.has(activePhoto.id) ? "fill-yellow-400 text-yellow-400" : "text-white"}`} />
               </button>
-              <button onClick={() => setCommentPhotoId(commentPhotoId === activePhoto.id ? null : activePhoto.id)}
-                className="p-2 rounded-full bg-white/10 hover:bg-white/20 relative">
+              <button
+                onClick={() => setCommentPhotoId(commentPhotoId === activePhoto.id ? null : activePhoto.id)}
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 relative"
+              >
                 <MessageSquare className="h-4 w-4 text-white" />
                 {(commentMap[activePhoto.id]?.length ?? 0) > 0 && (
                   <span className="absolute -top-1 -right-1 bg-white text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-medium">

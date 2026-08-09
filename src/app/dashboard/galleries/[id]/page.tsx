@@ -61,7 +61,7 @@ export default async function GalleryPage({ params }: { params: Promise<{ id: st
         </div>
       </div>
 
-      <div className="bg-white border rounded-lg p-3 flex items-center gap-2">
+      <div className="bg-card border border-border rounded-lg p-3 flex items-center gap-2">
         <span className="text-sm text-muted-foreground flex-1 truncate font-mono">{shareUrl}</span>
         <CopyButton text={shareUrl} />
       </div>
@@ -75,7 +75,7 @@ export default async function GalleryPage({ params }: { params: Promise<{ id: st
           <h2 className="font-medium">Client selections</h2>
           <div className="space-y-2">
             {recentSelections.map((s) => (
-              <div key={s.id} className="flex items-center justify-between bg-white border rounded-lg p-3 text-sm">
+              <div key={s.id} className="flex items-center justify-between bg-card border border-border rounded-lg p-3 text-sm">
                 <span className="text-muted-foreground">
                   {new Date(s.submittedAt).toLocaleString()} — {s.photoIds.length} photo{s.photoIds.length !== 1 ? "s" : ""}
                 </span>

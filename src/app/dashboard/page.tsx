@@ -1,10 +1,9 @@
 import { auth } from "@/auth"
 import { db } from "@/db"
 import { galleries, photos } from "@/db/schema"
-import { eq, count } from "drizzle-orm"
+import { eq, and, asc } from "drizzle-orm"
 import Link from "next/link"
 import { buttonVariants } from "@/components/ui/button"
-import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Images } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
@@ -17,45 +16,84 @@ export default async function DashboardPage() {
     orderBy: (g, { desc }) => [desc(g.createdAt)],
   })
 
+  // Fetch cover photo for each gallery in parallel
+  const coverMap: Record<string, string | null> = {}
+  if (userGalleries.length > 0) {
+    const covers = await Promise.all(
+      userGalleries.map((g) =>
+        db.query.photos.findFirst({
+          where: and(eq(photos.galleryId, g.id), eq(photos.status, "ready")),
+          orderBy: [asc(photos.sortOrder), asc(photos.createdAt)],
+          columns: { thumbKey: true },
+        })
+      )
+    )
+    userGalleries.forEach((g, i) => {
+      coverMap[g.id] = covers[i]?.thumbKey ?? null
+    })
+  }
+
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Galleries</h1>
-        <Link href="/dashboard/galleries/new" className={cn(buttonVariants(), "inline-flex items-center")}>
-          <Plus className="h-4 w-4 mr-2" />
+        <h1 className="text-xl font-semibold tracking-tight">Galleries</h1>
+        <Link href="/dashboard/galleries/new" className={cn(buttonVariants({ size: "sm" }), "gap-1.5")}>
+          <Plus className="h-3.5 w-3.5" />
           New gallery
         </Link>
       </div>
 
       {userGalleries.length === 0 ? (
-        <div className="text-center py-20 text-muted-foreground">
-          <Images className="h-10 w-10 mx-auto mb-3 opacity-30" />
-          <p className="text-sm">No galleries yet. Create your first one.</p>
+        <div className="flex flex-col items-center justify-center py-28 text-muted-foreground">
+          <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mb-4">
+            <Images className="h-6 w-6 opacity-40" />
+          </div>
+          <p className="text-sm font-medium text-foreground">No galleries yet</p>
+          <p className="text-xs mt-1">Create your first gallery to start sharing with clients.</p>
         </div>
       ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {userGalleries.map((g) => (
-            <Link key={g.id} href={`/dashboard/galleries/${g.id}`}>
-              <Card className="hover:shadow-md transition-shadow cursor-pointer h-full">
-                <CardContent className="p-4 space-y-3">
-                  <div className="aspect-video bg-neutral-100 rounded-md flex items-center justify-center">
-                    <Images className="h-8 w-8 text-neutral-300" />
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {userGalleries.map((g) => {
+            const thumbKey = coverMap[g.id]
+            return (
+              <Link key={g.id} href={`/dashboard/galleries/${g.id}`} className="group block">
+                <div className="overflow-hidden rounded-lg bg-card ring-1 ring-border transition-all duration-200 group-hover:ring-primary/25 group-hover:shadow-lg">
+                  {/* Cover — full bleed, photo-first */}
+                  <div className="aspect-[4/3] bg-muted overflow-hidden relative">
+                    {thumbKey ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={`/api/s3/${encodeURIComponent(thumbKey)}`}
+                        alt=""
+                        className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Images className="h-8 w-8 text-muted-foreground/20" />
+                      </div>
+                    )}
                   </div>
-                  <div className="space-y-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="font-medium leading-snug line-clamp-1">{g.name}</span>
+                  {/* Proof label */}
+                  <div className="px-3.5 py-3 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium truncate text-foreground leading-snug">{g.name}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {formatDistanceToNow(new Date(g.createdAt), { addSuffix: true })}
+                      </p>
+                    </div>
+                    <div className="flex gap-1 shrink-0">
                       {g.expiresAt && new Date(g.expiresAt) < new Date() && (
-                        <Badge variant="destructive" className="shrink-0 text-xs">Expired</Badge>
+                        <Badge variant="destructive" className="text-[10px] h-4 px-1.5 py-0">Expired</Badge>
+                      )}
+                      {g.passwordHash && (
+                        <Badge variant="outline" className="text-[10px] h-4 px-1.5 py-0">Protected</Badge>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(g.createdAt), { addSuffix: true })}
-                    </p>
                   </div>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
+                </div>
+              </Link>
+            )
+          })}
         </div>
       )}
     </div>
