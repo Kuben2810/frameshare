@@ -146,6 +146,23 @@
   transform: translateY(0);
 }
 
+/* Lightbox photo transitions */
+@keyframes slide-from-right {
+  from { opacity: 0; transform: translateX(48px) scale(0.97); }
+  to   { opacity: 1; transform: translateX(0)    scale(1); }
+}
+@keyframes slide-from-left {
+  from { opacity: 0; transform: translateX(-48px) scale(0.97); }
+  to   { opacity: 1; transform: translateX(0)     scale(1); }
+}
+@keyframes lightbox-open {
+  from { opacity: 0; transform: scale(0.94); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.lb-slide-right { animation: slide-from-right 0.28s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+.lb-slide-left  { animation: slide-from-left  0.28s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+.lb-open        { animation: lightbox-open    0.22s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+
 /* Masonry columns layout */
 .masonry-grid {
   columns: 2;

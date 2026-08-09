@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Star, MessageSquare, Download, ChevronLeft, ChevronRight, X, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -23,6 +23,17 @@ function imgUrl(key: string | null | undefined) {
   return `/api/s3/${key}`
 }
 
+// CSS filter presets
+const FILTERS: Record<string, string> = {
+  Normal:  "",
+  Warm:    "sepia(0.25) saturate(1.35) brightness(1.05)",
+  Cool:    "hue-rotate(185deg) saturate(0.85) brightness(1.05)",
+  "B&W":   "grayscale(1)",
+  Vivid:   "saturate(1.65) contrast(1.1) brightness(1.02)",
+  Fade:    "brightness(1.12) contrast(0.80) saturate(0.70)",
+  Vintage: "sepia(0.45) contrast(1.1) brightness(0.90) saturate(1.1)",
+}
+
 // 3D tilt on mouse move
 function handleTilt(e: React.MouseEvent<HTMLDivElement>) {
   const el = e.currentTarget
@@ -32,7 +43,6 @@ function handleTilt(e: React.MouseEvent<HTMLDivElement>) {
   el.style.transform = `perspective(700px) rotateY(${x * 10}deg) rotateX(${-y * 10}deg) scale(1.03)`
   el.style.transition = "transform 0.05s ease-out"
 }
-
 function resetTilt(e: React.MouseEvent<HTMLDivElement>) {
   const el = e.currentTarget
   el.style.transform = ""
@@ -60,17 +70,20 @@ export function GalleryView({
     }, {})
   )
   const [activeIdx, setActiveIdx] = useState<number | null>(null)
+  const [navDir, setNavDir] = useState<"right" | "left">("right")
   const [commentPhotoId, setCommentPhotoId] = useState<string | null>(null)
   const [commentBody, setCommentBody] = useState("")
   const [commentName, setCommentName] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const [activeFilter, setActiveFilter] = useState("Normal")
   const gridRef = useRef<HTMLDivElement>(null)
 
   const slug = gallery.slug
   const accentColor = gallery.accentColor ?? "#000000"
+  const filterCss = FILTERS[activeFilter] ?? ""
 
-  // Scroll-triggered reveal via IntersectionObserver
+  // Scroll-triggered reveal
   useEffect(() => {
     const grid = gridRef.current
     if (!grid) return
@@ -91,6 +104,28 @@ export function GalleryView({
     cards.forEach((card) => observer.observe(card))
     return () => observer.disconnect()
   }, [photos])
+
+  // Keyboard navigation in lightbox
+  useEffect(() => {
+    if (activeIdx === null) return
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "ArrowRight") goNext()
+      else if (e.key === "ArrowLeft") goPrev()
+      else if (e.key === "Escape") setActiveIdx(null)
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeIdx])
+
+  function goNext() {
+    setNavDir("right")
+    setActiveIdx((i) => Math.min(photos.length - 1, (i ?? 0) + 1))
+  }
+  function goPrev() {
+    setNavDir("left")
+    setActiveIdx((i) => Math.max(0, (i ?? 0) - 1))
+  }
 
   async function toggleStar(photoId: string) {
     const clientId = getClientId()
@@ -158,6 +193,23 @@ export function GalleryView({
             )}
           </div>
         </div>
+
+        {/* Filter bar */}
+        <div className="max-w-7xl mx-auto px-4 pb-2.5 flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+          {Object.keys(FILTERS).map((name) => (
+            <button
+              key={name}
+              onClick={() => setActiveFilter(name)}
+              className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all duration-200
+                ${activeFilter === name
+                  ? "bg-foreground text-background shadow-sm scale-105"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground"
+                }`}
+            >
+              {name}
+            </button>
+          ))}
+        </div>
       </header>
 
       {/* Masonry grid */}
@@ -166,7 +218,6 @@ export function GalleryView({
           {photos.map((photo, idx) => {
             const starred = starredIds.has(photo.id)
             const commentCount = (commentMap[photo.id] ?? []).length
-            // stagger: 50ms per card, capped so late cards don't wait forever
             const delay = Math.min(idx * 50, 400)
             return (
               <div
@@ -174,7 +225,7 @@ export function GalleryView({
                 data-delay={delay}
                 className={`photo-card group relative overflow-hidden rounded-md bg-muted cursor-pointer
                   ${starred ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
-                onClick={() => setActiveIdx(idx)}
+                onClick={() => { setNavDir("right"); setActiveIdx(idx) }}
                 onMouseMove={handleTilt}
                 onMouseLeave={resetTilt}
               >
@@ -184,14 +235,14 @@ export function GalleryView({
                     src={imgUrl(photo.thumbKey)!}
                     alt={photo.filename}
                     loading="lazy"
-                    className="w-full h-auto block"
+                    className="w-full h-auto block transition-[filter] duration-300"
+                    style={{ filter: filterCss }}
                   />
                 ) : (
                   <div className="aspect-square" />
                 )}
 
-                {/* Hover overlay */}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors duration-200" />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200" />
                 <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between
                   px-2 py-2 translate-y-1 opacity-0 group-hover:translate-y-0 group-hover:opacity-100
                   transition-all duration-200">
@@ -213,7 +264,7 @@ export function GalleryView({
 
       {/* Lightbox */}
       {activePhoto && (
-        <div className="fixed inset-0 bg-black z-20 flex flex-col animate-in fade-in duration-200">
+        <div className="fixed inset-0 bg-black z-20 flex flex-col lb-open">
           <div className="flex items-center justify-between px-4 py-3 text-white shrink-0">
             <span className="text-sm opacity-60">{(activeIdx ?? 0) + 1} / {photos.length}</span>
             <div className="flex items-center gap-2">
@@ -251,21 +302,19 @@ export function GalleryView({
           <div className="relative flex-1 min-h-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              key={activePhoto.id}
+              key={`${activePhoto.id}-${navDir}`}
               src={imgUrl(activePhoto.displayKey ?? activePhoto.originalKey)!}
               alt={activePhoto.filename}
-              className="absolute inset-0 w-full h-full object-contain animate-in fade-in zoom-in-[1.03] duration-250"
+              style={{ filter: filterCss }}
+              className={`absolute inset-0 w-full h-full object-contain transition-[filter] duration-300
+                ${navDir === "right" ? "lb-slide-right" : "lb-slide-left"}`}
             />
-            <button
-              onClick={() => setActiveIdx((i) => Math.max(0, (i ?? 0) - 1))}
-              disabled={(activeIdx ?? 0) === 0}
-              className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-20 transition-all hover:scale-110">
+            <button onClick={goPrev} disabled={(activeIdx ?? 0) === 0}
+              className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/25 disabled:opacity-20 transition-all hover:scale-110">
               <ChevronLeft className="h-5 w-5 text-white" />
             </button>
-            <button
-              onClick={() => setActiveIdx((i) => Math.min(photos.length - 1, (i ?? 0) + 1))}
-              disabled={(activeIdx ?? 0) === photos.length - 1}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/20 disabled:opacity-20 transition-all hover:scale-110">
+            <button onClick={goNext} disabled={(activeIdx ?? 0) === photos.length - 1}
+              className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/25 disabled:opacity-20 transition-all hover:scale-110">
               <ChevronRight className="h-5 w-5 text-white" />
             </button>
           </div>
