@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Star, MessageSquare, Download, ChevronLeft, ChevronRight, X, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -21,6 +21,22 @@ function getClientId(): string {
 function imgUrl(key: string | null | undefined) {
   if (!key) return null
   return `/api/s3/${key}`
+}
+
+// 3D tilt on mouse move
+function handleTilt(e: React.MouseEvent<HTMLDivElement>) {
+  const el = e.currentTarget
+  const { left, top, width, height } = el.getBoundingClientRect()
+  const x = (e.clientX - left) / width - 0.5
+  const y = (e.clientY - top) / height - 0.5
+  el.style.transform = `perspective(700px) rotateY(${x * 10}deg) rotateX(${-y * 10}deg) scale(1.03)`
+  el.style.transition = "transform 0.05s ease-out"
+}
+
+function resetTilt(e: React.MouseEvent<HTMLDivElement>) {
+  const el = e.currentTarget
+  el.style.transform = ""
+  el.style.transition = "transform 0.35s ease"
 }
 
 export function GalleryView({
@@ -49,9 +65,32 @@ export function GalleryView({
   const [commentName, setCommentName] = useState("")
   const [submitting, setSubmitting] = useState(false)
   const [submitted, setSubmitted] = useState(false)
+  const gridRef = useRef<HTMLDivElement>(null)
 
   const slug = gallery.slug
   const accentColor = gallery.accentColor ?? "#000000"
+
+  // Scroll-triggered reveal via IntersectionObserver
+  useEffect(() => {
+    const grid = gridRef.current
+    if (!grid) return
+    const cards = grid.querySelectorAll<HTMLElement>(".photo-card")
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            const el = entry.target as HTMLElement
+            const delay = parseInt(el.dataset.delay ?? "0")
+            setTimeout(() => el.classList.add("revealed"), delay)
+            observer.unobserve(el)
+          }
+        })
+      },
+      { threshold: 0.08 }
+    )
+    cards.forEach((card) => observer.observe(card))
+    return () => observer.disconnect()
+  }, [photos])
 
   async function toggleStar(photoId: string) {
     const clientId = getClientId()
@@ -96,7 +135,7 @@ export function GalleryView({
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b border-border sticky top-0 bg-card z-10">
+      <header className="border-b border-border sticky top-0 bg-card/90 backdrop-blur-sm z-10">
         <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
           <div className="flex items-center gap-3">
             {gallery.logoKey && (
@@ -121,29 +160,41 @@ export function GalleryView({
         </div>
       </header>
 
-      {/* Grid */}
+      {/* Masonry grid */}
       <div className="max-w-7xl mx-auto px-4 py-6">
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+        <div ref={gridRef} className="masonry-grid">
           {photos.map((photo, idx) => {
             const starred = starredIds.has(photo.id)
             const commentCount = (commentMap[photo.id] ?? []).length
+            // stagger: 50ms per card, capped so late cards don't wait forever
+            const delay = Math.min(idx * 50, 400)
             return (
               <div
                 key={photo.id}
-                style={{ animationDelay: `${idx * 35}ms` }}
-                className={`group relative aspect-square bg-muted rounded-md overflow-hidden cursor-pointer
-                  animate-in fade-in zoom-in-95 duration-300 fill-mode-both
-                  transition-transform hover:scale-[1.02] hover:shadow-lg
+                data-delay={delay}
+                className={`photo-card group relative overflow-hidden rounded-md bg-muted cursor-pointer
                   ${starred ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
                 onClick={() => setActiveIdx(idx)}
+                onMouseMove={handleTilt}
+                onMouseLeave={resetTilt}
               >
-                {photo.thumbKey && (
+                {photo.thumbKey ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={imgUrl(photo.thumbKey)!} alt={photo.filename}
-                    className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04]" />
+                  <img
+                    src={imgUrl(photo.thumbKey)!}
+                    alt={photo.filename}
+                    loading="lazy"
+                    className="w-full h-auto block"
+                  />
+                ) : (
+                  <div className="aspect-square" />
                 )}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors duration-200" />
-                <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+
+                {/* Hover overlay */}
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/25 transition-colors duration-200" />
+                <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between
+                  px-2 py-2 translate-y-1 opacity-0 group-hover:translate-y-0 group-hover:opacity-100
+                  transition-all duration-200">
                   <button
                     onClick={(e) => { e.stopPropagation(); toggleStar(photo.id) }}
                     className="p-1.5 rounded-full bg-white/90 shadow-sm transition-transform hover:scale-110 active:scale-95"
@@ -163,7 +214,6 @@ export function GalleryView({
       {/* Lightbox */}
       {activePhoto && (
         <div className="fixed inset-0 bg-black z-20 flex flex-col animate-in fade-in duration-200">
-          {/* Lightbox header */}
           <div className="flex items-center justify-between px-4 py-3 text-white shrink-0">
             <span className="text-sm opacity-60">{(activeIdx ?? 0) + 1} / {photos.length}</span>
             <div className="flex items-center gap-2">
@@ -198,14 +248,13 @@ export function GalleryView({
             </div>
           </div>
 
-          {/* Image — fills remaining height */}
           <div className="relative flex-1 min-h-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               key={activePhoto.id}
               src={imgUrl(activePhoto.displayKey ?? activePhoto.originalKey)!}
               alt={activePhoto.filename}
-              className="absolute inset-0 w-full h-full object-contain animate-in fade-in zoom-in-[1.02] duration-200"
+              className="absolute inset-0 w-full h-full object-contain animate-in fade-in zoom-in-[1.03] duration-250"
             />
             <button
               onClick={() => setActiveIdx((i) => Math.max(0, (i ?? 0) - 1))}
@@ -221,7 +270,6 @@ export function GalleryView({
             </button>
           </div>
 
-          {/* Comment panel */}
           {commentPhotoId === activePhoto.id && (
             <div className="bg-neutral-900 text-white px-4 py-3 max-h-56 overflow-y-auto space-y-3 shrink-0 animate-in slide-in-from-bottom-2 duration-200">
               {(commentMap[activePhoto.id] ?? []).map((c) => (
