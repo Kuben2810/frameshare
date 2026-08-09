@@ -55,7 +55,7 @@ export async function POST(req: Request) {
 
   const url = await getSignedUrl(
     s3,
-    new PutObjectCommand({ Bucket: BUCKET, Key: originalKey, ContentType: mimeType, ContentLength: fileSize }),
+    new PutObjectCommand({ Bucket: BUCKET, Key: originalKey, ContentType: mimeType }),
     { expiresIn: 900 }
   )
 
