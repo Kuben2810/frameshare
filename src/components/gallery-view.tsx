@@ -49,6 +49,7 @@ export function GalleryView({
   const [activeFilter, setActiveFilter] = useState("Normal")
   const [adjustments, setAdjustments] = useState({ brightness: 1, contrast: 1, saturation: 1, sharpness: 0 })
   const [cropMode, setCropMode] = useState(false)
+  const [showDownloadMenu, setShowDownloadMenu] = useState(false)
   const [commentPhotoId, setCommentPhotoId] = useState<string | null>(null)
   const [commentBody, setCommentBody] = useState("")
   const [commentName, setCommentName] = useState("")
@@ -74,8 +75,29 @@ export function GalleryView({
   const activePhoto = activeIdx !== null ? photos[activeIdx] : null
 
   useEffect(() => {
-    if (activeIdx === null) { setAdjustments({ brightness: 1, contrast: 1, saturation: 1, sharpness: 0 }); setCropMode(false) }
+    if (activeIdx === null) { setAdjustments({ brightness: 1, contrast: 1, saturation: 1, sharpness: 0 }); setCropMode(false); setShowDownloadMenu(false) }
   }, [activeIdx])
+
+  async function downloadWithEdits() {
+    if (!activePhoto) return
+    setShowDownloadMenu(false)
+    const src = imgUrl(activePhoto.displayKey ?? activePhoto.originalKey)!
+    const img = new Image()
+    img.src = src
+    await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(new Error("load")) })
+    const canvas = document.createElement("canvas")
+    canvas.width = img.naturalWidth; canvas.height = img.naturalHeight
+    const ctx = canvas.getContext("2d")!
+    if (appliedFilter) ctx.filter = appliedFilter
+    ctx.drawImage(img, 0, 0)
+    canvas.toBlob(blob => {
+      if (!blob) return
+      const url = URL.createObjectURL(blob)
+      const a = Object.assign(document.createElement("a"), { href: url, download: `edited_${activePhoto.filename}` })
+      document.body.appendChild(a); a.click(); a.remove()
+      setTimeout(() => URL.revokeObjectURL(url), 100)
+    }, "image/jpeg", 0.92)
+  }
 
   useEffect(() => {
     const grid = gridRef.current
@@ -208,11 +230,31 @@ export function GalleryView({
                 )}
               </button>
               {gallery.downloadMode !== "none" && (
-                <a href={imgUrl(gallery.downloadMode === "lowres" ? activePhoto.watermarkedKey : activePhoto.originalKey) ?? "#"}
-                  download={activePhoto.filename}
-                  className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
-                  <Download className="h-4 w-4 text-white" />
-                </a>
+                <div className="relative">
+                  <button onClick={() => setShowDownloadMenu(m => !m)}
+                    className={`p-2 rounded-full transition-colors ${showDownloadMenu ? "bg-white/25" : "bg-white/10 hover:bg-white/20"}`}
+                    title="Download">
+                    <Download className="h-4 w-4 text-white" />
+                  </button>
+                  {showDownloadMenu && (
+                    <>
+                      <div className="fixed inset-0 z-10" onClick={() => setShowDownloadMenu(false)} />
+                      <div className="absolute right-0 top-full mt-1 bg-neutral-900 border border-white/10 rounded-lg overflow-hidden text-sm w-48 z-20 shadow-xl">
+                        <button onClick={downloadWithEdits}
+                          className="w-full px-4 py-2.5 text-left text-white hover:bg-white/10 transition-colors">
+                          Download with edits
+                        </button>
+                        <a
+                          href={imgUrl(gallery.downloadMode === "lowres" ? activePhoto.watermarkedKey : activePhoto.originalKey) ?? "#"}
+                          download={activePhoto.filename}
+                          onClick={() => setShowDownloadMenu(false)}
+                          className="block px-4 py-2.5 text-white hover:bg-white/10 transition-colors">
+                          Download original
+                        </a>
+                      </div>
+                    </>
+                  )}
+                </div>
               )}
               <button onClick={closeLightbox}
                 className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
