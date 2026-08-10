@@ -50,6 +50,7 @@ export function GalleryView({
   const [adjustments, setAdjustments] = useState({ brightness: 1, contrast: 1, saturation: 1, sharpness: 0 })
   const [cropMode, setCropMode] = useState(false)
   const [showDownloadMenu, setShowDownloadMenu] = useState(false)
+  const [showTip, setShowTip] = useState(false)
   const [commentPhotoId, setCommentPhotoId] = useState<string | null>(null)
   const [commentBody, setCommentBody] = useState("")
   const [commentName, setCommentName] = useState("")
@@ -75,8 +76,18 @@ export function GalleryView({
   const activePhoto = activeIdx !== null ? photos[activeIdx] : null
 
   useEffect(() => {
-    if (activeIdx === null) { setAdjustments({ brightness: 1, contrast: 1, saturation: 1, sharpness: 0 }); setCropMode(false); setShowDownloadMenu(false) }
+    if (activeIdx === null) {
+      setAdjustments({ brightness: 1, contrast: 1, saturation: 1, sharpness: 0 })
+      setCropMode(false); setShowDownloadMenu(false); setShowTip(false)
+    } else if (!localStorage.getItem("lb-tip-dismissed")) {
+      setShowTip(true)
+    }
   }, [activeIdx])
+
+  function dismissTip() {
+    setShowTip(false)
+    localStorage.setItem("lb-tip-dismissed", "1")
+  }
 
   async function downloadWithEdits() {
     if (!activePhoto) return
@@ -340,6 +351,32 @@ export function GalleryView({
                   className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/25 disabled:opacity-20 transition-all hover:scale-110 z-10">
                   <ChevronRight className="h-5 w-5 text-white" />
                 </button>
+                {showTip && (
+                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 bg-neutral-900/95 border border-white/10 rounded-xl px-4 py-3 shadow-2xl w-72 animate-in slide-in-from-bottom-2 duration-300">
+                    <div className="flex items-center justify-between mb-2.5">
+                      <span className="text-white/50 text-[10px] uppercase tracking-widest font-semibold">Editing tools</span>
+                      <button onClick={dismissTip} title="Got it" className="p-0.5 rounded hover:bg-white/10 transition-colors">
+                        <X className="h-3.5 w-3.5 text-white/40" />
+                      </button>
+                    </div>
+                    <div className="space-y-2.5">
+                      {([
+                        [SlidersHorizontal, "Tap the sliders icon to adjust brightness, contrast, sharpness & apply filters"],
+                        [Crop,              "Tap the crop icon to select a region and export it"],
+                        [Download,          "Tap the download icon to save with edits or download the original"],
+                      ] as const).map(([Icon, text], i) => (
+                        <div key={i} className="flex items-start gap-2.5">
+                          <Icon className="h-3.5 w-3.5 shrink-0 text-white/50 mt-0.5" />
+                          <span className="text-white/70 text-xs leading-snug">{text}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <button onClick={dismissTip}
+                      className="mt-3 w-full py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white/70 text-xs transition-colors">
+                      Got it
+                    </button>
+                  </div>
+                )}
               </>
             )}
             {cropMode && (
