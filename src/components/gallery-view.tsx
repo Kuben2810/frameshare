@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Star, MessageSquare, Download, ChevronLeft, ChevronRight, X, Send, Play, Pause, SlidersHorizontal } from "lucide-react"
+import { Star, MessageSquare, Download, ChevronLeft, ChevronRight, X, Send, Play, Pause, SlidersHorizontal, RotateCcw, Crop } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import type { InferSelectModel } from "drizzle-orm"
@@ -9,6 +9,7 @@ import type { galleries, photos, stars, comments } from "@/db/schema"
 import { FILTERS } from "@/lib/gallery-filters"
 import { useGalleryInteraction } from "@/lib/hooks/use-gallery-interaction"
 import { useSlideshow } from "@/lib/hooks/use-slideshow"
+import { LightboxCrop } from "@/components/lightbox-crop"
 
 type Gallery = InferSelectModel<typeof galleries>
 type Photo = InferSelectModel<typeof photos>
@@ -46,6 +47,8 @@ export function GalleryView({
 }) {
   const [showFilters, setShowFilters] = useState(false)
   const [activeFilter, setActiveFilter] = useState("Normal")
+  const [adjustments, setAdjustments] = useState({ brightness: 1, contrast: 1, saturation: 1, sharpness: 0 })
+  const [cropMode, setCropMode] = useState(false)
   const [commentPhotoId, setCommentPhotoId] = useState<string | null>(null)
   const [commentBody, setCommentBody] = useState("")
   const [commentName, setCommentName] = useState("")
@@ -59,7 +62,20 @@ export function GalleryView({
 
   const accentColor = gallery.accentColor ?? "#000000"
   const filterCss = FILTERS[activeFilter] ?? ""
+  const { brightness, contrast, saturation, sharpness } = adjustments
+  const hasAdjustments = brightness !== 1 || contrast !== 1 || saturation !== 1 || sharpness !== 0
+  const editCss = [
+    sharpness > 0 && "url(#lb-sharpen)",
+    brightness !== 1 && `brightness(${brightness})`,
+    contrast  !== 1 && `contrast(${contrast})`,
+    saturation !== 1 && `saturate(${saturation})`,
+  ].filter(Boolean).join(" ")
+  const appliedFilter = [editCss, filterCss].filter(Boolean).join(" ")
   const activePhoto = activeIdx !== null ? photos[activeIdx] : null
+
+  useEffect(() => {
+    if (activeIdx === null) { setAdjustments({ brightness: 1, contrast: 1, saturation: 1, sharpness: 0 }); setCropMode(false) }
+  }, [activeIdx])
 
   useEffect(() => {
     const grid = gridRef.current
@@ -164,8 +180,13 @@ export function GalleryView({
             <div className="flex items-center gap-2">
               <button onClick={() => setShowFilters(f => !f)}
                 className={`p-2 rounded-full transition-colors ${showFilters ? "bg-white/25" : "bg-white/10 hover:bg-white/20"}`}
-                title="Filters">
+                title="Filters & adjustments">
                 <SlidersHorizontal className="h-4 w-4 text-white" />
+              </button>
+              <button onClick={() => setCropMode(m => !m)}
+                className={`p-2 rounded-full transition-colors ${cropMode ? "bg-white/25" : "bg-white/10 hover:bg-white/20"}`}
+                title="Crop">
+                <Crop className="h-4 w-4 text-white" />
               </button>
               <button onClick={() => setIsSlideshow(s => !s)}
                 className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors"
@@ -200,19 +221,56 @@ export function GalleryView({
             </div>
           </div>
 
-          {/* Filter pills */}
+          {/* Filters + adjustments */}
           {showFilters && (
-            <div className="flex items-center gap-1.5 px-4 pb-3 overflow-x-auto scrollbar-none shrink-0 animate-in slide-in-from-top-2 duration-200">
-              {Object.keys(FILTERS).map((name) => (
-                <button key={name} onClick={() => setActiveFilter(name)}
-                  className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all duration-200
-                    ${activeFilter === name
-                      ? "bg-white text-black scale-105 shadow"
-                      : "bg-white/15 text-white/80 hover:bg-white/25"}`}>
-                  {name}
+            <div className="px-4 pb-3 space-y-2 shrink-0 animate-in slide-in-from-top-2 duration-200">
+              <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+                {Object.keys(FILTERS).map((name) => (
+                  <button key={name} onClick={() => setActiveFilter(name)}
+                    className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-all duration-200
+                      ${activeFilter === name
+                        ? "bg-white text-black scale-105 shadow"
+                        : "bg-white/15 text-white/80 hover:bg-white/25"}`}>
+                    {name}
+                  </button>
+                ))}
+              </div>
+              <div className="flex items-center gap-4">
+                {([
+                  { key: "brightness" as const, label: "Brightness", min: 0.5, max: 2,   step: 0.05, def: 1 },
+                  { key: "contrast"   as const, label: "Contrast",   min: 0.5, max: 2,   step: 0.05, def: 1 },
+                  { key: "saturation" as const, label: "Saturation", min: 0,   max: 2,   step: 0.05, def: 1 },
+                  { key: "sharpness"  as const, label: "Sharpness",  min: 0,   max: 1,   step: 0.05, def: 0 },
+                ]).map(({ key, label, min, max, step }) => (
+                  <label key={key} className="flex-1 flex flex-col gap-1 min-w-0">
+                    <span className="text-white/50 text-[10px] uppercase tracking-wide">{label}</span>
+                    <input type="range" min={min} max={max} step={step}
+                      value={adjustments[key]}
+                      onChange={(e) => setAdjustments((a) => ({ ...a, [key]: +e.target.value }))}
+                      className="w-full accent-white" />
+                  </label>
+                ))}
+                <button
+                  onClick={() => setAdjustments({ brightness: 1, contrast: 1, saturation: 1, sharpness: 0 })}
+                  disabled={!hasAdjustments}
+                  title="Reset adjustments"
+                  className="shrink-0 p-1.5 rounded bg-white/10 hover:bg-white/20 disabled:opacity-20 transition-colors mt-3.5">
+                  <RotateCcw className="h-3.5 w-3.5 text-white" />
                 </button>
-              ))}
+              </div>
             </div>
+          )}
+
+          {/* SVG sharpen filter (hidden; referenced by CSS filter url(#lb-sharpen)) */}
+          {sharpness > 0 && (
+            <svg style={{ position: "absolute", width: 0, height: 0, overflow: "hidden" }} aria-hidden>
+              <defs>
+                <filter id="lb-sharpen" colorInterpolationFilters="sRGB">
+                  <feConvolveMatrix order="3" preserveAlpha="true"
+                    kernelMatrix={`0 ${-sharpness} 0 ${-sharpness} ${1 + 4 * sharpness} ${-sharpness} 0 ${-sharpness} 0`} />
+                </filter>
+              </defs>
+            </svg>
           )}
 
           {/* Image area */}
@@ -223,21 +281,34 @@ export function GalleryView({
               <img
                 src={imgUrl(activePhoto.displayKey ?? activePhoto.originalKey)!}
                 alt={activePhoto.filename}
-                style={{ filter: filterCss }}
+                style={{ filter: appliedFilter }}
                 className={`absolute inset-0 w-full h-full object-contain transition-[filter] duration-300
                   ${isSlideshow ? ((activeIdx ?? 0) % 2 === 0 ? "kb-even" : "kb-odd") : ""}`}
               />
             </div>
-            <button onClick={() => { setIsSlideshow(false); goPrev() }}
-              disabled={(activeIdx ?? 0) === 0}
-              className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/25 disabled:opacity-20 transition-all hover:scale-110 z-10">
-              <ChevronLeft className="h-5 w-5 text-white" />
-            </button>
-            <button onClick={() => { setIsSlideshow(false); goNext() }}
-              disabled={(activeIdx ?? 0) === photos.length - 1}
-              className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/25 disabled:opacity-20 transition-all hover:scale-110 z-10">
-              <ChevronRight className="h-5 w-5 text-white" />
-            </button>
+            {!cropMode && (
+              <>
+                <button onClick={() => { setIsSlideshow(false); goPrev() }}
+                  disabled={(activeIdx ?? 0) === 0}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/25 disabled:opacity-20 transition-all hover:scale-110 z-10">
+                  <ChevronLeft className="h-5 w-5 text-white" />
+                </button>
+                <button onClick={() => { setIsSlideshow(false); goNext() }}
+                  disabled={(activeIdx ?? 0) === photos.length - 1}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/25 disabled:opacity-20 transition-all hover:scale-110 z-10">
+                  <ChevronRight className="h-5 w-5 text-white" />
+                </button>
+              </>
+            )}
+            {cropMode && (
+              <LightboxCrop
+                imageUrl={imgUrl(activePhoto.displayKey ?? activePhoto.originalKey)!}
+                naturalWidth={activePhoto.width ?? 0}
+                naturalHeight={activePhoto.height ?? 0}
+                filename={activePhoto.filename}
+                onClose={() => setCropMode(false)}
+              />
+            )}
             {isSlideshow && (
               <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-white/20">
                 <div key={`bar-${activeIdx}`} className="h-full bg-white slideshow-bar" />
