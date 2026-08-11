@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"
-import { Star, MessageSquare, Download, X, Send, Play, Pause, SlidersHorizontal, RotateCcw, Crop, ShoppingBag } from "lucide-react"
+import { Star, MessageSquare, Download, X, Send, Play, Pause, SlidersHorizontal, RotateCcw, Crop, ShoppingBag, ZoomIn, ZoomOut, Info, ChevronLeft, ChevronRight } from "lucide-react"
 import type { InferSelectModel } from "drizzle-orm"
 import type { galleries, photos, stars, comments } from "@/db/schema"
 import { FILTERS } from "@/lib/gallery-filters"
@@ -16,7 +16,7 @@ type Gallery = InferSelectModel<typeof galleries>
 type Photo = InferSelectModel<typeof photos>
 type Star = InferSelectModel<typeof stars>
 type Comment = InferSelectModel<typeof comments>
-type Layout = "masonry" | "grid" | "rows" | "brick" | "ribbon"
+type Layout = "masonry" | "grid" | "rows" | "brick" | "ribbon" | "cinema"
 type EntryAnim = "fade-up" | "fade" | "scale"
 
 function imgUrl(key: string | null | undefined) {
@@ -44,6 +44,8 @@ export function GalleryView({
   const [cropMode, setCropMode] = useState(false)
   const [showDownloadMenu, setShowDownloadMenu] = useState(false)
   const [showTip, setShowTip] = useState(false)
+  const [zoomLevel, setZoomLevel] = useState(1)
+  const [showDetails, setShowDetails] = useState(false)
   const [commentPhotoId, setCommentPhotoId] = useState<string | null>(null)
   const [commentBody, setCommentBody] = useState("")
   const [commentName, setCommentName] = useState("")
@@ -65,6 +67,7 @@ export function GalleryView({
   const activePhoto = activeIdx !== null ? photos[activeIdx] : null
 
   // ── Lightbox spring physics ────────────────────────────────────────────────
+  const zoomRef = useRef(1)
   const lbPosRef = useRef(0)
   const lbTargetRef = useRef(0)
   const lbRafRef = useRef<number | null>(null)
@@ -87,7 +90,10 @@ export function GalleryView({
       const rel = idx - pos
       el.style.transform = `translate3d(${rel * 100}%, 0, 0)`
       const img = imageRefs.current.get(idx)
-      if (img) img.style.transform = `translate3d(${-rel * 45}%, 0, 0) scale(1.15)`
+      if (img) {
+        const zoom = idx === lbTargetRef.current ? zoomRef.current : 1
+        img.style.transform = `translate3d(${-rel * 45}%, 0, 0) scale(${1.15 * zoom})`
+      }
     }
     if (counterRef.current) {
       counterRef.current.textContent = `${Math.round(pos) + 1}`
@@ -146,13 +152,21 @@ export function GalleryView({
 
   // ── Lightbox open/close side effects ──────────────────────────────────────
   useEffect(() => {
+    setZoomLevel(1)
     if (activeIdx === null) {
       setAdjustments({ brightness: 1, contrast: 1, saturation: 1, sharpness: 0 })
-      setCropMode(false); setShowDownloadMenu(false); setShowTip(false)
+      setCropMode(false); setShowDownloadMenu(false); setShowTip(false); setShowDetails(false)
     } else if (!localStorage.getItem("lb-tip-dismissed")) {
       setShowTip(true)
     }
   }, [activeIdx])
+
+  // ── Sync zoom ref → update active slide immediately ────────────────────────
+  useEffect(() => {
+    zoomRef.current = zoomLevel
+    if (activeIdx !== null) updateSlides(lbPosRef.current)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoomLevel])
 
   // ── Scroll-aware header ────────────────────────────────────────────────────
   useEffect(() => {
@@ -244,6 +258,68 @@ export function GalleryView({
     setTimeout(() => setRibbonDragging(false), 50)
   }
 
+  // ── Cinema slider physics ──────────────────────────────────────────────────
+  const cinemaSlideRefs = useRef(new Map<number, HTMLDivElement>())
+  const cinemaFrameRefs = useRef(new Map<number, HTMLDivElement>())
+  const cinemaTextRefs  = useRef(new Map<number, HTMLDivElement>())
+  const cinemaCounterRef  = useRef<HTMLSpanElement>(null)
+  const cinemaProgressRef = useRef<HTMLDivElement>(null)
+  const cinemaPosRef = useRef(0)
+  const cinemaTgtRef = useRef(0)
+  const cinemaRafRef = useRef<number | null>(null)
+  const cinemaDrag = useRef({ isDown: false, startX: 0, startPos: 0, hasMoved: false })
+  const [cinemaTarget, setCinemaTarget] = useState(0)
+
+  function updateCinema(pos: number) {
+    for (const [idx, el] of cinemaSlideRefs.current.entries()) {
+      const rel = idx - pos
+      el.style.transform = `translate3d(${rel * 100}%, 0, 0)`
+      const frame = cinemaFrameRefs.current.get(idx)
+      if (frame) frame.style.transform = `translate3d(${-rel * 45}%, 0, 0) scale(${1.15 - Math.min(Math.abs(rel) * 0.1, 0.15)})`
+      const text = cinemaTextRefs.current.get(idx)
+      if (text) {
+        text.style.opacity = String(Math.max(0, 1 - Math.abs(rel) * 1.5))
+        text.style.transform = `translateY(-50%) translate3d(${rel * -30}px, 0, 0)`
+      }
+    }
+    if (cinemaCounterRef.current) cinemaCounterRef.current.textContent = (Math.round(pos) + 1).toString().padStart(2, "0")
+    if (cinemaProgressRef.current) cinemaProgressRef.current.style.width = `${((pos + 1) / photos.length) * 100}%`
+  }
+
+  useEffect(() => {
+    if (layout !== "cinema") { if (cinemaRafRef.current) cancelAnimationFrame(cinemaRafRef.current); return }
+    const loop = () => {
+      cinemaPosRef.current += (cinemaTgtRef.current - cinemaPosRef.current) * 0.12
+      updateCinema(cinemaPosRef.current)
+      cinemaRafRef.current = requestAnimationFrame(loop)
+    }
+    cinemaRafRef.current = requestAnimationFrame(loop)
+    return () => { if (cinemaRafRef.current) cancelAnimationFrame(cinemaRafRef.current) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [layout, photos])
+
+  useEffect(() => { cinemaTgtRef.current = cinemaTarget }, [cinemaTarget])
+
+  function cinemaDragStart(clientX: number) {
+    cinemaDrag.current = { isDown: true, startX: clientX, startPos: cinemaPosRef.current, hasMoved: false }
+  }
+  function cinemaDragMove(clientX: number) {
+    const d = cinemaDrag.current
+    if (!d.isDown) return
+    const delta = clientX - d.startX
+    if (Math.abs(delta) > 5) d.hasMoved = true
+    const next = Math.min(Math.max(d.startPos - delta / (window.innerWidth * 0.75), -0.2), photos.length - 0.8)
+    cinemaPosRef.current = next; cinemaTgtRef.current = next
+  }
+  function cinemaDragEnd() {
+    if (!cinemaDrag.current.isDown) return
+    cinemaDrag.current.isDown = false
+    const snapped = Math.min(Math.max(Math.round(cinemaPosRef.current), 0), photos.length - 1)
+    setCinemaTarget(snapped)
+  }
+  function cinemaNext() { setCinemaTarget(t => Math.min(t + 1, photos.length - 1)) }
+  function cinemaPrev() { setCinemaTarget(t => Math.max(t - 1, 0)) }
+
   // ── Download with edits ────────────────────────────────────────────────────
   async function downloadWithEdits() {
     if (!activePhoto) return
@@ -284,10 +360,17 @@ export function GalleryView({
     bi += count; useTwo = !useTwo
   }
 
+  function formatBytes(bytes: number) {
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
   // ── Shared card interior ───────────────────────────────────────────────────
   function cardInner(photo: Photo, coverFit: boolean) {
     const starred = starredIds.has(photo.id)
     const thumb = imgUrl(photo.thumbKey)
+    const title = photo.filename.replace(/\.[^.]+$/, "")
+    const fileType = photo.mimeType.split("/")[1]?.toUpperCase() ?? "IMG"
     return (
       <>
         {thumb ? (
@@ -299,15 +382,25 @@ export function GalleryView({
         ) : (
           <div className={`${coverFit ? "w-full h-full" : "aspect-square"} bg-neutral-900`} />
         )}
-        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 pointer-events-none" />
-        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between
-          px-2 py-2 translate-y-1 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-200">
+        {/* Gradient hover overlay — clone style */}
+        <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+          style={{ background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.04) 60%, transparent 100%)" }}>
+          <div className="absolute bottom-0 left-0 right-0 px-4 pb-4">
+            <span className="block text-[9px] font-bold tracking-[2px] uppercase text-white/50 mb-1">{fileType}</span>
+            <h3 className="text-sm font-bold text-white truncate leading-tight" style={display}>{title}</h3>
+            {photo.width && photo.height && (
+              <p className="text-[11px] text-white/40 mt-1">{photo.width} × {photo.height}</p>
+            )}
+          </div>
+        </div>
+        {/* Star + comment count */}
+        <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <button onClick={(e) => { e.stopPropagation(); toggleStar(photo.id) }}
-            className="p-1.5 rounded-full bg-white/90 shadow-sm transition-transform hover:scale-110 active:scale-95">
-            <Star className={`h-3.5 w-3.5 ${starred ? "fill-yellow-400 text-yellow-400" : "text-neutral-600"}`} />
+            className="p-1.5 rounded-full bg-black/60 backdrop-blur-sm shadow-sm transition-transform hover:scale-110 active:scale-95">
+            <Star className={`h-3.5 w-3.5 ${starred ? "fill-yellow-400 text-yellow-400" : "text-white/80"}`} />
           </button>
           {(commentMap[photo.id]?.length ?? 0) > 0 && (
-            <span className="text-[10px] bg-white text-black px-1.5 py-0.5 font-medium">
+            <span className="text-[10px] bg-white text-black px-1.5 py-0.5 font-medium rounded">
               {commentMap[photo.id].length}
             </span>
           )}
@@ -360,10 +453,10 @@ export function GalleryView({
             <nav className="ashade-nav">
               <ul className="main-menu">
                 {/* Layout pickers */}
-                {(["masonry", "grid", "rows", "brick", "ribbon"] as const).map((l) => (
+                {(["masonry", "grid", "rows", "brick", "ribbon", "cinema"] as const).map((l) => (
                   <li key={l} className={layout === l ? "is-active" : ""}>
                     <button className="nav-link" style={display} onClick={() => changeLayout(l)} data-cursor="link">
-                      {l === "masonry" ? "Mason" : l === "grid" ? "Grid" : l === "rows" ? "Rows" : l === "brick" ? "Brick" : "Ribbon"}
+                      {l === "masonry" ? "Mason" : l === "grid" ? "Grid" : l === "rows" ? "Rows" : l === "brick" ? "Brick" : l === "ribbon" ? "Ribbon" : "Cinema"}
                     </button>
                   </li>
                 ))}
@@ -552,6 +645,77 @@ export function GalleryView({
             </div>
           )}
 
+          {/* ── CINEMA ── */}
+          {layout === "cinema" && (
+            <div className="cinema-slider" data-cursor="slider"
+              onMouseDown={(e) => cinemaDragStart(e.clientX)}
+              onMouseMove={(e) => cinemaDragMove(e.clientX)}
+              onMouseUp={cinemaDragEnd}
+              onMouseLeave={cinemaDragEnd}
+              onTouchStart={(e) => cinemaDragStart(e.touches[0].clientX)}
+              onTouchMove={(e) => cinemaDragMove(e.touches[0].clientX)}
+              onTouchEnd={cinemaDragEnd}
+              onWheel={(e) => {
+                if (Math.abs(e.deltaX) > 20 || Math.abs(e.deltaY) > 20) {
+                  if (e.deltaX > 0 || e.deltaY > 0) cinemaNext(); else cinemaPrev()
+                }
+              }}
+            >
+              <div className="cinema-slides-wrap">
+                {photos.map((photo, idx) => {
+                  const thumb = imgUrl(photo.thumbKey)
+                  const title = photo.filename.replace(/\.[^.]+$/, "")
+                  return (
+                    <div key={photo.id}
+                      ref={(el) => { if (el) cinemaSlideRefs.current.set(idx, el); else cinemaSlideRefs.current.delete(idx) }}
+                      className="cinema-slide"
+                      style={{ transform: `translate3d(${(idx - 0) * 100}%, 0, 0)` }}
+                    >
+                      <div ref={(el) => { if (el) cinemaFrameRefs.current.set(idx, el); else cinemaFrameRefs.current.delete(idx) }}
+                        className="cinema-image-frame">
+                        {thumb && <WebGLDistortion src={thumb} alt={photo.filename} intensity={1.5} speed={1.2} />}
+                      </div>
+                      <div className="cinema-slide-overlay" />
+                      <div ref={(el) => { if (el) cinemaTextRefs.current.set(idx, el); else cinemaTextRefs.current.delete(idx) }}
+                        className="cinema-text"
+                        style={{ opacity: idx === 0 ? 1 : 0, transform: "translateY(-50%)" }}>
+                        <span className="cinema-category">{photo.mimeType.split("/")[1]?.toUpperCase() ?? "PHOTO"}</span>
+                        <h1 className="cinema-title" style={display}>{title}</h1>
+                        {photo.width && photo.height && (
+                          <p className="cinema-desc">{photo.width} × {photo.height} px</p>
+                        )}
+                        <button className="cinema-open-btn" data-cursor="link"
+                          onClick={(e) => { e.stopPropagation(); if (!cinemaDrag.current.hasMoved) openLightbox(idx) }}>
+                          Open in Lightbox
+                        </button>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              <button className="cinema-nav cinema-prev" onClick={(e) => { e.stopPropagation(); cinemaPrev() }}
+                disabled={cinemaTarget === 0} data-cursor="link">
+                <ChevronLeft size={28} />
+              </button>
+              <button className="cinema-nav cinema-next" onClick={(e) => { e.stopPropagation(); cinemaNext() }}
+                disabled={cinemaTarget === photos.length - 1} data-cursor="link">
+                <ChevronRight size={28} />
+              </button>
+
+              <div className="cinema-bottom-bar">
+                <div className="cinema-counter" style={display}>
+                  <span ref={cinemaCounterRef}>01</span>
+                  <span className="cinema-sep">/</span>
+                  <span className="cinema-tot">{photos.length.toString().padStart(2, "0")}</span>
+                </div>
+                <div className="cinema-progress-track">
+                  <div ref={cinemaProgressRef} className="cinema-progress-fill" style={{ width: `${(1 / photos.length) * 100}%` }} />
+                </div>
+              </div>
+            </div>
+          )}
+
         </div>
       </div>
 
@@ -591,6 +755,24 @@ export function GalleryView({
               <button onClick={() => setIsSlideshow(s => !s)} data-cursor="link"
                 className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
                 {isSlideshow ? <Pause className="h-4 w-4 text-white" /> : <Play className="h-4 w-4 text-white" />}
+              </button>
+              <button onClick={() => setZoomLevel(z => Math.max(1, z - 0.5))} data-cursor="link"
+                className={`p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors ${zoomLevel <= 1 ? "opacity-30" : ""}`}
+                title="Zoom out">
+                <ZoomOut className="h-4 w-4 text-white" />
+              </button>
+              {zoomLevel !== 1 && (
+                <span style={display} className="text-white/50 text-[10px] min-w-[28px] text-center tabular-nums">{Math.round(zoomLevel * 100)}%</span>
+              )}
+              <button onClick={() => setZoomLevel(z => Math.min(3, z + 0.5))} data-cursor="link"
+                className={`p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors ${zoomLevel >= 3 ? "opacity-30" : ""}`}
+                title="Zoom in">
+                <ZoomIn className="h-4 w-4 text-white" />
+              </button>
+              <button onClick={() => setShowDetails(d => !d)} data-cursor="link"
+                className={`p-2 rounded-full transition-colors ${showDetails ? "bg-white/25" : "bg-white/10 hover:bg-white/20"}`}
+                title="Photo details">
+                <Info className="h-4 w-4 text-white" />
               </button>
               <button onClick={() => toggleStar(activePhoto.id)} data-cursor="link"
                 className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
@@ -702,6 +884,37 @@ export function GalleryView({
                 </div>
               )
             })}
+
+            {/* Details panel — slide in from right */}
+            {showDetails && (
+              <div className="lb-details-panel">
+                <p className="lb-detail-section-title">Technical Details</p>
+                <ul className="lb-detail-list">
+                  <li className="lb-detail-item">
+                    <span className="lb-detail-label">Filename</span>
+                    <span className="lb-detail-value">{activePhoto.filename}</span>
+                  </li>
+                  {activePhoto.width && activePhoto.height && (
+                    <li className="lb-detail-item">
+                      <span className="lb-detail-label">Dimensions</span>
+                      <span className="lb-detail-value">{activePhoto.width} × {activePhoto.height} px</span>
+                    </li>
+                  )}
+                  <li className="lb-detail-item">
+                    <span className="lb-detail-label">File Size</span>
+                    <span className="lb-detail-value">{formatBytes(activePhoto.fileSizeBytes)}</span>
+                  </li>
+                  <li className="lb-detail-item">
+                    <span className="lb-detail-label">Uploaded</span>
+                    <span className="lb-detail-value">{new Date(activePhoto.createdAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}</span>
+                  </li>
+                  <li className="lb-detail-item">
+                    <span className="lb-detail-label">Type</span>
+                    <span className="lb-detail-value">{activePhoto.mimeType}</span>
+                  </li>
+                </ul>
+              </div>
+            )}
 
             {/* Controls overlay */}
             {!cropMode && (

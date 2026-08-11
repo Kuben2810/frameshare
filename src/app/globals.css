@@ -509,6 +509,126 @@
   height: 280px;
 }
 
+/* ---- CINEMA PARALLAX SLIDER ---- */
+.cinema-slider {
+  position: relative;
+  width: 100%;
+  height: calc(100vh - 156px);
+  overflow: hidden;
+  user-select: none;
+  background: #000;
+}
+.cinema-slides-wrap { position: absolute; inset: 0; }
+.cinema-slide {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  overflow: hidden; will-change: transform;
+}
+.cinema-image-frame {
+  position: absolute;
+  inset: -10%; width: 120%; height: 120%;
+  will-change: transform;
+}
+.cinema-slide-overlay {
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at center, rgba(0,0,0,0.18) 0%, rgba(0,0,0,0.72) 100%);
+  pointer-events: none; z-index: 2;
+}
+.cinema-text {
+  position: absolute; top: 50%; left: 120px;
+  max-width: 620px; z-index: 10;
+  will-change: transform, opacity;
+  pointer-events: none;
+}
+.cinema-text * { pointer-events: auto; }
+.cinema-category {
+  display: block;
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 3px; color: rgba(255,255,255,0.55);
+  border-bottom: 2px solid rgba(255,255,255,0.25);
+  padding-bottom: 6px; margin-bottom: 16px;
+}
+.cinema-title {
+  font-size: clamp(44px, 6vw, 76px);
+  font-weight: 700; line-height: 1.02;
+  text-transform: uppercase; color: #fff;
+  margin: 0 0 18px; letter-spacing: -0.5px;
+  text-shadow: 0 4px 30px rgba(0,0,0,0.55);
+}
+.cinema-desc {
+  font-size: 14px; color: var(--ashade-text-muted);
+  margin-bottom: 32px; line-height: 1.6;
+}
+.cinema-open-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  height: 50px; padding: 0 40px;
+  font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;
+  color: #fff; background: rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,255,255,0.9);
+  transition: background 0.25s, color 0.25s;
+}
+.cinema-open-btn:hover { background: #fff; color: #000; }
+.cinema-nav {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  z-index: 30;
+  background: rgba(23,23,27,0.6); border: 1px solid var(--ashade-border);
+  color: rgba(255,255,255,0.8);
+  width: 58px; height: 58px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0; transition: background 0.25s, border-color 0.25s, color 0.25s, transform 0.25s;
+}
+.cinema-nav:disabled { opacity: 0.2; }
+.cinema-nav:not(:disabled):hover {
+  background: rgba(255,255,255,0.95); border-color: #fff; color: #000;
+  transform: translateY(-50%) scale(1.08);
+}
+.cinema-prev { left: 36px; }
+.cinema-next { right: 36px; }
+.cinema-bottom-bar {
+  position: absolute; bottom: 36px; left: 120px; right: 120px;
+  z-index: 30; display: flex; align-items: center; gap: 28px;
+  pointer-events: none;
+}
+.cinema-counter { font-size: 24px; font-weight: 700; color: #fff; display: flex; align-items: center; gap: 6px; }
+.cinema-sep, .cinema-tot { color: var(--ashade-text-sub); font-size: 16px; }
+.cinema-progress-track { flex: 1; height: 2px; background: rgba(255,255,255,0.15); overflow: hidden; }
+.cinema-progress-fill { height: 100%; background: #fff; transition: width 0.06s linear; }
+@media (max-width: 960px) {
+  .cinema-text { left: 36px; right: 36px; max-width: 100%; }
+  .cinema-bottom-bar { left: 36px; right: 36px; bottom: 20px; }
+  .cinema-prev { left: 12px; }
+  .cinema-next { right: 12px; }
+}
+
+/* ---- LIGHTBOX DETAILS PANEL ---- */
+.lb-details-panel {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 260px;
+  background: rgba(8, 8, 10, 0.94);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(24px);
+  z-index: 25;
+  padding: 32px 24px;
+  overflow-y: auto;
+  animation: lb-panel-in 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+@keyframes lb-panel-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.lb-detail-section-title {
+  font-size: 9px; font-weight: 700; letter-spacing: 3px;
+  text-transform: uppercase; color: var(--ashade-text-sub); margin-bottom: 28px;
+}
+.lb-detail-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 22px; }
+.lb-detail-item { display: flex; flex-direction: column; gap: 5px; }
+.lb-detail-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--ashade-text-sub);
+}
+.lb-detail-value { font-size: 13px; color: rgba(255,255,255,0.85); line-height: 1.4; word-break: break-word; }
+
 /* Scroll-driven parallax — pans object-position top→bottom as card scrolls past.
    Shows faces/top first, creates visible depth parallax. No transform conflict.
    Progressive enhancement: ignored in Safari/older browsers. */
