@@ -16,7 +16,7 @@ type Gallery = InferSelectModel<typeof galleries>
 type Photo = InferSelectModel<typeof photos>
 type Star = InferSelectModel<typeof stars>
 type Comment = InferSelectModel<typeof comments>
-type Layout = "masonry" | "grid" | "rows" | "brick" | "ribbon" | "cinema"
+type Layout = "masonry" | "grid" | "rows" | "brick" | "ribbon"
 type EntryAnim = "fade-up" | "fade" | "scale"
 
 function imgUrl(key: string | null | undefined) {
@@ -265,67 +265,7 @@ export function GalleryView({
     setTimeout(() => setRibbonDragging(false), 50)
   }
 
-  // ── Cinema slider physics ──────────────────────────────────────────────────
-  const cinemaSlideRefs = useRef(new Map<number, HTMLDivElement>())
-  const cinemaFrameRefs = useRef(new Map<number, HTMLDivElement>())
-  const cinemaTextRefs  = useRef(new Map<number, HTMLDivElement>())
-  const cinemaCounterRef  = useRef<HTMLSpanElement>(null)
-  const cinemaProgressRef = useRef<HTMLDivElement>(null)
-  const cinemaPosRef = useRef(0)
-  const cinemaTgtRef = useRef(0)
-  const cinemaRafRef = useRef<number | null>(null)
-  const cinemaDrag = useRef({ isDown: false, startX: 0, startPos: 0, hasMoved: false })
-  const [cinemaTarget, setCinemaTarget] = useState(0)
 
-  function updateCinema(pos: number) {
-    for (const [idx, el] of cinemaSlideRefs.current.entries()) {
-      const rel = idx - pos
-      el.style.transform = `translate3d(${rel * 100}%, 0, 0)`
-      const frame = cinemaFrameRefs.current.get(idx)
-      if (frame) frame.style.transform = `translate3d(${-rel * 45}%, 0, 0) scale(${1.15 - Math.min(Math.abs(rel) * 0.1, 0.15)})`
-      const text = cinemaTextRefs.current.get(idx)
-      if (text) {
-        text.style.opacity = String(Math.max(0, 1 - Math.abs(rel) * 1.5))
-        text.style.transform = `translateY(-50%) translate3d(${rel * -30}px, 0, 0)`
-      }
-    }
-    if (cinemaCounterRef.current) cinemaCounterRef.current.textContent = (Math.round(pos) + 1).toString().padStart(2, "0")
-    if (cinemaProgressRef.current) cinemaProgressRef.current.style.width = `${((pos + 1) / photos.length) * 100}%`
-  }
-
-  useEffect(() => {
-    if (layout !== "cinema") { if (cinemaRafRef.current) cancelAnimationFrame(cinemaRafRef.current); return }
-    const loop = () => {
-      cinemaPosRef.current += (cinemaTgtRef.current - cinemaPosRef.current) * 0.12
-      updateCinema(cinemaPosRef.current)
-      cinemaRafRef.current = requestAnimationFrame(loop)
-    }
-    cinemaRafRef.current = requestAnimationFrame(loop)
-    return () => { if (cinemaRafRef.current) cancelAnimationFrame(cinemaRafRef.current) }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [layout, photos])
-
-  useEffect(() => { cinemaTgtRef.current = cinemaTarget }, [cinemaTarget])
-
-  function cinemaDragStart(clientX: number) {
-    cinemaDrag.current = { isDown: true, startX: clientX, startPos: cinemaPosRef.current, hasMoved: false }
-  }
-  function cinemaDragMove(clientX: number) {
-    const d = cinemaDrag.current
-    if (!d.isDown) return
-    const delta = clientX - d.startX
-    if (Math.abs(delta) > 5) d.hasMoved = true
-    const next = Math.min(Math.max(d.startPos - delta / (window.innerWidth * 0.75), -0.2), photos.length - 0.8)
-    cinemaPosRef.current = next; cinemaTgtRef.current = next
-  }
-  function cinemaDragEnd() {
-    if (!cinemaDrag.current.isDown) return
-    cinemaDrag.current.isDown = false
-    const snapped = Math.min(Math.max(Math.round(cinemaPosRef.current), 0), photos.length - 1)
-    setCinemaTarget(snapped)
-  }
-  function cinemaNext() { setCinemaTarget(t => Math.min(t + 1, photos.length - 1)) }
-  function cinemaPrev() { setCinemaTarget(t => Math.max(t - 1, 0)) }
 
   // ── Download with edits ────────────────────────────────────────────────────
   async function downloadWithEdits() {
@@ -466,10 +406,10 @@ export function GalleryView({
             <nav className="ashade-nav">
               <ul className="main-menu">
                 {/* Layout pickers */}
-                {(["masonry", "grid", "rows", "brick", "ribbon", "cinema"] as const).map((l) => (
+                {(["masonry", "grid", "rows", "brick", "ribbon"] as const).map((l) => (
                   <li key={l} className={layout === l ? "is-active" : ""}>
                     <button className="nav-link" style={display} onClick={() => changeLayout(l)} data-cursor="link">
-                      {l === "masonry" ? "Mason" : l === "grid" ? "Grid" : l === "rows" ? "Rows" : l === "brick" ? "Brick" : l === "ribbon" ? "Ribbon" : "Cinema"}
+                      {l === "masonry" ? "Mason" : l === "grid" ? "Grid" : l === "rows" ? "Rows" : l === "brick" ? "Brick" : "Ribbon"}
                     </button>
                   </li>
                 ))}
@@ -672,83 +612,14 @@ export function GalleryView({
             </div>
           )}
 
-          {/* ── CINEMA ── */}
-          {layout === "cinema" && (
-            <div className="cinema-slider" data-cursor="slider"
-              onMouseDown={(e) => cinemaDragStart(e.clientX)}
-              onMouseMove={(e) => cinemaDragMove(e.clientX)}
-              onMouseUp={cinemaDragEnd}
-              onMouseLeave={cinemaDragEnd}
-              onTouchStart={(e) => cinemaDragStart(e.touches[0].clientX)}
-              onTouchMove={(e) => cinemaDragMove(e.touches[0].clientX)}
-              onTouchEnd={cinemaDragEnd}
-              onWheel={(e) => {
-                if (Math.abs(e.deltaX) > 20 || Math.abs(e.deltaY) > 20) {
-                  if (e.deltaX > 0 || e.deltaY > 0) cinemaNext(); else cinemaPrev()
-                }
-              }}
-            >
-              <div className="cinema-slides-wrap">
-                {photos.map((photo, idx) => {
-                  const thumb = imgUrl(photo.thumbKey)
-                  const title = photo.filename.replace(/\.[^.]+$/, "")
-                  return (
-                    <div key={photo.id}
-                      ref={(el) => { if (el) cinemaSlideRefs.current.set(idx, el); else cinemaSlideRefs.current.delete(idx) }}
-                      className="cinema-slide"
-                      style={{ transform: `translate3d(${(idx - 0) * 100}%, 0, 0)` }}
-                    >
-                      <div ref={(el) => { if (el) cinemaFrameRefs.current.set(idx, el); else cinemaFrameRefs.current.delete(idx) }}
-                        className="cinema-image-frame">
-                        {thumb && <WebGLDistortion src={thumb} alt={photo.filename} intensity={1.5} speed={1.2} />}
-                      </div>
-                      <div className="cinema-slide-overlay" />
-                      <div ref={(el) => { if (el) cinemaTextRefs.current.set(idx, el); else cinemaTextRefs.current.delete(idx) }}
-                        className="cinema-text"
-                        style={{ opacity: idx === 0 ? 1 : 0, transform: "translateY(-50%)" }}>
-                        <span className="cinema-category">{photo.mimeType.split("/")[1]?.toUpperCase() ?? "PHOTO"}</span>
-                        <h1 className="cinema-title" style={display}>{title}</h1>
-                        {photo.width && photo.height && (
-                          <p className="cinema-desc">{photo.width} × {photo.height} px</p>
-                        )}
-                        <button className="cinema-open-btn" data-cursor="link"
-                          onClick={(e) => { e.stopPropagation(); if (!cinemaDrag.current.hasMoved) openLightbox(idx) }}>
-                          Open in Lightbox
-                        </button>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
 
-              <button className="cinema-nav cinema-prev" onClick={(e) => { e.stopPropagation(); cinemaPrev() }}
-                disabled={cinemaTarget === 0} data-cursor="link">
-                <ChevronLeft size={28} />
-              </button>
-              <button className="cinema-nav cinema-next" onClick={(e) => { e.stopPropagation(); cinemaNext() }}
-                disabled={cinemaTarget === photos.length - 1} data-cursor="link">
-                <ChevronRight size={28} />
-              </button>
-
-              <div className="cinema-bottom-bar">
-                <div className="cinema-counter" style={display}>
-                  <span ref={cinemaCounterRef}>01</span>
-                  <span className="cinema-sep">/</span>
-                  <span className="cinema-tot">{photos.length.toString().padStart(2, "0")}</span>
-                </div>
-                <div className="cinema-progress-track">
-                  <div ref={cinemaProgressRef} className="cinema-progress-fill" style={{ width: `${(1 / photos.length) * 100}%` }} />
-                </div>
-              </div>
-            </div>
-          )}
 
         </div>
       </div>
 
       {/* ── Lightbox ── */}
       {activePhoto && (
-        <div className="fixed inset-0 bg-black z-50 flex flex-col lb-open">
+        <div className="fixed inset-0 bg-black z-[1000] flex flex-col lb-open">
           {/* SVG sharpen filter */}
           {sharpness > 0 && (
             <svg style={{ position: "absolute", width: 0, height: 0, overflow: "hidden" }} aria-hidden>
