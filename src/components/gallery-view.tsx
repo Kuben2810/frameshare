@@ -13,6 +13,8 @@ type Gallery = InferSelectModel<typeof galleries>
 type Photo = InferSelectModel<typeof photos>
 type Star = InferSelectModel<typeof stars>
 type Comment = InferSelectModel<typeof comments>
+type Layout = "masonry" | "grid" | "rows" | "brick"
+type EntryAnim = "fade-up" | "fade" | "scale"
 
 function imgUrl(key: string | null | undefined) {
   if (!key) return null
@@ -41,7 +43,17 @@ export function GalleryView({
   const [commentPhotoId, setCommentPhotoId] = useState<string | null>(null)
   const [commentBody, setCommentBody] = useState("")
   const [commentName, setCommentName] = useState("")
+  const [layout, setLayout] = useState<Layout>("masonry")
+  const [entryAnim, setEntryAnim] = useState<EntryAnim>("fade-up")
   const gridRef = useRef<HTMLDivElement>(null)
+
+  // Restore persisted layout/animation prefs after mount
+  useEffect(() => {
+    const l = localStorage.getItem("gallery-layout") as Layout | null
+    const a = localStorage.getItem("gallery-entry-anim") as EntryAnim | null
+    if (l) setLayout(l)
+    if (a) setEntryAnim(a)
+  }, [])
 
   const { starredIds, commentMap, submitting, submitted, toggleStar, submitComment, submitSelection } =
     useGalleryInteraction(gallery.slug, initialStars, initialComments)
@@ -96,6 +108,7 @@ export function GalleryView({
     }, "image/jpeg", 0.92)
   }
 
+  // Intersection observer — re-runs when photos OR layout changes (new DOM nodes)
   useEffect(() => {
     const grid = gridRef.current
     if (!grid) return
@@ -114,11 +127,58 @@ export function GalleryView({
     )
     cards.forEach((card) => observer.observe(card))
     return () => observer.disconnect()
-  }, [photos])
+  }, [photos, layout])
 
   async function handleCommentSubmit(photoId: string) {
     const ok = await submitComment(photoId, commentBody, commentName)
     if (ok) { setCommentBody(""); setCommentPhotoId(null) }
+  }
+
+  function changeLayout(l: Layout) {
+    setLayout(l)
+    localStorage.setItem("gallery-layout", l)
+  }
+  function changeAnim(a: EntryAnim) {
+    setEntryAnim(a)
+    localStorage.setItem("gallery-entry-anim", a)
+  }
+
+  // Shared card interior — img, hover overlay, star/comment buttons
+  function cardInner(photo: Photo, coverFit: boolean) {
+    const starred = starredIds.has(photo.id)
+    const commentCount = (commentMap[photo.id] ?? []).length
+    return (
+      <>
+        {photo.thumbKey ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={imgUrl(photo.thumbKey)!} alt={photo.filename} loading="lazy"
+            className={`${coverFit ? "w-full h-full object-cover" : "w-full h-auto block"} transition-transform duration-500 group-hover:scale-[1.04]`} />
+        ) : (
+          <div className={`${coverFit ? "w-full h-full" : "aspect-square"} bg-neutral-900`} />
+        )}
+        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors duration-300" />
+        <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between
+          px-2 py-2 translate-y-1 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-200">
+          <button onClick={(e) => { e.stopPropagation(); toggleStar(photo.id) }}
+            className="p-1.5 rounded-full bg-white/90 shadow-sm transition-transform hover:scale-110 active:scale-95">
+            <Star className={`h-3.5 w-3.5 ${starred ? "fill-yellow-400 text-yellow-400" : "text-neutral-600"}`} />
+          </button>
+          {commentCount > 0 && (
+            <span className="text-[10px] bg-white text-black px-1.5 py-0.5 font-medium">{commentCount}</span>
+          )}
+        </div>
+      </>
+    )
+  }
+
+  // Build brick row groupings (alternating 2 and 3 per row)
+  const brickRows: Array<Array<{ photo: Photo; idx: number }>> = []
+  let bi = 0, useTwo = true
+  while (bi < photos.length) {
+    const count = useTwo ? 2 : 3
+    brickRows.push(photos.slice(bi, bi + count).map((p, j) => ({ photo: p, idx: bi + j })))
+    bi += count
+    useTwo = !useTwo
   }
 
   return (
@@ -171,42 +231,113 @@ export function GalleryView({
         </div>
       </header>
 
-      {/* Masonry grid */}
+      {/* Gallery area */}
       <div className="ml-10 mr-10 pt-14">
-        <div ref={gridRef} className="masonry-grid">
-          {photos.map((photo, idx) => {
-            const starred = starredIds.has(photo.id)
-            const commentCount = (commentMap[photo.id] ?? []).length
-            return (
-              <div
-                key={photo.id}
-                data-delay={Math.min(idx * 50, 400)}
-                className={`photo-card group relative cursor-pointer overflow-hidden
-                  ${starred ? "ring-2 ring-white ring-inset" : ""}`}
-                onClick={() => openLightbox(idx)}
-              >
-                {photo.thumbKey ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={imgUrl(photo.thumbKey)!} alt={photo.filename} loading="lazy"
-                    className="w-full h-auto block transition-transform duration-500 group-hover:scale-[1.04]" />
-                ) : (
-                  <div className="aspect-square bg-neutral-900" />
-                )}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors duration-300" />
-                <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between
-                  px-2 py-2 translate-y-1 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-200">
-                  <button onClick={(e) => { e.stopPropagation(); toggleStar(photo.id) }}
-                    className="p-1.5 rounded-full bg-white/90 shadow-sm transition-transform hover:scale-110 active:scale-95">
-                    <Star className={`h-3.5 w-3.5 ${starred ? "fill-yellow-400 text-yellow-400" : "text-neutral-600"}`} />
-                  </button>
-                  {commentCount > 0 && (
-                    <span className="text-[10px] bg-white text-black px-1.5 py-0.5 font-medium">{commentCount}</span>
-                  )}
-                </div>
-              </div>
-            )
-          })}
+
+        {/* Layout + animation picker */}
+        <div className="flex items-center justify-between py-2 px-1 mb-0.5">
+          <div className="flex items-center gap-0.5">
+            {(["masonry", "grid", "rows", "brick"] as const).map((l) => (
+              <button key={l} onClick={() => changeLayout(l)}
+                style={display}
+                className={`px-2.5 py-1 text-[9px] tracking-[0.15em] uppercase transition-colors border-b ${layout === l ? "border-white/60 text-white" : "border-transparent text-white/25 hover:text-white/55"}`}>
+                {l === "masonry" ? "Mason" : l === "grid" ? "Grid" : l === "rows" ? "Rows" : "Brick"}
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center gap-0.5">
+            {(["fade-up", "fade", "scale"] as const).map((a) => (
+              <button key={a} onClick={() => changeAnim(a)}
+                style={display}
+                className={`px-2.5 py-1 text-[9px] tracking-[0.15em] uppercase transition-colors border-b ${entryAnim === a ? "border-white/60 text-white" : "border-transparent text-white/25 hover:text-white/55"}`}>
+                {a === "fade-up" ? "Fade ↑" : a === "fade" ? "Fade" : "Zoom"}
+              </button>
+            ))}
+          </div>
         </div>
+
+        {/* Masonry */}
+        {layout === "masonry" && (
+          <div ref={gridRef} className="masonry-grid" data-anim={entryAnim}>
+            {photos.map((photo, idx) => {
+              const starred = starredIds.has(photo.id)
+              return (
+                <div
+                  key={photo.id}
+                  data-delay={Math.min(idx * 50, 400)}
+                  className={`photo-card group relative cursor-pointer overflow-hidden ${starred ? "ring-2 ring-white ring-inset" : ""}`}
+                  onClick={() => openLightbox(idx)}
+                >
+                  {cardInner(photo, false)}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Grid — uniform 4:3 crop */}
+        {layout === "grid" && (
+          <div ref={gridRef} className="grid-layout" data-anim={entryAnim}>
+            {photos.map((photo, idx) => {
+              const starred = starredIds.has(photo.id)
+              return (
+                <div
+                  key={photo.id}
+                  data-delay={Math.min(idx * 50, 400)}
+                  className={`photo-card group relative cursor-pointer overflow-hidden ${starred ? "ring-2 ring-white ring-inset" : ""}`}
+                  onClick={() => openLightbox(idx)}
+                >
+                  {cardInner(photo, true)}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Rows — justified film strip at fixed height */}
+        {layout === "rows" && (
+          <div ref={gridRef} className="rows-layout" data-anim={entryAnim}>
+            {photos.map((photo, idx) => {
+              const starred = starredIds.has(photo.id)
+              const ar = (photo.width && photo.height) ? photo.width / photo.height : 1.5
+              return (
+                <div key={photo.id} style={{ flex: `${ar} 1 0%` }}>
+                  <div
+                    data-delay={Math.min(idx * 50, 400)}
+                    className={`photo-card group relative cursor-pointer overflow-hidden h-full ${starred ? "ring-2 ring-white ring-inset" : ""}`}
+                    onClick={() => openLightbox(idx)}
+                  >
+                    {cardInner(photo, true)}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {/* Brick — alternating 2-col and 3-col rows */}
+        {layout === "brick" && (
+          <div ref={gridRef} className="brick-layout" data-anim={entryAnim}>
+            {brickRows.map((row, ri) => (
+              <div key={ri} className="brick-row">
+                {row.map(({ photo, idx }) => {
+                  const starred = starredIds.has(photo.id)
+                  return (
+                    <div key={photo.id} style={{ flex: "1 1 0%" }}>
+                      <div
+                        data-delay={Math.min(idx * 50, 400)}
+                        className={`photo-card group relative cursor-pointer overflow-hidden h-full ${starred ? "ring-2 ring-white ring-inset" : ""}`}
+                        onClick={() => openLightbox(idx)}
+                      >
+                        {cardInner(photo, true)}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Lightbox */}

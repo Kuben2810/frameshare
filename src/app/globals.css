@@ -143,17 +143,20 @@
 }
 .photo-card.revealed {
   opacity: 1;
-  transform: translateY(0);
+  transform: none;
 }
+/* Entry animation variants (set via data-anim on the grid container) */
+[data-anim="fade"] .photo-card { transform: none; }
+[data-anim="scale"] .photo-card { transform: scale(0.92); }
 
-/* Lightbox photo transitions */
+/* Lightbox photo transitions — enhanced parallax feel */
 @keyframes slide-from-right {
-  from { opacity: 0; transform: translateX(48px) scale(0.97); }
-  to   { opacity: 1; transform: translateX(0)    scale(1); }
+  from { opacity: 0; transform: translateX(120px) scale(0.95); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
 }
 @keyframes slide-from-left {
-  from { opacity: 0; transform: translateX(-48px) scale(0.97); }
-  to   { opacity: 1; transform: translateX(0)     scale(1); }
+  from { opacity: 0; transform: translateX(-120px) scale(0.95); }
+  to   { opacity: 1; transform: translateX(0) scale(1); }
 }
 @keyframes lightbox-open {
   from { opacity: 0; transform: scale(0.94); }
@@ -171,8 +174,8 @@
   from { transform: scaleX(0); }
   to   { transform: scaleX(1); }
 }
-.lb-slide-right  { animation: slide-from-right 0.28s cubic-bezier(0.25,0.46,0.45,0.94) both; }
-.lb-slide-left   { animation: slide-from-left  0.28s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+.lb-slide-right  { animation: slide-from-right 0.42s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.lb-slide-left   { animation: slide-from-left  0.42s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .lb-open         { animation: lightbox-open    0.22s cubic-bezier(0.25,0.46,0.45,0.94) both; }
 .kb-even         { animation: kenburns     4.8s ease-out both; }
 .kb-odd          { animation: kenburns-alt 4.8s ease-out both; }
@@ -190,4 +193,37 @@
   break-inside: avoid;
   display: block;
   margin-bottom: 2px;
+}
+
+/* Grid layout — uniform cropped cells */
+.grid-layout {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 2px;
+}
+@media (min-width: 640px)  { .grid-layout { grid-template-columns: repeat(3, 1fr); } }
+@media (min-width: 1024px) { .grid-layout { grid-template-columns: repeat(4, 1fr); } }
+.grid-layout .photo-card { aspect-ratio: 4 / 3; }
+
+/* Rows layout — justified film strip */
+.rows-layout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.rows-layout > * {
+  height: 260px;
+  min-width: 80px;
+}
+
+/* Brick layout — alternating 2-col and 3-col rows */
+.brick-layout {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.brick-row {
+  display: flex;
+  gap: 2px;
+  height: 280px;
 }
