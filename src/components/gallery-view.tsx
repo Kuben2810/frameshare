@@ -152,7 +152,7 @@ export function GalleryView({
         {photo.thumbKey ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={imgUrl(photo.thumbKey)!} alt={photo.filename} loading="lazy"
-            className={`${coverFit ? "w-full h-full object-cover" : "w-full h-auto block"} transition-transform duration-500 group-hover:scale-[1.04]`} />
+            className={`${coverFit ? "w-full h-full object-cover object-top" : "w-full h-auto block"} transition-transform duration-500 group-hover:scale-[1.04]`} />
         ) : (
           <div className={`${coverFit ? "w-full h-full" : "aspect-square"} bg-neutral-900`} />
         )}
