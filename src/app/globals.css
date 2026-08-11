@@ -509,6 +509,52 @@
   height: 280px;
 }
 
+/* ---- LIGHTBOX BEFORE / AFTER COMPARE ---- */
+.lb-compare-stage {
+  position: absolute; inset: 0; z-index: 6;
+  overflow: hidden; user-select: none; cursor: ew-resize;
+}
+.lb-compare-layer {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: #000;
+}
+.lb-compare-img {
+  max-width: 100%; max-height: 100%; object-fit: contain;
+  pointer-events: none;
+}
+.lb-compare-before { z-index: 2; }
+.lb-compare-divider {
+  position: absolute; top: 0; bottom: 0;
+  width: 0; z-index: 10; transform: translateX(-50%);
+  pointer-events: none;
+}
+.lb-compare-line {
+  position: absolute; top: 0; bottom: 0; left: 0;
+  width: 2px; background: #fff;
+  box-shadow: 0 0 10px rgba(0,0,0,0.8), 0 0 6px rgba(255,255,255,0.6);
+}
+.lb-compare-handle {
+  position: absolute; top: 50%; left: 0;
+  transform: translate(-50%, -50%);
+  width: 46px; height: 46px; border-radius: 50%;
+  background: #fff; color: #000; border: 2px solid #000;
+  display: flex; align-items: center; justify-content: center; gap: 0;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  pointer-events: auto; cursor: ew-resize;
+}
+.lb-compare-badge {
+  position: absolute; bottom: 20px;
+  font-size: 10px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; color: #fff;
+  background: rgba(0,0,0,0.65); backdrop-filter: blur(8px);
+  padding: 6px 14px; border-radius: 20px; z-index: 8;
+  pointer-events: none;
+  display: flex; align-items: center; gap: 6px;
+}
+.lb-badge-before { left: 20px; border: 1px solid rgba(255,255,255,0.3); }
+.lb-badge-after  { right: 20px; border: 1px solid #fff; box-shadow: 0 0 12px rgba(255,255,255,0.2); }
+
 /* ---- CINEMA PARALLAX SLIDER ---- */
 .cinema-slider {
   position: relative;

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"
-import { Star, MessageSquare, Download, X, Send, Play, Pause, SlidersHorizontal, RotateCcw, Crop, ShoppingBag, ZoomIn, ZoomOut, Info, ChevronLeft, ChevronRight } from "lucide-react"
+import { Star, MessageSquare, Download, X, Send, Play, Pause, SlidersHorizontal, RotateCcw, Crop, ShoppingBag, ZoomIn, ZoomOut, Info, ChevronLeft, ChevronRight, ArrowLeftRight } from "lucide-react"
 import type { InferSelectModel } from "drizzle-orm"
 import type { galleries, photos, stars, comments } from "@/db/schema"
 import { FILTERS } from "@/lib/gallery-filters"
@@ -46,6 +46,8 @@ export function GalleryView({
   const [showTip, setShowTip] = useState(false)
   const [zoomLevel, setZoomLevel] = useState(1)
   const [showDetails, setShowDetails] = useState(false)
+  const [compareMode, setCompareMode] = useState(false)
+  const [comparePos, setComparePos] = useState(50)
   const [commentPhotoId, setCommentPhotoId] = useState<string | null>(null)
   const [commentBody, setCommentBody] = useState("")
   const [commentName, setCommentName] = useState("")
@@ -53,6 +55,7 @@ export function GalleryView({
   // ── Layout state ───────────────────────────────────────────────────────────
   const [layout, setLayout] = useState<Layout>("masonry")
   const [entryAnim, setEntryAnim] = useState<EntryAnim>("fade-up")
+  const [masonryCols, setMasonryCols] = useState<2|3|4>(3)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [isScrolled, setIsScrolled] = useState(false)
   const gridRef = useRef<HTMLDivElement>(null)
@@ -68,6 +71,8 @@ export function GalleryView({
 
   // ── Lightbox spring physics ────────────────────────────────────────────────
   const zoomRef = useRef(1)
+  const compareRef = useRef<HTMLDivElement>(null)
+  const compareDragging = useRef(false)
   const lbPosRef = useRef(0)
   const lbTargetRef = useRef(0)
   const lbRafRef = useRef<number | null>(null)
@@ -146,8 +151,10 @@ export function GalleryView({
   useEffect(() => {
     const l = localStorage.getItem("gallery-layout") as Layout | null
     const a = localStorage.getItem("gallery-entry-anim") as EntryAnim | null
+    const c = Number(localStorage.getItem("gallery-masonry-cols")) as 2|3|4
     if (l) setLayout(l)
     if (a) setEntryAnim(a)
+    if (c === 2 || c === 3 || c === 4) setMasonryCols(c)
   }, [])
 
   // ── Lightbox open/close side effects ──────────────────────────────────────
@@ -155,7 +162,7 @@ export function GalleryView({
     setZoomLevel(1)
     if (activeIdx === null) {
       setAdjustments({ brightness: 1, contrast: 1, saturation: 1, sharpness: 0 })
-      setCropMode(false); setShowDownloadMenu(false); setShowTip(false); setShowDetails(false)
+      setCropMode(false); setShowDownloadMenu(false); setShowTip(false); setShowDetails(false); setCompareMode(false)
     } else if (!localStorage.getItem("lb-tip-dismissed")) {
       setShowTip(true)
     }
@@ -349,7 +356,13 @@ export function GalleryView({
 
   function changeLayout(l: Layout) { setLayout(l); localStorage.setItem("gallery-layout", l) }
   function changeAnim(a: EntryAnim) { setEntryAnim(a); localStorage.setItem("gallery-entry-anim", a) }
+  function changeCols(n: 2|3|4) { setMasonryCols(n); localStorage.setItem("gallery-masonry-cols", String(n)) }
   function dismissTip() { setShowTip(false); localStorage.setItem("lb-tip-dismissed", "1") }
+  function compareMoveAt(clientX: number) {
+    if (!compareRef.current || !compareDragging.current) return
+    const rect = compareRef.current.getBoundingClientRect()
+    setComparePos(Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100)))
+  }
 
   // ── Brick row groupings ────────────────────────────────────────────────────
   const brickRows: Array<Array<{ photo: Photo; idx: number }>> = []
@@ -497,20 +510,34 @@ export function GalleryView({
       <div className="ashade-gallery-main" style={{ position: "relative", zIndex: 2, minHeight: "100vh", overflowY: "auto" }}>
         <div style={{ paddingTop: 100 }}>
 
-          {/* Animation picker */}
-          <div className="flex items-center justify-end py-2 px-12 mb-0.5">
-            {(["fade-up", "fade", "scale"] as const).map((a) => (
-              <button key={a} onClick={() => changeAnim(a)} style={display} data-cursor="link"
-                className={`px-2.5 py-1 text-[9px] tracking-[0.15em] uppercase transition-colors border-b ml-1
-                  ${entryAnim === a ? "border-white/60 text-white" : "border-transparent text-white/25 hover:text-white/50"}`}>
-                {a === "fade-up" ? "Fade ↑" : a === "fade" ? "Fade" : "Zoom"}
-              </button>
-            ))}
+          {/* Controls bar — column switcher (masonry) + animation picker */}
+          <div className="flex items-center justify-between py-2 px-12 mb-0.5">
+            {layout === "masonry" ? (
+              <div className="flex items-center gap-1.5">
+                <span className="text-white/25 text-[9px] uppercase tracking-widest" style={display}>Cols</span>
+                {([2, 3, 4] as const).map(n => (
+                  <button key={n} onClick={() => changeCols(n)} data-cursor="link"
+                    className={`w-7 h-7 flex items-center justify-center rounded border text-[10px] font-bold transition-colors
+                      ${masonryCols === n ? "border-white/60 text-white" : "border-white/12 text-white/25 hover:text-white/50 hover:border-white/30"}`}>
+                    {n}
+                  </button>
+                ))}
+              </div>
+            ) : <div />}
+            <div className="flex items-center">
+              {(["fade-up", "fade", "scale"] as const).map((a) => (
+                <button key={a} onClick={() => changeAnim(a)} style={display} data-cursor="link"
+                  className={`px-2.5 py-1 text-[9px] tracking-[0.15em] uppercase transition-colors border-b ml-1
+                    ${entryAnim === a ? "border-white/60 text-white" : "border-transparent text-white/25 hover:text-white/50"}`}>
+                  {a === "fade-up" ? "Fade ↑" : a === "fade" ? "Fade" : "Zoom"}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* ── MASONRY ── */}
           {layout === "masonry" && (
-            <div ref={gridRef} className="masonry-grid px-2" data-anim={entryAnim}>
+            <div ref={gridRef} className="masonry-grid px-2" data-anim={entryAnim} style={{ columns: masonryCols }}>
               {photos.map((photo, idx) => {
                 const starred = starredIds.has(photo.id)
                 return (
@@ -774,6 +801,11 @@ export function GalleryView({
                 title="Photo details">
                 <Info className="h-4 w-4 text-white" />
               </button>
+              <button onClick={() => { setCompareMode(m => !m); setComparePos(50) }} data-cursor="link"
+                className={`p-2 rounded-full transition-colors ${compareMode ? "bg-white/25" : "bg-white/10 hover:bg-white/20"}`}
+                title="Before / After compare">
+                <ArrowLeftRight className="h-4 w-4 text-white" />
+              </button>
               <button onClick={() => toggleStar(activePhoto.id)} data-cursor="link"
                 className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
                 <Star className={`h-4 w-4 ${starredIds.has(activePhoto.id) ? "fill-yellow-400 text-yellow-400" : "text-white"}`} />
@@ -884,6 +916,43 @@ export function GalleryView({
                 </div>
               )
             })}
+
+            {/* Before / After compare mode */}
+            {compareMode && activePhoto && (() => {
+              const src = imgUrl(activePhoto.displayKey ?? activePhoto.originalKey)!
+              return (
+                <div ref={compareRef} className="lb-compare-stage"
+                  onMouseDown={(e) => { compareDragging.current = true; compareMoveAt(e.clientX) }}
+                  onMouseMove={(e) => compareMoveAt(e.clientX)}
+                  onMouseUp={() => { compareDragging.current = false }}
+                  onMouseLeave={() => { compareDragging.current = false }}
+                  onTouchStart={(e) => { compareDragging.current = true; compareMoveAt(e.touches[0].clientX) }}
+                  onTouchMove={(e) => compareMoveAt(e.touches[0].clientX)}
+                  onTouchEnd={() => { compareDragging.current = false }}
+                  data-cursor="slider">
+                  {/* After — with filter */}
+                  <div className="lb-compare-layer">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt="after" className="lb-compare-img" style={{ filter: appliedFilter || undefined }} />
+                    <div className="lb-compare-badge lb-badge-after">Edited</div>
+                  </div>
+                  {/* Before — no filter, clipped */}
+                  <div className="lb-compare-layer lb-compare-before" style={{ clipPath: `inset(0 ${100 - comparePos}% 0 0)` }}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={src} alt="before" className="lb-compare-img" />
+                    <div className="lb-compare-badge lb-badge-before">Original</div>
+                  </div>
+                  {/* Divider + handle */}
+                  <div className="lb-compare-divider" style={{ left: `${comparePos}%` }}>
+                    <div className="lb-compare-line" />
+                    <div className="lb-compare-handle" data-cursor="slider">
+                      <ChevronLeft size={14} />
+                      <ChevronRight size={14} />
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
 
             {/* Details panel — slide in from right */}
             {showDetails && (
