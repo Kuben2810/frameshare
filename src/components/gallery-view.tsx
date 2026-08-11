@@ -1,9 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Star, MessageSquare, Download, ChevronLeft, ChevronRight, X, Send, Play, Pause, SlidersHorizontal, RotateCcw, Crop } from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import { Star, MessageSquare, Download, X, Send, Play, Pause, SlidersHorizontal, RotateCcw, Crop } from "lucide-react"
 import type { InferSelectModel } from "drizzle-orm"
 import type { galleries, photos, stars, comments } from "@/db/schema"
 import { FILTERS } from "@/lib/gallery-filters"
@@ -21,18 +19,7 @@ function imgUrl(key: string | null | undefined) {
   return `/api/s3/${key}`
 }
 
-function handleTilt(e: React.MouseEvent<HTMLDivElement>) {
-  const el = e.currentTarget
-  const { left, top, width, height } = el.getBoundingClientRect()
-  const x = (e.clientX - left) / width - 0.5
-  const y = (e.clientY - top) / height - 0.5
-  el.style.transform = `perspective(700px) rotateY(${x * 10}deg) rotateX(${-y * 10}deg) scale(1.03)`
-  el.style.transition = "transform 0.05s ease-out"
-}
-function resetTilt(e: React.MouseEvent<HTMLDivElement>) {
-  e.currentTarget.style.transform = ""
-  e.currentTarget.style.transition = "transform 0.35s ease"
-}
+const display = { fontFamily: "var(--font-oswald, 'Oswald', sans-serif)" }
 
 export function GalleryView({
   gallery,
@@ -62,7 +49,6 @@ export function GalleryView({
   const { activeIdx, navDir, isSlideshow, setIsSlideshow, openLightbox, closeLightbox, goNext, goPrev } =
     useSlideshow(photos.length)
 
-  const accentColor = gallery.accentColor ?? "#000000"
   const filterCss = FILTERS[activeFilter] ?? ""
   const { brightness, contrast, saturation, sharpness } = adjustments
   const hasAdjustments = brightness !== 1 || contrast !== 1 || saturation !== 1 || sharpness !== 0
@@ -136,36 +122,57 @@ export function GalleryView({
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-black text-white">
+      {/* Left sidebar — gallery name, bottom-to-top */}
+      <aside className="fixed left-0 top-0 bottom-0 w-10 flex flex-col items-center justify-end pb-8 z-10 pointer-events-none">
+        <span
+          style={{ ...display, writingMode: "vertical-rl", transform: "rotate(180deg)", letterSpacing: "0.12em" }}
+          className="text-white/35 text-[10px] font-semibold uppercase">
+          {gallery.name}
+        </span>
+      </aside>
+
+      {/* Right sidebar — back to top, top-to-bottom */}
+      <aside className="fixed right-0 top-0 bottom-0 w-10 flex flex-col items-center justify-start pt-8 z-10">
+        <button
+          onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
+          style={{ ...display, writingMode: "vertical-rl", letterSpacing: "0.12em" }}
+          className="text-white/25 hover:text-white/60 text-[10px] font-semibold uppercase transition-colors">
+          Back to top
+        </button>
+      </aside>
+
       {/* Header */}
-      <header className="border-b border-border sticky top-0 bg-card/90 backdrop-blur-sm z-10">
-        <div className="max-w-7xl mx-auto px-4 h-14 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {gallery.logoKey && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={imgUrl(gallery.logoKey)!} alt="" className="h-7 w-auto object-contain" />
-            )}
-            <span className="font-semibold text-base">{gallery.name}</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => openLightbox(0, true)} className="gap-1.5">
-              <Play className="h-3.5 w-3.5" /> Slideshow
-            </Button>
-            {starredIds.size > 0 && !submitted && (
-              <Button size="sm" onClick={submitSelection} disabled={submitting}
-                style={{ backgroundColor: accentColor, color: "#fff" }}>
-                {submitting ? "Submitting…" : `Submit ${starredIds.size} selected`}
-              </Button>
-            )}
-            {submitted && (
-              <Badge variant="outline" className="text-primary border-primary/40">Selection submitted ✓</Badge>
-            )}
-          </div>
+      <header className="fixed top-0 left-10 right-10 h-14 flex items-center justify-between px-4 z-20">
+        <div className="flex items-center gap-3">
+          {gallery.logoKey && (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={imgUrl(gallery.logoKey)!} alt="" className="h-6 w-auto object-contain" />
+          )}
+        </div>
+        <div className="flex items-center gap-5">
+          <button onClick={() => openLightbox(0, true)}
+            style={display}
+            className="text-white/45 hover:text-white text-[11px] tracking-[0.18em] uppercase transition-colors">
+            Slideshow
+          </button>
+          {starredIds.size > 0 && !submitted && (
+            <button onClick={submitSelection} disabled={submitting}
+              style={display}
+              className="text-[11px] tracking-[0.18em] uppercase border border-white/30 hover:border-white px-3 py-1.5 text-white/80 hover:text-white disabled:opacity-50 transition-all">
+              {submitting ? "Submitting…" : `Submit ${starredIds.size}`}
+            </button>
+          )}
+          {submitted && (
+            <span style={display} className="text-[11px] tracking-[0.12em] text-white/40 uppercase">
+              Submitted ✓
+            </span>
+          )}
         </div>
       </header>
 
       {/* Masonry grid */}
-      <div className="max-w-7xl mx-auto px-4 py-6">
+      <div className="ml-10 mr-10 pt-14">
         <div ref={gridRef} className="masonry-grid">
           {photos.map((photo, idx) => {
             const starred = starredIds.has(photo.id)
@@ -174,20 +181,18 @@ export function GalleryView({
               <div
                 key={photo.id}
                 data-delay={Math.min(idx * 50, 400)}
-                className={`photo-card group relative overflow-hidden rounded-md bg-muted cursor-pointer
-                  ${starred ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""}`}
+                className={`photo-card group relative cursor-pointer overflow-hidden
+                  ${starred ? "ring-2 ring-white ring-inset" : ""}`}
                 onClick={() => openLightbox(idx)}
-                onMouseMove={handleTilt}
-                onMouseLeave={resetTilt}
               >
                 {photo.thumbKey ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={imgUrl(photo.thumbKey)!} alt={photo.filename} loading="lazy"
-                    className="w-full h-auto block" />
+                    className="w-full h-auto block transition-transform duration-500 group-hover:scale-[1.04]" />
                 ) : (
-                  <div className="aspect-square" />
+                  <div className="aspect-square bg-neutral-900" />
                 )}
-                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-200" />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/15 transition-colors duration-300" />
                 <div className="absolute bottom-0 left-0 right-0 flex items-center justify-between
                   px-2 py-2 translate-y-1 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-200">
                   <button onClick={(e) => { e.stopPropagation(); toggleStar(photo.id) }}
@@ -195,7 +200,7 @@ export function GalleryView({
                     <Star className={`h-3.5 w-3.5 ${starred ? "fill-yellow-400 text-yellow-400" : "text-neutral-600"}`} />
                   </button>
                   {commentCount > 0 && (
-                    <Badge className="text-xs bg-white/90 text-neutral-700 shadow-sm">{commentCount}</Badge>
+                    <span className="text-[10px] bg-white text-black px-1.5 py-0.5 font-medium">{commentCount}</span>
                   )}
                 </div>
               </div>
@@ -208,8 +213,10 @@ export function GalleryView({
       {activePhoto && (
         <div className="fixed inset-0 bg-black z-20 flex flex-col lb-open">
           {/* Top bar */}
-          <div className="flex items-center justify-between px-4 py-3 text-white shrink-0">
-            <span className="text-sm opacity-60">{(activeIdx ?? 0) + 1} / {photos.length}</span>
+          <div className="flex items-center justify-between px-4 py-3 shrink-0">
+            <span style={display} className="text-white/40 text-[11px] tracking-[0.1em] uppercase">
+              {(activeIdx ?? 0) + 1} / {photos.length}
+            </span>
             <div className="flex items-center gap-2">
               <button onClick={() => setShowFilters(f => !f)}
                 className={`p-2 rounded-full transition-colors ${showFilters ? "bg-white/25" : "bg-white/10 hover:bg-white/20"}`}
@@ -290,10 +297,10 @@ export function GalleryView({
               </div>
               <div className="flex items-center gap-4">
                 {([
-                  { key: "brightness" as const, label: "Brightness", min: 0.5, max: 2,   step: 0.05, def: 1 },
-                  { key: "contrast"   as const, label: "Contrast",   min: 0.5, max: 2,   step: 0.05, def: 1 },
-                  { key: "saturation" as const, label: "Saturation", min: 0,   max: 2,   step: 0.05, def: 1 },
-                  { key: "sharpness"  as const, label: "Sharpness",  min: 0,   max: 1,   step: 0.05, def: 0 },
+                  { key: "brightness" as const, label: "Brightness", min: 0.5, max: 2,   step: 0.05 },
+                  { key: "contrast"   as const, label: "Contrast",   min: 0.5, max: 2,   step: 0.05 },
+                  { key: "saturation" as const, label: "Saturation", min: 0,   max: 2,   step: 0.05 },
+                  { key: "sharpness"  as const, label: "Sharpness",  min: 0,   max: 1,   step: 0.05 },
                 ]).map(({ key, label, min, max, step }) => (
                   <label key={key} className="flex-1 flex flex-col gap-1 min-w-0">
                     <span className="text-white/50 text-[10px] uppercase tracking-wide">{label}</span>
@@ -314,7 +321,7 @@ export function GalleryView({
             </div>
           )}
 
-          {/* SVG sharpen filter (hidden; referenced by CSS filter url(#lb-sharpen)) */}
+          {/* SVG sharpen filter */}
           {sharpness > 0 && (
             <svg style={{ position: "absolute", width: 0, height: 0, overflow: "hidden" }} aria-hidden>
               <defs>
@@ -341,18 +348,21 @@ export function GalleryView({
             </div>
             {!cropMode && (
               <>
+                {/* PREV / NEXT text navigation */}
                 <button onClick={() => { setIsSlideshow(false); goPrev() }}
                   disabled={(activeIdx ?? 0) === 0}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/25 disabled:opacity-20 transition-all hover:scale-110 z-10">
-                  <ChevronLeft className="h-5 w-5 text-white" />
+                  style={display}
+                  className="absolute left-8 bottom-8 text-white/50 hover:text-white disabled:opacity-20 text-[11px] tracking-[0.22em] uppercase font-semibold transition-colors z-10">
+                  Prev
                 </button>
                 <button onClick={() => { setIsSlideshow(false); goNext() }}
                   disabled={(activeIdx ?? 0) === photos.length - 1}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-2 rounded-full bg-white/10 hover:bg-white/25 disabled:opacity-20 transition-all hover:scale-110 z-10">
-                  <ChevronRight className="h-5 w-5 text-white" />
+                  style={display}
+                  className="absolute right-8 bottom-8 text-white/50 hover:text-white disabled:opacity-20 text-[11px] tracking-[0.22em] uppercase font-semibold transition-colors z-10">
+                  Next
                 </button>
                 {showTip && (
-                  <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-10 bg-neutral-900/95 border border-white/10 rounded-xl px-4 py-3 shadow-2xl w-72 animate-in slide-in-from-bottom-2 duration-300">
+                  <div className="absolute bottom-20 left-1/2 -translate-x-1/2 z-10 bg-neutral-900/95 border border-white/10 rounded-xl px-4 py-3 shadow-2xl w-72 animate-in slide-in-from-bottom-2 duration-300">
                     <div className="flex items-center justify-between mb-2.5">
                       <span className="text-white/50 text-[10px] uppercase tracking-widest font-semibold">Editing tools</span>
                       <button onClick={dismissTip} title="Got it" className="p-0.5 rounded hover:bg-white/10 transition-colors">

@@ -181,7 +181,7 @@
 /* Masonry columns layout */
 .masonry-grid {
   columns: 2;
-  column-gap: 8px;
+  column-gap: 2px;
 }
 @media (min-width: 640px) { .masonry-grid { columns: 3; } }
 @media (min-width: 1024px) { .masonry-grid { columns: 4; } }
@@ -189,5 +189,5 @@
 .masonry-grid .photo-card {
   break-inside: avoid;
   display: block;
-  margin-bottom: 8px;
+  margin-bottom: 2px;
 }
