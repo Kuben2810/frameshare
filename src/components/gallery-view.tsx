@@ -46,6 +46,10 @@ export function GalleryView({
   const [layout, setLayout] = useState<Layout>("masonry")
   const [entryAnim, setEntryAnim] = useState<EntryAnim>("fade-up")
   const gridRef = useRef<HTMLDivElement>(null)
+  const [prevPhoto, setPrevPhoto] = useState<Photo | null>(null)
+  const [prevDir, setPrevDir] = useState<"right" | "left">("right")
+  const prevIdxRef = useRef<number | null>(null)
+  const exitTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Restore persisted layout/animation prefs after mount
   useEffect(() => {
@@ -77,10 +81,25 @@ export function GalleryView({
     if (activeIdx === null) {
       setAdjustments({ brightness: 1, contrast: 1, saturation: 1, sharpness: 0 })
       setCropMode(false); setShowDownloadMenu(false); setShowTip(false)
+      setPrevPhoto(null)
+      prevIdxRef.current = null
     } else if (!localStorage.getItem("lb-tip-dismissed")) {
       setShowTip(true)
     }
   }, [activeIdx])
+
+  // Parallax slider — track outgoing photo on navigation
+  useEffect(() => {
+    if (activeIdx === null) return
+    const prevIdx = prevIdxRef.current
+    if (prevIdx !== null && prevIdx !== activeIdx) {
+      setPrevPhoto(photos[prevIdx])
+      setPrevDir(navDir)
+      if (exitTimerRef.current) clearTimeout(exitTimerRef.current)
+      exitTimerRef.current = setTimeout(() => setPrevPhoto(null), 460)
+    }
+    prevIdxRef.current = activeIdx
+  }, [activeIdx, navDir, photos])
 
   function dismissTip() {
     setShowTip(false)
@@ -465,7 +484,20 @@ export function GalleryView({
           )}
 
           {/* Image area */}
-          <div className="relative flex-1 min-h-0">
+          <div className="relative flex-1 min-h-0 overflow-hidden">
+            {/* Outgoing photo — exits at ~40% speed for parallax depth */}
+            {prevPhoto && (
+              <div key={`prev-${prevPhoto.id}`}
+                className={`absolute inset-0 pointer-events-none ${prevDir === "right" ? "lb-parallax-exit-left" : "lb-parallax-exit-right"}`}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={imgUrl(prevPhoto.displayKey ?? prevPhoto.originalKey)!}
+                  alt={prevPhoto.filename}
+                  className="absolute inset-0 w-full h-full object-contain"
+                />
+              </div>
+            )}
+            {/* Incoming photo */}
             <div key={`${activePhoto.id}-${navDir}`}
               className={`absolute inset-0 ${navDir === "right" ? "lb-slide-right" : "lb-slide-left"}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}

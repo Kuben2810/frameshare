@@ -177,6 +177,17 @@
 .lb-slide-right  { animation: slide-from-right 0.42s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .lb-slide-left   { animation: slide-from-left  0.42s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .lb-open         { animation: lightbox-open    0.22s cubic-bezier(0.25,0.46,0.45,0.94) both; }
+@keyframes parallax-exit-left {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(-48px); }
+}
+@keyframes parallax-exit-right {
+  from { opacity: 1; transform: translateX(0); }
+  to   { opacity: 0; transform: translateX(48px); }
+}
+/* Outgoing photo exits at ~40% the incoming distance — creates depth parallax */
+.lb-parallax-exit-left  { animation: parallax-exit-left  0.42s cubic-bezier(0.16, 1, 0.3, 1) both; }
+.lb-parallax-exit-right { animation: parallax-exit-right 0.42s cubic-bezier(0.16, 1, 0.3, 1) both; }
 .kb-even         { animation: kenburns     4.8s ease-out both; }
 .kb-odd          { animation: kenburns-alt 4.8s ease-out both; }
 .slideshow-bar   { transform-origin: left; animation: slideshow-bar 4s linear both; }
