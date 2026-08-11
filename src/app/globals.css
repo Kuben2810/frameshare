@@ -2,6 +2,276 @@
 @import "tw-animate-css";
 @import "shadcn/tailwind.css";
 
+/* ==========================================================================
+   ASHADE DESIGN SYSTEM — core tokens, scrollbar, cursor, sidebar, ribbon
+   ========================================================================== */
+
+:root {
+  --ashade-bg: #000000;
+  --ashade-surface: #17171B;
+  --ashade-border: #313133;
+  --ashade-border-light: rgba(255, 255, 255, 0.15);
+  --ashade-text-muted: #808080;
+  --ashade-text-sub: #5C5C60;
+  --ashade-text: #ffffff;
+  --ashade-transition-fast: 0.2s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ashade-transition-normal: 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --ashade-transition-slow: 0.7s cubic-bezier(0.19, 1, 0.22, 1);
+}
+
+/* Ambient Radial Spotlight Glow — only on gallery pages */
+.ashade-app::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(ellipse at left top, #28282E 0%, rgba(0, 0, 0, 0) 70%);
+  pointer-events: none;
+  z-index: 1;
+}
+
+/* Custom Scrollbar */
+.ashade-app ::-webkit-scrollbar { width: 5px; height: 5px; }
+.ashade-app ::-webkit-scrollbar-track { background: #08080a; }
+.ashade-app ::-webkit-scrollbar-thumb { background: #2b2b30; border-radius: 3px; }
+.ashade-app ::-webkit-scrollbar-thumb:hover { background: #4a4a50; }
+
+/* Hide native cursor inside gallery */
+.ashade-app { cursor: none !important; }
+.ashade-app * { cursor: none !important; }
+
+/* ---- CURSOR ---- */
+.ashade-cursor-wrap {
+  position: fixed; top: 0; left: 0;
+  width: 100vw; height: 100vh;
+  pointer-events: none; z-index: 9999;
+  opacity: 0; transition: opacity 0.3s ease;
+}
+.ashade-cursor-wrap.is-visible { opacity: 1; }
+.ashade-cursor-dot {
+  position: absolute; top: -3px; left: -3px;
+  width: 6px; height: 6px;
+  background: #fff; border-radius: 50%;
+  will-change: transform;
+}
+.ashade-cursor-ring {
+  position: absolute; top: -24px; left: -24px;
+  width: 48px; height: 48px;
+  display: flex; align-items: center; justify-content: center;
+  will-change: transform;
+  transition: width 0.3s ease, height 0.3s ease, top 0.3s ease, left 0.3s ease;
+}
+.ring-circle {
+  position: absolute; inset: 0;
+  border: 1px solid rgba(255,255,255,0.4); border-radius: 50%;
+  transition: border-color 0.2s, background 0.3s, transform 0.3s;
+}
+.state-link .ring-circle { border-color: rgba(255,255,255,0.8); transform: scale(1.2); }
+.state-zoom .ashade-cursor-ring, .state-close .ashade-cursor-ring { top: -35px; left: -35px; width: 70px; height: 70px; }
+.state-zoom .ring-circle, .state-close .ring-circle { background: rgba(23,23,27,0.85); border-color: #fff; }
+.cursor-label {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  color: #fff; z-index: 2; letter-spacing: 1px;
+}
+.cursor-arrows { display: flex; gap: 12px; z-index: 2; }
+
+/* ---- ASHADE HEADER ---- */
+.ashade-header {
+  position: fixed; top: 0; left: 0; width: 100%;
+  z-index: 900; transition: background 0.4s ease, padding 0.4s ease;
+  pointer-events: none;
+}
+.ashade-header * { pointer-events: auto; }
+.ashade-header-inner {
+  max-width: 1720px; margin: 0 auto;
+  padding: 32px 48px;
+  display: flex; align-items: center; justify-content: space-between;
+  transition: padding 0.4s ease;
+}
+.ashade-header.is-scrolled .ashade-header-inner {
+  padding: 16px 48px;
+  background: rgba(0,0,0,0.88);
+  backdrop-filter: blur(10px);
+}
+.ashade-logo { display: flex; flex-direction: column; line-height: 1; text-decoration: none; }
+.ashade-logo-text {
+  font-family: var(--font-oswald, 'Oswald', sans-serif);
+  font-size: 26px; font-weight: 700; letter-spacing: 3px; color: #fff;
+}
+.ashade-logo-tag {
+  font-size: 8px; font-weight: 700; letter-spacing: 4px;
+  color: var(--ashade-text-sub); margin-top: 3px; text-transform: uppercase;
+}
+.ashade-nav ul.main-menu {
+  display: flex; align-items: center; list-style: none;
+  gap: 28px; margin: 0; padding: 0;
+}
+.ashade-nav ul.main-menu > li > a, .ashade-nav ul.main-menu > li > button.nav-link {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1.5px; color: rgba(255,255,255,0.5);
+  padding: 8px 0; background: none; border: none;
+  position: relative; transition: color 0.3s;
+}
+.ashade-nav ul.main-menu > li > a:hover, .ashade-nav ul.main-menu > li > button.nav-link:hover,
+.ashade-nav ul.main-menu > li.is-active > a, .ashade-nav ul.main-menu > li.is-active > button.nav-link { color: #fff; }
+
+/* Header icon buttons */
+.ashade-icon-btn {
+  background: none; border: none; padding: 6px;
+  color: rgba(255,255,255,0.5); display: flex; align-items: center;
+  transition: color 0.3s; height: auto; line-height: normal;
+}
+.ashade-icon-btn:hover { color: #fff; background: transparent; border-color: transparent; }
+
+/* Hamburger */
+.ashade-hamburger {
+  background: none; border: none; padding: 8px;
+  display: flex; flex-direction: column; gap: 5px;
+  height: auto; width: auto;
+}
+.ashade-hamburger .bar {
+  display: block; width: 22px; height: 2px; background: #fff;
+  transition: transform 0.3s, width 0.3s;
+}
+.ashade-hamburger:hover .bar:nth-child(2) { width: 14px; }
+
+/* ---- SIDEBAR DRAWER ---- */
+.ashade-aside-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.85); backdrop-filter: blur(5px);
+  z-index: 950; opacity: 0; visibility: hidden;
+  transition: opacity 0.4s ease, visibility 0.4s;
+}
+.ashade-aside-overlay.is-visible { opacity: 1; visibility: visible; }
+
+.ashade-aside {
+  position: fixed; top: 0; right: 0;
+  width: 400px; max-width: 90vw; height: 100vh;
+  background: var(--ashade-surface); border-left: 1px solid var(--ashade-border);
+  z-index: 990; transform: translateX(100%);
+  transition: transform 0.5s cubic-bezier(0.77, 0, 0.175, 1);
+  display: flex; flex-direction: column;
+}
+.ashade-aside.is-open { transform: translateX(0); }
+
+.ashade-aside-close {
+  position: absolute; top: 32px; right: 32px;
+  background: none; border: none; color: var(--ashade-text-muted);
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1px; height: auto; padding: 0; transition: color 0.3s;
+}
+.ashade-aside-close:hover { color: #fff; }
+
+.ashade-aside-inner { padding: 100px 36px 36px; overflow-y: auto; height: 100%; }
+.ashade-aside-logo { height: 32px; width: auto; object-fit: contain; margin-bottom: 16px; }
+
+.ashade-widget { margin-bottom: 40px; padding-bottom: 30px; border-bottom: 1px solid rgba(255,255,255,0.08); }
+.ashade-widget:last-child { border-bottom: none; }
+.ashade-widget h5 { font-family: var(--font-oswald, 'Oswald', sans-serif); font-size: 18px; margin-bottom: 14px; color: #fff; }
+.ashade-widget h5 span { display: block; font-size: 9px; letter-spacing: 3px; color: var(--ashade-text-sub); margin-bottom: 2px; font-family: inherit; }
+.ashade-widget-title { font-family: var(--font-oswald, 'Oswald', sans-serif); }
+.ashade-widget--about__content { font-size: 13px; line-height: 1.75; color: var(--ashade-text-muted); }
+
+.ashade-contact-details__list { list-style: none; margin-top: 12px; margin-bottom: 20px; }
+.ashade-contact-details__list li {
+  display: flex; align-items: center; gap: 10px;
+  margin-bottom: 12px; font-size: 13px; color: var(--ashade-text-muted);
+}
+.ashade-contact-details__list .icon { color: var(--ashade-text-sub); flex-shrink: 0; }
+.info-icon-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--ashade-text-sub); flex-shrink: 0; }
+
+.ashade-submit-btn {
+  display: block; width: 100%; height: 46px; line-height: 42px;
+  border: 2px solid rgba(255,255,255,0.3); background: transparent;
+  color: #fff; font-size: 12px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 1px; text-align: center;
+  transition: border-color 0.2s, background 0.2s;
+  margin-top: 16px;
+}
+.ashade-submit-btn:hover { border-color: #fff; background: rgba(255,255,255,0.06); }
+.ashade-submit-btn:disabled { opacity: 0.5; }
+
+.ashade-socials { display: flex; gap: 10px; margin-top: 4px; }
+.social-link {
+  width: 34px; height: 34px; border: 1px solid var(--ashade-border);
+  border-radius: 50%; display: flex; align-items: center; justify-content: center;
+  color: var(--ashade-text-muted); transition: border-color 0.3s, color 0.3s;
+}
+.social-link:hover { border-color: #fff; color: #fff; }
+
+/* ---- RIBBON LAYOUT ---- */
+.ribbon-layout-outer { position: relative; width: 100%; padding-bottom: 24px; user-select: none; }
+.ribbon-viewport {
+  width: 100%; height: 440px; overflow: hidden; position: relative; cursor: grab;
+}
+.ribbon-viewport.is-dragging { cursor: grabbing; }
+.ribbon-track {
+  display: flex; gap: 2px; height: 100%; will-change: transform;
+}
+.ribbon-item {
+  position: relative; height: 100%; flex-shrink: 0; overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.04);
+  transition: border-color var(--ashade-transition-fast);
+}
+.ribbon-item.aspect-landscape { width: 600px; }
+.ribbon-item.aspect-portrait  { width: 310px; }
+.ribbon-item:hover { border-color: rgba(255,255,255,0.18); }
+.ribbon-item-inner { position: relative; width: 100%; height: 100%; }
+.ribbon-item-overlay {
+  position: absolute; inset: 0;
+  background: linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.08) 55%, transparent 100%);
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 24px; opacity: 0; transition: opacity var(--ashade-transition-normal);
+  z-index: 2; pointer-events: none;
+}
+.ribbon-item:hover .ribbon-item-overlay { opacity: 1; }
+.ribbon-item-category {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 2px; color: var(--ashade-text-sub); margin-bottom: 4px;
+}
+.ribbon-item-title { font-family: var(--font-oswald, 'Oswald', sans-serif); font-size: 18px; color: #fff; letter-spacing: 0.05em; }
+
+.ribbon-progress-wrap { margin-top: 16px; }
+.ribbon-progress-track {
+  width: 100%; height: 2px; background: rgba(255,255,255,0.12); position: relative;
+  cursor: pointer; border-radius: 1px;
+}
+.ribbon-progress-fill { height: 100%; background: #fff; border-radius: 1px; transition: width 0.06s linear; }
+.ribbon-progress-handle {
+  position: absolute; top: 50%; width: 12px; height: 12px; background: #fff;
+  border-radius: 50%; transform: translate(-50%, -50%); transition: left 0.06s linear;
+  box-shadow: 0 0 8px rgba(255,255,255,0.5);
+}
+.ribbon-drag-hint {
+  text-align: center; font-size: 10px; text-transform: uppercase;
+  letter-spacing: 1.5px; color: var(--ashade-text-sub); margin-top: 10px;
+}
+
+/* ---- LIGHTBOX SPRING PHYSICS SLIDES ---- */
+.lb-curtain-slide {
+  position: absolute; inset: 0; overflow: hidden;
+  will-change: transform;
+}
+.lb-curtain-img {
+  position: absolute; inset: 0; width: 100%; height: 100%;
+  object-fit: contain; will-change: transform;
+}
+
+/* ---- SLIDE COUNTER ---- */
+.lb-bottom-bar {
+  position: absolute; bottom: 0; left: 0; right: 0;
+  padding: 16px 40px; display: flex; align-items: center; gap: 24px;
+  z-index: 20; pointer-events: none;
+}
+.lb-slide-counter {
+  font-family: var(--font-oswald, 'Oswald', sans-serif);
+  font-size: 22px; font-weight: 700; color: #fff;
+  display: flex; align-items: center; gap: 6px;
+}
+.lb-slide-counter .sep, .lb-slide-counter .tot { color: var(--ashade-text-sub); font-size: 15px; }
+.lb-progress-track { flex: 1; height: 2px; background: rgba(255,255,255,0.15); overflow: hidden; }
+.lb-progress-fill { height: 100%; background: #fff; transition: width 0.25s ease-out; }
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
