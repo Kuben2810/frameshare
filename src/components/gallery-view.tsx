@@ -16,7 +16,7 @@ type Gallery = InferSelectModel<typeof galleries>
 type Photo = InferSelectModel<typeof photos>
 type Star = InferSelectModel<typeof stars>
 type Comment = InferSelectModel<typeof comments>
-type Layout = "masonry" | "grid" | "rows" | "brick" | "ribbon"
+type Layout = "masonry" | "ribbon"
 type EntryAnim = "fade-up" | "fade" | "scale"
 
 function imgUrl(key: string | null | undefined) {
@@ -304,14 +304,7 @@ export function GalleryView({
     setComparePos(Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100)))
   }
 
-  // ── Brick row groupings ────────────────────────────────────────────────────
-  const brickRows: Array<Array<{ photo: Photo; idx: number }>> = []
-  let bi = 0, useTwo = true
-  while (bi < photos.length) {
-    const count = useTwo ? 2 : 3
-    brickRows.push(photos.slice(bi, bi + count).map((p, j) => ({ photo: p, idx: bi + j })))
-    bi += count; useTwo = !useTwo
-  }
+
 
   function formatBytes(bytes: number) {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(0)} KB`
@@ -406,10 +399,10 @@ export function GalleryView({
             <nav className="ashade-nav">
               <ul className="main-menu">
                 {/* Layout pickers */}
-                {(["masonry", "grid", "rows", "brick", "ribbon"] as const).map((l) => (
+                {(["masonry", "ribbon"] as const).map((l) => (
                   <li key={l} className={layout === l ? "is-active" : ""}>
                     <button className="nav-link" style={display} onClick={() => changeLayout(l)} data-cursor="link">
-                      {l === "masonry" ? "Mason" : l === "grid" ? "Grid" : l === "rows" ? "Rows" : l === "brick" ? "Brick" : "Ribbon"}
+                      {l === "masonry" ? "Mason" : "Ribbon"}
                     </button>
                   </li>
                 ))}
@@ -491,62 +484,7 @@ export function GalleryView({
             </div>
           )}
 
-          {/* ── GRID ── */}
-          {layout === "grid" && (
-            <div ref={gridRef} className="grid-layout px-2" data-anim={entryAnim}>
-              {photos.map((photo, idx) => {
-                const starred = starredIds.has(photo.id)
-                return (
-                  <div key={photo.id} data-delay={Math.min(idx * 50, 400)}
-                    className={`photo-card group relative cursor-pointer overflow-hidden ${starred ? "ring-2 ring-white ring-inset" : ""}`}
-                    onClick={() => openLightbox(idx)} data-cursor="zoom">
-                    {cardInner(photo, true)}
-                  </div>
-                )
-              })}
-            </div>
-          )}
 
-          {/* ── ROWS ── */}
-          {layout === "rows" && (
-            <div ref={gridRef} className="rows-layout px-2" data-anim={entryAnim}>
-              {photos.map((photo, idx) => {
-                const starred = starredIds.has(photo.id)
-                const ar = (photo.width && photo.height) ? photo.width / photo.height : 1.5
-                return (
-                  <div key={photo.id} style={{ flex: `${ar} 1 0%` }}>
-                    <div data-delay={Math.min(idx * 50, 400)}
-                      className={`photo-card group relative cursor-pointer overflow-hidden h-full ${starred ? "ring-2 ring-white ring-inset" : ""}`}
-                      onClick={() => openLightbox(idx)} data-cursor="zoom">
-                      {cardInner(photo, true)}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {/* ── BRICK ── */}
-          {layout === "brick" && (
-            <div ref={gridRef} className="brick-layout px-2" data-anim={entryAnim}>
-              {brickRows.map((row, ri) => (
-                <div key={ri} className="brick-row">
-                  {row.map(({ photo, idx }) => {
-                    const starred = starredIds.has(photo.id)
-                    return (
-                      <div key={photo.id} style={{ flex: "1 1 0%" }}>
-                        <div data-delay={Math.min(idx * 50, 400)}
-                          className={`photo-card group relative cursor-pointer overflow-hidden h-full ${starred ? "ring-2 ring-white ring-inset" : ""}`}
-                          onClick={() => openLightbox(idx)} data-cursor="zoom">
-                          {cardInner(photo, true)}
-                        </div>
-                      </div>
-                    )
-                  })}
-                </div>
-              ))}
-            </div>
-          )}
 
           {/* ── RIBBON ── */}
           {layout === "ribbon" && (

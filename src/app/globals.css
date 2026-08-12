@@ -476,38 +476,7 @@
   margin-bottom: 2px;
 }
 
-/* Grid layout — uniform cropped cells */
-.grid-layout {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 2px;
-}
-@media (min-width: 640px)  { .grid-layout { grid-template-columns: repeat(3, 1fr); } }
-@media (min-width: 1024px) { .grid-layout { grid-template-columns: repeat(4, 1fr); } }
-.grid-layout .photo-card { aspect-ratio: 4 / 3; }
 
-/* Rows layout — justified film strip */
-.rows-layout {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px;
-}
-.rows-layout > * {
-  height: 260px;
-  min-width: 80px;
-}
-
-/* Brick layout — alternating 2-col and 3-col rows */
-.brick-layout {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-.brick-row {
-  display: flex;
-  gap: 2px;
-  height: 280px;
-}
 
 /* ---- LIGHTBOX BEFORE / AFTER COMPARE ---- */
 .lb-compare-stage {
@@ -590,9 +559,7 @@
    Shows faces/top first, creates visible depth parallax. No transform conflict.
    Progressive enhancement: ignored in Safari/older browsers. */
 @supports (animation-timeline: view()) {
-  .grid-layout .photo-card img,
-  .rows-layout .photo-card img,
-  .brick-layout .photo-card img {
+  .masonry-grid .photo-card img {
     animation: gallery-parallax linear both;
     animation-timeline: view();
     animation-range: entry 0% exit 100%;
