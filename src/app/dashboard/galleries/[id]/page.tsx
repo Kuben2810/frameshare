@@ -1,8 +1,9 @@
 import { auth } from "@/auth"
 import { db } from "@/db"
-import { galleries, photos, selections } from "@/db/schema"
+import { photos, selections } from "@/db/schema"
 import { eq, and, asc } from "drizzle-orm"
-import { notFound, redirect } from "next/navigation"
+import { redirect } from "next/navigation"
+import { requireGalleryOwned } from "@/lib/db-guards"
 import Link from "next/link"
 import { ArrowLeft, ExternalLink } from "lucide-react"
 import { CopyButton } from "@/components/copy-button"
@@ -10,17 +11,14 @@ import { buttonVariants } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 import { GalleryEditor } from "@/components/gallery-editor"
-import { cn } from "@/lib/utils"
+import { cn, getBaseUrl } from "@/lib/utils"
 
 export default async function GalleryPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await auth()
   if (!session?.user?.id) redirect("/login")
 
-  const gallery = await db.query.galleries.findFirst({
-    where: and(eq(galleries.id, id), eq(galleries.userId, session.user.id)),
-  })
-  if (!gallery) notFound()
+  const gallery = await requireGalleryOwned(id, session.user.id)
 
   const galleryPhotos = await db.query.photos.findMany({
     where: and(eq(photos.galleryId, id), eq(photos.status, "ready")),
@@ -34,7 +32,7 @@ export default async function GalleryPage({ params }: { params: Promise<{ id: st
     with: { selectionPhotos: true },
   })
 
-  const shareUrl = `${process.env.AUTH_URL ?? "http://localhost:3000"}/g/${gallery.slug}`
+  const shareUrl = `${getBaseUrl()}/g/${gallery.slug}`
 
   return (
     <div className="space-y-6">

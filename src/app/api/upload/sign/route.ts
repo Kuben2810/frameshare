@@ -5,8 +5,9 @@ import { eq, and } from "drizzle-orm"
 import { PutObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { s3, BUCKET } from "@/lib/s3"
-import { sql } from "drizzle-orm"
 import { validatePhoto } from "@/lib/photo-constraints"
+import { s3Keys } from "@/lib/s3-keys"
+import { adjustStorageQuota } from "@/lib/db-guards"
 
 const STORAGE_LIMIT = Number(process.env.STORAGE_LIMIT_BYTES ?? 10_737_418_240)
 
@@ -34,13 +35,11 @@ export async function POST(req: Request) {
 
   const photoId = crypto.randomUUID()
   const ext = filename.split(".").pop()?.toLowerCase() ?? "jpg"
-  const originalKey = `photos/${photoId}/original.${ext}`
+  const originalKey = s3Keys(photoId).original(ext)
 
   // Reserve quota and insert pending photo atomically
   await db.transaction(async (tx) => {
-    await tx.execute(
-      sql`UPDATE users SET storage_used_bytes = storage_used_bytes + ${fileSize} WHERE id = ${session.user!.id}`
-    )
+    await adjustStorageQuota(session.user!.id!, fileSize, tx)
     await tx.insert(photos).values({
       id: photoId,
       galleryId,

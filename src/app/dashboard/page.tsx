@@ -1,7 +1,7 @@
 import { auth } from "@/auth"
 import { db } from "@/db"
 import { galleries, photos } from "@/db/schema"
-import { eq, and, asc } from "drizzle-orm"
+import { eq, asc } from "drizzle-orm"
 import Link from "next/link"
 import { buttonVariants } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -14,24 +14,15 @@ export default async function DashboardPage() {
   const userGalleries = await db.query.galleries.findMany({
     where: eq(galleries.userId, session!.user!.id!),
     orderBy: (g, { desc }) => [desc(g.createdAt)],
+    with: {
+      photos: {
+        where: eq(photos.status, "ready"),
+        orderBy: [asc(photos.sortOrder), asc(photos.createdAt)],
+        columns: { thumbKey: true },
+        limit: 1,
+      },
+    },
   })
-
-  // Fetch cover photo for each gallery in parallel
-  const coverMap: Record<string, string | null> = {}
-  if (userGalleries.length > 0) {
-    const covers = await Promise.all(
-      userGalleries.map((g) =>
-        db.query.photos.findFirst({
-          where: and(eq(photos.galleryId, g.id), eq(photos.status, "ready")),
-          orderBy: [asc(photos.sortOrder), asc(photos.createdAt)],
-          columns: { thumbKey: true },
-        })
-      )
-    )
-    userGalleries.forEach((g, i) => {
-      coverMap[g.id] = covers[i]?.thumbKey ?? null
-    })
-  }
 
   return (
     <div className="space-y-8">
@@ -54,7 +45,7 @@ export default async function DashboardPage() {
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {userGalleries.map((g) => {
-            const thumbKey = coverMap[g.id]
+            const thumbKey = g.photos[0]?.thumbKey ?? null
             return (
               <Link key={g.id} href={`/dashboard/galleries/${g.id}`} className="group block">
                 <div className="overflow-hidden rounded-lg bg-card ring-1 ring-border transition-all duration-200 group-hover:ring-primary/25 group-hover:shadow-lg">
@@ -63,7 +54,7 @@ export default async function DashboardPage() {
                     {thumbKey ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
-                        src={`/api/s3/${encodeURIComponent(thumbKey)}`}
+                        src={`/api/s3/${thumbKey}`}
                         alt=""
                         className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
                       />

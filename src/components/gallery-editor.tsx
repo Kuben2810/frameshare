@@ -119,7 +119,7 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
               {photo.thumbKey && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={`/api/s3/${encodeURIComponent(photo.thumbKey)}`}
+                  src={`/api/s3/${photo.thumbKey}`}
                   alt={photo.filename}
                   className="absolute inset-0 w-full h-full object-cover"
                 />
