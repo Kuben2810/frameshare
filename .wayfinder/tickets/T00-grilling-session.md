@@ -11,7 +11,7 @@ What is Frameshare — its MVP scope, target users, hosting model, tech stack, a
 
 All product decisions resolved in grilling session. Summary:
 
-**Identity:** Frameshare — free, open-source picdrop alternative. OSS repo + free hosted tier (Plausible/Umami model).
+**Identity:** Frameshare — free, open-source photo proofing platform. OSS repo + free hosted tier (Plausible/Umami model).
 
 **MVP features:** Gallery creation + shareable link (no client login) · Client photo starring + optional "Submit selection" → email notification · Per-photo comments (photographer-visible only) · Three-way download control: none / low-res (corner watermark, photographer name) / full-res · Branded presentation mode: grid + slideshow toggle, per-account logo + accent color (overridable per-gallery).
 
