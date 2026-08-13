@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "clean": "node -e \"fs.rmSync('.next', { recursive: true, force: true })\"",
     "lint": "eslint"
   },
   "dependencies": {
