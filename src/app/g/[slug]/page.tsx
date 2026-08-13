@@ -2,36 +2,45 @@ import { db } from "@/db"
 import { galleries, photos, stars, comments } from "@/db/schema"
 import { eq, and, asc, inArray } from "drizzle-orm"
 import { notFound } from "next/navigation"
+import { cookies } from "next/headers"
+import { auth } from "@/auth"
 import { GalleryView } from "@/components/gallery-view"
+import { PasswordGate } from "@/components/password-gate"
 
 export default async function GallerySharePage({
   params,
-  searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ pw?: string }>
 }) {
   const { slug } = await params
-  const { pw } = await searchParams
 
   const gallery = await db.query.galleries.findFirst({ where: eq(galleries.slug, slug) })
   if (!gallery) notFound()
 
+  const session = await auth()
+  const isOwner = !!(session?.user?.id && session.user.id === gallery.userId)
+
   // Check expiry
   if (gallery.expiresAt && new Date(gallery.expiresAt) < new Date()) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">This gallery has expired.</p>
-      </div>
-    )
+    if (!isOwner) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-black text-white px-4">
+          <div className="text-center space-y-2">
+            <h1 className="text-xl font-semibold">Gallery Expired</h1>
+            <p className="text-sm text-neutral-400">This gallery is no longer available.</p>
+          </div>
+        </div>
+      )
+    }
   }
 
   // Check password
   if (gallery.passwordHash) {
-    const bcrypt = await import("bcryptjs")
-    const valid = pw && await bcrypt.compare(pw, gallery.passwordHash)
-    if (!valid) {
-      return <PasswordGate slug={slug} />
+    const cookieStore = await cookies()
+    const isUnlocked = cookieStore.get(`gallery_unlocked_${gallery.id}`)?.value === "1"
+
+    if (!isOwner && !isUnlocked) {
+      return <PasswordGate galleryId={gallery.id} galleryName={gallery.name} />
     }
   }
 
@@ -58,36 +67,5 @@ export default async function GallerySharePage({
       initialStars={galleryStars}
       initialComments={allComments}
     />
-  )
-}
-
-function PasswordGate({ slug }: { slug: string }) {
-  return (
-    <div className="min-h-screen flex items-center justify-center bg-neutral-50 px-4">
-      <div className="w-full max-w-sm space-y-4">
-        <h1 className="text-xl font-semibold text-center">This gallery is password protected</h1>
-        <form className="space-y-3">
-          <input type="hidden" name="_slug" value={slug} />
-          <input
-            name="pw"
-            type="password"
-            placeholder="Enter password"
-            className="w-full border rounded-md px-3 py-2 text-sm"
-            autoFocus
-          />
-          <button
-            type="submit"
-            formAction={async (fd: FormData) => {
-              "use server"
-              const { redirect } = await import("next/navigation")
-              redirect(`/g/${fd.get("_slug")}?pw=${fd.get("pw")}`)
-            }}
-            className="w-full bg-black text-white rounded-md px-3 py-2 text-sm font-medium hover:bg-neutral-800"
-          >
-            View gallery
-          </button>
-        </form>
-      </div>
-    </div>
   )
 }
