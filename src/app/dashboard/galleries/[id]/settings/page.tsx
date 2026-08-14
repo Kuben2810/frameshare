@@ -4,12 +4,10 @@ import { galleries } from "@/db/schema"
 import { eq, and } from "drizzle-orm"
 import { notFound, redirect } from "next/navigation"
 import { updateGallery, deleteGallery } from "@/app/actions/galleries"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { ArrowLeft } from "lucide-react"
+import { ArrowLeft, Trash2, SlidersHorizontal, Lock, Calendar, Download } from "lucide-react"
 import Link from "next/link"
+import { buttonVariants } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
 
 export default async function GallerySettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -29,62 +27,111 @@ export default async function GallerySettingsPage({ params }: { params: Promise<
     : ""
 
   return (
-    <div className="max-w-lg space-y-6">
-      <Link href={`/dashboard/galleries/${id}`} className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground">
-        <ArrowLeft className="h-3.5 w-3.5" /> Back to gallery
+    <div className="max-w-2xl space-y-6 pb-16">
+      <Link
+        href={`/dashboard/galleries/${id}`}
+        className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors group"
+      >
+        <ArrowLeft className="h-3.5 w-3.5 group-hover:-translate-x-0.5 transition-transform" />
+        <span>Back to Collection</span>
       </Link>
 
-      <h1 className="text-2xl font-semibold">Gallery settings</h1>
+      <div className="space-y-1">
+        <span className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary">
+          Settings
+        </span>
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-wide text-foreground font-oswald uppercase">
+          {gallery.name} Settings
+        </h1>
+      </div>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Details</CardTitle></CardHeader>
-        <CardContent>
-          <form action={updateAction} className="space-y-4">
-            <div className="space-y-1">
-              <Label htmlFor="name">Gallery name</Label>
-              <Input id="name" name="name" defaultValue={gallery.name} required />
-            </div>
+      <div className="rounded-2xl bg-card border border-border/80 p-6 shadow-xs space-y-5">
+        <h3 className="text-base font-bold text-foreground font-oswald uppercase tracking-wide">General Configuration</h3>
+        <form action={updateAction} className="space-y-5">
+          <div className="space-y-1.5">
+            <label htmlFor="name" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Collection Name
+            </label>
+            <input
+              id="name"
+              name="name"
+              defaultValue={gallery.name}
+              required
+              className="w-full px-4 py-2.5 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 font-medium"
+            />
+          </div>
 
-            <div className="space-y-1">
-              <Label htmlFor="downloadMode">Client downloads</Label>
-              <select
-                id="downloadMode"
-                name="downloadMode"
-                defaultValue={gallery.downloadMode}
-                className="w-full border rounded-md px-3 py-2 text-sm bg-background"
-              >
-                <option value="none">No downloads</option>
-                <option value="lowres">Low-res with watermark</option>
-                <option value="full">Full resolution</option>
-              </select>
-            </div>
+          <div className="space-y-1.5">
+            <label htmlFor="downloadMode" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Client Download Policy
+            </label>
+            <select
+              id="downloadMode"
+              name="downloadMode"
+              defaultValue={gallery.downloadMode}
+              className="w-full px-4 py-2.5 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 font-medium"
+            >
+              <option value="none">No downloads (Proofing only)</option>
+              <option value="lowres">Low-res with watermark</option>
+              <option value="full">Full resolution files</option>
+            </select>
+          </div>
 
-            <div className="space-y-1">
-              <Label htmlFor="password">Password</Label>
-              <Input id="password" name="password" type="text" placeholder="Leave blank to keep current, clear to remove" />
-            </div>
+          <div className="space-y-1.5">
+            <label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Passcode Protection
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="text"
+              placeholder={gallery.passwordHash ? "Password set (enter new password to change, empty to clear)" : "Leave blank for public access"}
+              className="w-full px-4 py-2.5 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 font-mono"
+            />
+          </div>
 
-            <div className="space-y-1">
-              <Label htmlFor="expiresAt">Link expires</Label>
-              <Input id="expiresAt" name="expiresAt" type="date" defaultValue={expiresAtValue} />
-            </div>
+          <div className="space-y-1.5">
+            <label htmlFor="expiresAt" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Link Expiration Date
+            </label>
+            <input
+              id="expiresAt"
+              name="expiresAt"
+              type="date"
+              defaultValue={expiresAtValue}
+              className="w-full px-4 py-2.5 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+            />
+          </div>
 
-            <Button type="submit">Save changes</Button>
-          </form>
-        </CardContent>
-      </Card>
+          <div className="pt-2">
+            <button
+              type="submit"
+              className={cn(buttonVariants({ size: "default" }), "rounded-xl font-medium shadow-xs")}
+            >
+              Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
 
-      <Card className="border-destructive/40">
-        <CardHeader><CardTitle className="text-base text-destructive">Danger zone</CardTitle></CardHeader>
-        <CardContent>
-          <form action={deleteAction}>
-            <p className="text-sm text-muted-foreground mb-3">
-              Permanently delete this gallery and all its photos. This cannot be undone.
-            </p>
-            <Button type="submit" variant="destructive">Delete gallery</Button>
-          </form>
-        </CardContent>
-      </Card>
+      {/* Danger Zone */}
+      <div className="rounded-2xl border border-destructive/30 bg-destructive/5 p-6 space-y-3">
+        <h4 className="text-sm font-bold text-destructive flex items-center gap-1.5">
+          <Trash2 className="h-4 w-4" /> Danger Zone
+        </h4>
+        <p className="text-xs text-muted-foreground">
+          Permanently delete this collection and all its uploaded photos. This action cannot be reversed.
+        </p>
+        <form action={deleteAction}>
+          <button
+            type="submit"
+            className={cn(buttonVariants({ variant: "destructive", size: "sm" }), "rounded-xl mt-2")}
+          >
+            Delete Collection
+          </button>
+        </form>
+      </div>
     </div>
   )
 }
+

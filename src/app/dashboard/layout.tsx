@@ -1,15 +1,17 @@
-import { auth } from "@/auth"
+import { auth, signOut } from "@/auth"
 import { redirect } from "next/navigation"
 import Link from "next/link"
-import { signOut } from "@/auth"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { Images, Settings, LogOut, ExternalLink, Sparkles } from "lucide-react"
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
@@ -20,32 +22,87 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .map((n) => n[0])
     .join("")
     .toUpperCase()
-    .slice(0, 2) ?? "?"
+    .slice(0, 2) ?? "FS"
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="bg-card border-b border-border sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
-          <Link href="/dashboard" className="text-xl font-semibold tracking-tight text-foreground">
-            Frameshare
-          </Link>
-          <div className="flex items-center gap-1">
+    <div className="min-h-screen bg-background flex flex-col selection:bg-primary/20">
+      {/* ── Studio Navigation Header ── */}
+      <header className="sticky top-0 z-40 w-full border-b border-border/70 bg-card/80 backdrop-blur-md transition-colors">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
+          {/* Brand Logo & Studio Nav */}
+          <div className="flex items-center gap-6 md:gap-8">
+            <Link href="/dashboard" className="flex items-center gap-2.5 group">
+              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground shadow-xs group-hover:scale-105 transition-transform">
+                <Images className="h-4 w-4" />
+              </div>
+              <div className="flex flex-col">
+                <span className="font-bold tracking-[0.12em] text-sm uppercase text-foreground leading-none" style={{ fontFamily: "var(--font-oswald, sans-serif)" }}>
+                  Frameshare
+                </span>
+                <span className="text-[9px] font-semibold tracking-[0.2em] text-muted-foreground uppercase mt-0.5">
+                  Studio
+                </span>
+              </div>
+            </Link>
+
+            <nav className="hidden sm:flex items-center gap-1">
+              <Link
+                href="/dashboard"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide text-foreground bg-muted/60 hover:bg-muted transition-colors flex items-center gap-1.5"
+              >
+                <Images className="h-3.5 w-3.5" />
+                Collections
+              </Link>
+              <Link
+                href="/dashboard/settings"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium tracking-wide text-muted-foreground hover:text-foreground hover:bg-muted/40 transition-colors flex items-center gap-1.5"
+              >
+                <Settings className="h-3.5 w-3.5" />
+                Settings
+              </Link>
+            </nav>
+          </div>
+
+          {/* Right Action Cluster */}
+          <div className="flex items-center gap-2">
             <ThemeToggle />
+
             <DropdownMenu>
-              <DropdownMenuTrigger className="rounded-full outline-none ml-1">
-                <Avatar className="h-8 w-8 cursor-pointer">
-                  <AvatarFallback className="text-xs bg-primary text-primary-foreground font-medium">
+              <DropdownMenuTrigger className="rounded-full outline-none focus:ring-2 focus:ring-primary/40 transition-all ml-1">
+                <Avatar className="h-8 w-8 cursor-pointer ring-1 ring-border/80 hover:ring-primary/50 transition-all">
+                  {session.user.image && <AvatarImage src={session.user.image} alt={session.user.name ?? ""} />}
+                  <AvatarFallback className="text-xs bg-primary text-primary-foreground font-semibold">
                     {initials}
                   </AvatarFallback>
                 </Avatar>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-40">
-                <DropdownMenuItem>
-                  <Link href="/dashboard/settings" className="w-full">Settings</Link>
+              <DropdownMenuContent align="end" className="w-56 p-1.5 rounded-xl shadow-xl border-border/80">
+                <DropdownMenuLabel className="font-normal px-2 py-1.5">
+                  <div className="flex flex-col space-y-0.5">
+                    <p className="text-sm font-semibold text-foreground truncate">{session.user.name}</p>
+                    <p className="text-xs text-muted-foreground truncate">{session.user.email}</p>
+                  </div>
+                </DropdownMenuLabel>
+                <DropdownMenuSeparator className="my-1 bg-border/60" />
+                <DropdownMenuItem className="rounded-lg cursor-pointer">
+                  <Link href="/dashboard" className="flex items-center gap-2 w-full">
+                    <Images className="h-4 w-4 text-muted-foreground" />
+                    <span>Collections</span>
+                  </Link>
                 </DropdownMenuItem>
-                <DropdownMenuItem className="text-destructive focus:text-destructive cursor-pointer">
+                <DropdownMenuItem className="rounded-lg cursor-pointer">
+                  <Link href="/dashboard/settings" className="flex items-center gap-2 w-full">
+                    <Settings className="h-4 w-4 text-muted-foreground" />
+                    <span>Studio Settings</span>
+                  </Link>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator className="my-1 bg-border/60" />
+                <DropdownMenuItem className="text-destructive focus:text-destructive cursor-pointer rounded-lg">
                   <form action={async () => { "use server"; await signOut({ redirectTo: "/login" }) }} className="w-full">
-                    <button type="submit" className="w-full text-left">Sign out</button>
+                    <button type="submit" className="w-full text-left flex items-center gap-2">
+                      <LogOut className="h-4 w-4" />
+                      <span>Sign out</span>
+                    </button>
                   </form>
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -53,7 +110,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </div>
         </div>
       </header>
-      <main className="max-w-6xl mx-auto px-4 py-8">{children}</main>
+
+      {/* ── Main Content Area ── */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
+        {children}
+      </main>
     </div>
   )
 }
+

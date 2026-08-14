@@ -19,14 +19,14 @@ function randomSlug() {
 export async function createGallery(formData: FormData) {
   const userId = await requireAuth()
 
-  const name = (formData.get("name") as string).trim()
+  const name = (formData.get("name") as string)?.trim()
   if (!name) return { error: "Name required" }
 
   const rawPassword = formData.get("password") as string | null
-  const passwordHash = rawPassword ? await bcrypt.hash(rawPassword, 10) : null
+  const passwordHash = rawPassword && rawPassword.trim() !== "" ? await bcrypt.hash(rawPassword.trim(), 10) : null
 
   const expiresAtRaw = formData.get("expiresAt") as string | null
-  const expiresAt = expiresAtRaw ? new Date(expiresAtRaw) : null
+  const expiresAt = expiresAtRaw && expiresAtRaw.trim() !== "" ? new Date(expiresAtRaw) : null
 
   const id = crypto.randomUUID()
   await db.insert(galleries).values({
@@ -51,12 +51,15 @@ export async function updateGallery(id: string, formData: FormData) {
   if (!gallery) return { error: "Not found" }
 
   const rawPassword = formData.get("password") as string | null
-  const passwordHash = rawPassword
-    ? await bcrypt.hash(rawPassword, 10)
-    : rawPassword === "" ? null : undefined
+  const passwordHash =
+    rawPassword && rawPassword.trim() !== ""
+      ? await bcrypt.hash(rawPassword.trim(), 10)
+      : rawPassword === ""
+      ? null
+      : undefined
 
   const expiresAtRaw = formData.get("expiresAt") as string | null
-  const expiresAt = expiresAtRaw ? new Date(expiresAtRaw) : null
+  const expiresAt = expiresAtRaw && expiresAtRaw.trim() !== "" ? new Date(expiresAtRaw) : null
 
   await db.update(galleries).set({
     name: (formData.get("name") as string).trim(),
