@@ -1,7 +1,7 @@
 import { auth } from "@/auth"
 import { db } from "@/db"
-import { users } from "@/db/schema"
-import { eq } from "drizzle-orm"
+import { users, photos } from "@/db/schema"
+import { eq, and } from "drizzle-orm"
 import { redirect } from "next/navigation"
 import { updateAccount, uploadAccountLogo } from "@/app/actions/account"
 import { ArrowLeft, User, Palette, Image as ImageIcon, HardDrive, Check, Upload, Sparkles } from "lucide-react"
@@ -13,12 +13,19 @@ export default async function SettingsPage() {
   const session = await auth()
   if (!session?.user?.id) redirect("/login")
 
-  const user = await db.query.users.findFirst({ where: eq(users.id, session.user.id) })
+  const [user, userPhotos] = await Promise.all([
+    db.query.users.findFirst({ where: eq(users.id, session.user.id) }),
+    db.query.photos.findMany({
+      where: and(eq(photos.userId, session.user.id), eq(photos.status, "ready")),
+      columns: { fileSizeBytes: true },
+    }),
+  ])
   if (!user) redirect("/login")
 
-  const storageUsedMB = (user.storageUsedBytes / (1024 * 1024)).toFixed(1)
+  const readyBytes = userPhotos.reduce((sum, p) => sum + (p.fileSizeBytes || 0), 0)
+  const storageUsedMB = (readyBytes / (1024 * 1024)).toFixed(1)
   const storageLimitGB = (Number(process.env.STORAGE_LIMIT_BYTES ?? 10_737_418_240) / (1024 * 1024 * 1024)).toFixed(0)
-  const usagePct = Math.min(100, Math.round((user.storageUsedBytes / Number(process.env.STORAGE_LIMIT_BYTES ?? 10_737_418_240)) * 100))
+  const usagePct = Math.min(100, Math.round((readyBytes / Number(process.env.STORAGE_LIMIT_BYTES ?? 10_737_418_240)) * 100))
 
   return (
     <div className="max-w-3xl space-y-8 pb-16">

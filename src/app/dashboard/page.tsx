@@ -1,7 +1,7 @@
 import { auth } from "@/auth"
 import { db } from "@/db"
 import { galleries, photos, selections, users } from "@/db/schema"
-import { eq, asc, desc } from "drizzle-orm"
+import { eq, and, asc, desc } from "drizzle-orm"
 import { redirect } from "next/navigation"
 import { DashboardClientView, DashboardGallery } from "@/components/dashboard-client-view"
 import { getBaseUrl } from "@/lib/utils"
@@ -34,11 +34,21 @@ export default async function DashboardPage() {
   const totalPhotosPerGallery = await Promise.all(
     userGalleries.map((g) =>
       db.query.photos.findMany({
-        where: eq(photos.galleryId, g.id),
-        columns: { id: true },
+        where: and(eq(photos.galleryId, g.id), eq(photos.status, "ready")),
+        columns: { id: true, fileSizeBytes: true },
       })
     )
   )
+
+  // Compute exact storage from active ready photos and auto-sync with user record
+  const readyPhotosTotalBytes = totalPhotosPerGallery.reduce(
+    (sum, pList) => sum + pList.reduce((pSum, p) => pSum + (p.fileSizeBytes || 0), 0),
+    0
+  )
+
+  if (user.storageUsedBytes !== readyPhotosTotalBytes) {
+    await db.update(users).set({ storageUsedBytes: readyPhotosTotalBytes }).where(eq(users.id, user.id))
+  }
 
   const dashboardGalleries: DashboardGallery[] = userGalleries.map((g, index) => ({
     id: g.id,
@@ -54,7 +64,7 @@ export default async function DashboardPage() {
     selectionsCount: g.selections.length,
   }))
 
-  const storageUsedBytes = user?.storageUsedBytes ?? 0
+  const storageUsedBytes = readyPhotosTotalBytes
   const storageLimitBytes = Number(process.env.STORAGE_LIMIT_BYTES ?? 10_737_418_240)
 
   return (
