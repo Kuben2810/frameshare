@@ -38,12 +38,12 @@ export default function LoginPage() {
         className="hidden lg:flex lg:w-5/12 xl:w-1/2 flex-col justify-between p-12 shrink-0"
         style={{ backgroundColor: "oklch(0.20 0.038 162)" }}
       >
-        <span className="text-xs font-semibold tracking-[0.18em] uppercase text-white/35">
-          Frameshare
+        <span className="text-xs font-bold tracking-[0.2em] uppercase text-white/40 font-oswald">
+          Frameshare Studio
         </span>
         <div className="space-y-4">
           <blockquote className="text-[22px] font-medium leading-[1.45] text-white/90 max-w-[280px]">
-            "A photograph is a secret about a secret. The more it tells you, the less you know."
+            &ldquo;A photograph is a secret about a secret. The more it tells you, the less you know.&rdquo;
           </blockquote>
           <p className="text-xs tracking-wider text-white/30">— Diane Arbus</p>
         </div>
@@ -54,10 +54,10 @@ export default function LoginPage() {
       <div className="flex-1 flex items-center justify-center bg-background px-6 py-12">
         <div className="w-full max-w-[340px] space-y-7">
           <div className="lg:hidden">
-            <span className="text-base font-medium tracking-[0.06em]">Frameshare</span>
+            <span className="text-base font-bold tracking-[0.12em] font-oswald uppercase">Frameshare</span>
           </div>
           <div>
-            <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
+            <h1 className="text-2xl font-bold tracking-wide font-oswald uppercase">Sign in</h1>
             <p className="mt-1 text-sm text-muted-foreground">Enter your credentials to continue</p>
           </div>
           <div className="space-y-4">

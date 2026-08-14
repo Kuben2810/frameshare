@@ -279,7 +279,8 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-heading: var(--font-oswald);
+  --font-oswald: var(--font-oswald);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -398,11 +399,16 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
   html {
     @apply font-sans;
   }
+}
+
+.font-oswald,
+.font-heading {
+  font-family: var(--font-oswald, 'Oswald', sans-serif);
 }
 
 /* Scroll-reveal for gallery cards */
@@ -476,46 +482,90 @@
   margin-bottom: 2px;
 }
 
-/* Grid layout — uniform cropped cells */
-.grid-layout {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 2px;
-}
-@media (min-width: 640px)  { .grid-layout { grid-template-columns: repeat(3, 1fr); } }
-@media (min-width: 1024px) { .grid-layout { grid-template-columns: repeat(4, 1fr); } }
-.grid-layout .photo-card { aspect-ratio: 4 / 3; }
 
-/* Rows layout — justified film strip */
-.rows-layout {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 2px;
-}
-.rows-layout > * {
-  height: 260px;
-  min-width: 80px;
-}
 
-/* Brick layout — alternating 2-col and 3-col rows */
-.brick-layout {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+/* ---- LIGHTBOX BEFORE / AFTER COMPARE ---- */
+.lb-compare-stage {
+  position: absolute; inset: 0; z-index: 6;
+  overflow: hidden; user-select: none; cursor: ew-resize;
 }
-.brick-row {
-  display: flex;
-  gap: 2px;
-  height: 280px;
+.lb-compare-layer {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: #000;
 }
+.lb-compare-img {
+  max-width: 100%; max-height: 100%; object-fit: contain;
+  pointer-events: none;
+}
+.lb-compare-before { z-index: 2; }
+.lb-compare-divider {
+  position: absolute; top: 0; bottom: 0;
+  width: 0; z-index: 10; transform: translateX(-50%);
+  pointer-events: none;
+}
+.lb-compare-line {
+  position: absolute; top: 0; bottom: 0; left: 0;
+  width: 2px; background: #fff;
+  box-shadow: 0 0 10px rgba(0,0,0,0.8), 0 0 6px rgba(255,255,255,0.6);
+}
+.lb-compare-handle {
+  position: absolute; top: 50%; left: 0;
+  transform: translate(-50%, -50%);
+  width: 46px; height: 46px; border-radius: 50%;
+  background: #fff; color: #000; border: 2px solid #000;
+  display: flex; align-items: center; justify-content: center; gap: 0;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.6);
+  pointer-events: auto; cursor: ew-resize;
+}
+.lb-compare-badge {
+  position: absolute; bottom: 20px;
+  font-size: 10px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; color: #fff;
+  background: rgba(0,0,0,0.65); backdrop-filter: blur(8px);
+  padding: 6px 14px; border-radius: 20px; z-index: 8;
+  pointer-events: none;
+  display: flex; align-items: center; gap: 6px;
+}
+.lb-badge-before { left: 20px; border: 1px solid rgba(255,255,255,0.3); }
+.lb-badge-after  { right: 20px; border: 1px solid #fff; box-shadow: 0 0 12px rgba(255,255,255,0.2); }
+
+
+
+/* ---- LIGHTBOX DETAILS PANEL ---- */
+.lb-details-panel {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 260px;
+  background: rgba(8, 8, 10, 0.94);
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(24px);
+  z-index: 25;
+  padding: 32px 24px;
+  overflow-y: auto;
+  animation: lb-panel-in 0.28s cubic-bezier(0.25, 0.46, 0.45, 0.94) both;
+}
+@keyframes lb-panel-in {
+  from { transform: translateX(100%); opacity: 0; }
+  to   { transform: translateX(0);    opacity: 1; }
+}
+.lb-detail-section-title {
+  font-size: 9px; font-weight: 700; letter-spacing: 3px;
+  text-transform: uppercase; color: var(--ashade-text-sub); margin-bottom: 28px;
+}
+.lb-detail-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 22px; }
+.lb-detail-item { display: flex; flex-direction: column; gap: 5px; }
+.lb-detail-label {
+  font-size: 9px; font-weight: 700; letter-spacing: 2px;
+  text-transform: uppercase; color: var(--ashade-text-sub);
+}
+.lb-detail-value { font-size: 13px; color: rgba(255,255,255,0.85); line-height: 1.4; word-break: break-word; }
 
 /* Scroll-driven parallax — pans object-position top→bottom as card scrolls past.
    Shows faces/top first, creates visible depth parallax. No transform conflict.
    Progressive enhancement: ignored in Safari/older browsers. */
 @supports (animation-timeline: view()) {
-  .grid-layout .photo-card img,
-  .rows-layout .photo-card img,
-  .brick-layout .photo-card img {
+  .masonry-grid .photo-card img {
     animation: gallery-parallax linear both;
     animation-timeline: view();
     animation-range: entry 0% exit 100%;

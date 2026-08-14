@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   description: "Photo gallery sharing and client proofing for photographers.",
 }
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning className={`${jakartaSans.variable} ${geistMono.variable} ${oswald.variable} h-full antialiased`}>
       <body className="min-h-full flex flex-col">

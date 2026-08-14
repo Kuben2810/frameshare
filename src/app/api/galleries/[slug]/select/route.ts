@@ -3,6 +3,7 @@ import { selections, selectionPhotos, galleries, stars } from "@/db/schema"
 import { eq, and } from "drizzle-orm"
 import { sendEmail } from "@/lib/email"
 import { users } from "@/db/schema"
+import { getBaseUrl } from "@/lib/utils"
 
 export async function POST(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
@@ -32,7 +33,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   // Notify photographer
   const photographer = await db.query.users.findFirst({ where: eq(users.id, gallery.userId) })
   if (photographer?.email) {
-    const shareUrl = `${process.env.AUTH_URL ?? "http://localhost:3000"}/g/${slug}`
+    const shareUrl = `${getBaseUrl()}/g/${slug}`
     await sendEmail({
       to: photographer.email,
       subject: `Client submitted selection — ${gallery.name}`,

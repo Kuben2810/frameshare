@@ -2,6 +2,7 @@ import { db } from "@/db"
 import { photos, users } from "@/db/schema"
 import { eq } from "drizzle-orm"
 import { uploadBuffer, downloadBuffer } from "@/lib/s3"
+import { s3Keys } from "@/lib/s3-keys"
 import sharp from "sharp"
 
 function watermarkSvg(name: string, width: number, height: number): Buffer {
@@ -27,22 +28,26 @@ export async function processPhoto(photoId: string): Promise<void> {
   const photographerName = user?.name ?? "Frameshare"
 
   const original = await downloadBuffer(photo.originalKey)
-  const base = photo.originalKey.replace(/\/original\.\w+$/, "")
+  const keys = s3Keys(photoId)
   const meta = await sharp(original).metadata()
-  const w = meta.width ?? 1200
-  const h = meta.height ?? 800
+  const isRotated = meta.orientation && meta.orientation >= 5 && meta.orientation <= 8
+  const w = (isRotated ? meta.height : meta.width) ?? 1200
+  const h = (isRotated ? meta.width : meta.height) ?? 800
 
   const [thumb, display, watermarked] = await Promise.all([
     sharp(original)
+      .rotate()
       .resize(400, 400, { fit: "inside", withoutEnlargement: true })
       .webp({ quality: 80 })
       .toBuffer(),
     sharp(original)
+      .rotate()
       .resize(2048, 2048, { fit: "inside", withoutEnlargement: true })
       .webp({ quality: 85 })
       .toBuffer(),
     (async () => {
       const resized = await sharp(original)
+        .rotate()
         .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
         .toBuffer()
       const resizedMeta = await sharp(resized).metadata()
@@ -55,9 +60,9 @@ export async function processPhoto(photoId: string): Promise<void> {
     })(),
   ])
 
-  const thumbKey       = `${base}/thumb.webp`
-  const displayKey     = `${base}/display.webp`
-  const watermarkedKey = `${base}/watermarked.jpg`
+  const thumbKey       = keys.thumb()
+  const displayKey     = keys.display()
+  const watermarkedKey = keys.watermarked()
 
   await Promise.all([
     uploadBuffer(thumbKey, thumb, "image/webp"),

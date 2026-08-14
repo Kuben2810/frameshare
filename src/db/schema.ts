@@ -106,7 +106,17 @@ export const selectionPhotos = pgTable("selection_photos", {
   photoId:     text("photo_id").notNull().references(() => photos.id, { onDelete: "cascade" }),
 }, (t) => [primaryKey({ columns: [t.selectionId, t.photoId] })])
 
-export const selectionsRelations = relations(selections, ({ many }) => ({
+export const galleriesRelations = relations(galleries, ({ many }) => ({
+  photos: many(photos),
+  selections: many(selections),
+}))
+
+export const photosRelations = relations(photos, ({ one }) => ({
+  gallery: one(galleries, { fields: [photos.galleryId], references: [galleries.id] }),
+}))
+
+export const selectionsRelations = relations(selections, ({ one, many }) => ({
+  gallery: one(galleries, { fields: [selections.galleryId], references: [galleries.id] }),
   selectionPhotos: many(selectionPhotos),
 }))
 
@@ -114,3 +124,4 @@ export const selectionPhotosRelations = relations(selectionPhotos, ({ one }) => 
   selection: one(selections, { fields: [selectionPhotos.selectionId], references: [selections.id] }),
   photo: one(photos, { fields: [selectionPhotos.photoId], references: [photos.id] }),
 }))
+

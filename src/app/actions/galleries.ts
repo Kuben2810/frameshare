@@ -3,11 +3,14 @@
 import { db } from "@/db"
 import { galleries, photos } from "@/db/schema"
 import { auth } from "@/auth"
-import { eq, and, sql } from "drizzle-orm"
+import { eq, and } from "drizzle-orm"
 import bcrypt from "bcryptjs"
 import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
+import { cookies } from "next/headers"
 import { requireAuth } from "@/lib/require-auth"
+import { deleteKey } from "@/lib/s3"
+import { adjustStorageQuota } from "@/lib/db-guards"
 
 function randomSlug() {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 12)
@@ -16,14 +19,14 @@ function randomSlug() {
 export async function createGallery(formData: FormData) {
   const userId = await requireAuth()
 
-  const name = (formData.get("name") as string).trim()
+  const name = (formData.get("name") as string)?.trim()
   if (!name) return { error: "Name required" }
 
   const rawPassword = formData.get("password") as string | null
-  const passwordHash = rawPassword ? await bcrypt.hash(rawPassword, 10) : null
+  const passwordHash = rawPassword && rawPassword.trim() !== "" ? await bcrypt.hash(rawPassword.trim(), 10) : null
 
   const expiresAtRaw = formData.get("expiresAt") as string | null
-  const expiresAt = expiresAtRaw ? new Date(expiresAtRaw) : null
+  const expiresAt = expiresAtRaw && expiresAtRaw.trim() !== "" ? new Date(expiresAtRaw) : null
 
   const id = crypto.randomUUID()
   await db.insert(galleries).values({
@@ -48,12 +51,15 @@ export async function updateGallery(id: string, formData: FormData) {
   if (!gallery) return { error: "Not found" }
 
   const rawPassword = formData.get("password") as string | null
-  const passwordHash = rawPassword
-    ? await bcrypt.hash(rawPassword, 10)
-    : rawPassword === "" ? null : undefined
+  const passwordHash =
+    rawPassword && rawPassword.trim() !== ""
+      ? await bcrypt.hash(rawPassword.trim(), 10)
+      : rawPassword === ""
+      ? null
+      : undefined
 
   const expiresAtRaw = formData.get("expiresAt") as string | null
-  const expiresAt = expiresAtRaw ? new Date(expiresAtRaw) : null
+  const expiresAt = expiresAtRaw && expiresAtRaw.trim() !== "" ? new Date(expiresAtRaw) : null
 
   await db.update(galleries).set({
     name: (formData.get("name") as string).trim(),
@@ -68,9 +74,52 @@ export async function updateGallery(id: string, formData: FormData) {
 export async function deleteGallery(id: string) {
   const userId = await requireAuth()
 
+  const gallery = await db.query.galleries.findFirst({
+    where: and(eq(galleries.id, id), eq(galleries.userId, userId)),
+  })
+  if (!gallery) return { error: "Not found" }
+
+  // Fetch all photos belonging to this gallery
+  const galleryPhotos = await db.query.photos.findMany({
+    where: eq(photos.galleryId, id),
+  })
+
+  // Compute total fileSizeBytes across all photos in the gallery
+  const totalBytes = galleryPhotos.reduce((sum, p) => sum + (p.fileSizeBytes || 0), 0)
+
+  // Gather S3 keys to delete
+  const keysToDelete: string[] = []
+  if (gallery.logoKey) {
+    keysToDelete.push(gallery.logoKey)
+  }
+  for (const p of galleryPhotos) {
+    if (p.originalKey) keysToDelete.push(p.originalKey)
+    if (p.thumbKey) keysToDelete.push(p.thumbKey)
+    if (p.displayKey) keysToDelete.push(p.displayKey)
+    if (p.watermarkedKey) keysToDelete.push(p.watermarkedKey)
+  }
+
+  // Delete all S3 keys using deleteKey from @/lib/s3 (with error catching)
+  await Promise.allSettled(
+    keysToDelete.map(async (key) => {
+      try {
+        await deleteKey(key)
+      } catch (err) {
+        console.error(`Failed to delete S3 key ${key}:`, err)
+      }
+    })
+  )
+
+  // Delete gallery from database (cascading deletes for photos, stars, comments, selections)
   await db.delete(galleries).where(
     and(eq(galleries.id, id), eq(galleries.userId, userId))
   )
+
+  // Decrement user storage
+  if (totalBytes > 0) {
+    await adjustStorageQuota(userId, -totalBytes)
+  }
+
   redirect("/dashboard")
 }
 
@@ -103,14 +152,54 @@ export async function deletePhoto(photoId: string) {
   })
   if (!photo) return { error: "Not found" }
 
+  const keysToDelete = [
+    photo.originalKey,
+    photo.thumbKey,
+    photo.displayKey,
+    photo.watermarkedKey,
+  ].filter((k): k is string => Boolean(k))
+
+  // Delete photo from database
   await db.delete(photos).where(eq(photos.id, photoId))
 
-  // release quota
-  await db.update(galleries).set({}).where(eq(galleries.id, photo.galleryId))
-  // ponytail: quota decrement via raw sql to avoid a round-trip read
-  await db.execute(
-    sql`UPDATE users SET storage_used_bytes = storage_used_bytes - ${photo.fileSizeBytes} WHERE id = ${session.user.id}`
+  // Delete all S3 keys using deleteKey from @/lib/s3 (with error catching)
+  await Promise.allSettled(
+    keysToDelete.map(async (key) => {
+      try {
+        await deleteKey(key)
+      } catch (err) {
+        console.error(`Failed to delete S3 key ${key}:`, err)
+      }
+    })
   )
 
+  // Decrement user storage
+  await adjustStorageQuota(session.user.id, -photo.fileSizeBytes)
+
   revalidatePath(`/dashboard/galleries/${photo.galleryId}`)
+}
+
+export async function unlockGallery(galleryId: string, password: string) {
+  const gallery = await db.query.galleries.findFirst({
+    where: eq(galleries.id, galleryId),
+  })
+  if (!gallery || !gallery.passwordHash) {
+    return { success: false, error: "Gallery not found" }
+  }
+
+  const valid = await bcrypt.compare(password, gallery.passwordHash)
+  if (!valid) {
+    return { success: false, error: "Incorrect password" }
+  }
+
+  const cookieStore = await cookies()
+  cookieStore.set(`gallery_unlocked_${gallery.id}`, "1", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 7, // 7 days
+  })
+
+  return { success: true }
 }
