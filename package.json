@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev -p 3001",
     "build": "next build",
-    "start": "next start",
+    "start": "node scripts/migrate.mjs && next start",
     "clean": "node -e \"['.next', 'tsconfig.tsbuildinfo', 'node_modules/.cache'].forEach(p => { try { fs.rmSync(p, { recursive: true, force: true }); } catch {} })\"",
     "lint": "eslint"
   },

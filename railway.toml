@@ -1,7 +1,4 @@
-[build]
-builder = "nixpacks"
-
 [deploy]
-startCommand = "node scripts/migrate.mjs && npm start"
 healthcheckPath = "/api/health"
-healthcheckTimeout = 300
+healthcheckTimeout = 120
+restartPolicyType = "ON_FAILURE"
