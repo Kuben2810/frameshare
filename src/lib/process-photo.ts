@@ -1,9 +1,10 @@
 import { db } from "@/db"
 import { photos, users } from "@/db/schema"
 import { eq } from "drizzle-orm"
-import { uploadBuffer, downloadBuffer } from "@/lib/s3"
+import { uploadBuffer, downloadBuffer, deleteKey } from "@/lib/s3"
 import { s3Keys } from "@/lib/s3-keys"
 import { getDecodableImageBuffer } from "@/lib/raw-decoder"
+import { adjustStorageQuota } from "@/lib/db-guards"
 import sharp from "sharp"
 
 function proofWatermarkSvg(name: string, width: number, height: number): Buffer {
@@ -138,7 +139,38 @@ export async function processPhoto(photoId: string): Promise<void> {
     uploadBuffer(watermarkedKey, watermarked, "image/jpeg"),
   ])
 
+  let finalOriginalKey = photo.originalKey
+  let finalFileSizeBytes = photo.fileSizeBytes
+
+  // For proofing photos, delete the heavy original raw file from S3 to conserve storage space.
+  // The raw files remain stored in Lightroom on the photographer's local workstation.
+  if (isProofing) {
+    try {
+      if (photo.originalKey && photo.originalKey !== displayKey) {
+        await deleteKey(photo.originalKey)
+      }
+      finalOriginalKey = displayKey
+      const totalWebBytes = thumb.length + display.length + watermarked.length
+      const diffBytes = photo.fileSizeBytes - totalWebBytes
+      if (diffBytes > 0) {
+        await adjustStorageQuota(photo.userId, -diffBytes)
+      }
+      finalFileSizeBytes = totalWebBytes
+    } catch (cleanupErr) {
+      console.warn("Proofing storage optimization notice:", cleanupErr)
+    }
+  }
+
   await db.update(photos)
-    .set({ thumbKey, displayKey, watermarkedKey, width: w, height: h, status: "ready" })
+    .set({
+      originalKey: finalOriginalKey,
+      thumbKey,
+      displayKey,
+      watermarkedKey,
+      width: w,
+      height: h,
+      fileSizeBytes: finalFileSizeBytes,
+      status: "ready",
+    })
     .where(eq(photos.id, photoId))
 }
