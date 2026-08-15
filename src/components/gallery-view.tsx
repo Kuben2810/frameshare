@@ -161,16 +161,16 @@ export function GalleryView({
       />
 
       {/* ── Header ── */}
-      <header className={`ashade-header ${isScrolled ? "is-scrolled" : ""}`}>
+      <header className="ashade-header">
         <div className="ashade-header-inner">
           {/* Logo */}
-          <a className="ashade-logo min-w-0 pr-3" href="#" onClick={(e) => e.preventDefault()} data-cursor="link">
+          <a className="ashade-logo min-w-0 pr-2" href="#" onClick={(e) => e.preventDefault()} data-cursor="link">
             {gallery.logoKey ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={imgUrl(gallery.logoKey)!} alt="" className="h-7 w-auto object-contain" />
             ) : (
               <>
-                <span className="ashade-logo-text truncate max-w-[140px] xs:max-w-[200px] sm:max-w-xs md:max-w-md">
+                <span className="ashade-logo-text truncate max-w-[160px] xs:max-w-[220px] sm:max-w-xs md:max-w-md">
                   {gallery.name}
                 </span>
                 <span className="ashade-logo-tag">Photography Gallery</span>
@@ -182,17 +182,17 @@ export function GalleryView({
           <div className="ashade-nav-block shrink-0">
             <nav className="ashade-nav">
               <ul className="main-menu">
-                {/* Layout pickers (desktop/tablet) */}
+                {/* Layout pickers (desktop) */}
                 {(["masonry", "ribbon"] as const).map((l) => (
-                  <li key={l} className={`hidden sm:inline-block ${layout === l ? "is-active" : ""}`}>
+                  <li key={l} className={`hidden md:inline-block ${layout === l ? "is-active" : ""}`}>
                     <button className="nav-link" style={display} onClick={() => changeLayout(l)} data-cursor="link">
                       {l === "masonry" ? "Mason" : "Ribbon"}
                     </button>
                   </li>
                 ))}
 
-                {/* Slideshow (desktop/tablet) */}
-                <li className="hidden sm:inline-block">
+                {/* Slideshow (desktop) */}
+                <li className="hidden md:inline-block">
                   <button className="nav-link" style={display} onClick={() => openLightbox(0, true)} data-cursor="link">
                     Slideshow
                   </button>
@@ -211,7 +211,7 @@ export function GalleryView({
 
                 {/* Sidebar toggle */}
                 <li>
-                  <button className="ashade-hamburger" onClick={() => setIsSidebarOpen(true)} data-cursor="link" title="Open sidebar">
+                  <button className="ashade-hamburger p-2 rounded-lg hover:bg-white/10 transition-colors" onClick={() => setIsSidebarOpen(true)} data-cursor="link" title="Open menu">
                     <span className="bar" />
                     <span className="bar" />
                     <span className="bar" />
@@ -225,27 +225,46 @@ export function GalleryView({
 
       {/* ── Gallery main scroll area ── */}
       <div className="ashade-gallery-main" style={{ position: "relative", zIndex: 2, minHeight: "100vh", overflowY: "auto" }}>
-        <div style={{ paddingTop: 84 }}>
+        <div className="pt-2 pb-12">
 
           {/* Controls bar */}
-          <div className="flex items-center justify-between py-2 px-3 sm:px-8 md:px-12 mb-0.5">
-            {layout === "masonry" ? (
-              <div className="flex items-center gap-1 sm:gap-1.5">
-                <span className="text-white/30 text-[9px] uppercase tracking-widest mr-0.5" style={display}>Cols</span>
-                {([2, 3, 4] as const).map(n => (
-                  <button key={n} onClick={() => changeCols(n)} data-cursor="link"
-                    className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded border text-[10px] font-bold transition-colors
-                      ${masonryCols === n ? "border-white/60 text-white" : "border-white/12 text-white/25 hover:text-white/50 hover:border-white/30"}`}>
-                    {n}
+          <div className="flex items-center justify-between py-2 px-3 sm:px-8 md:px-12 mb-2 bg-black/40 border-b border-white/5 backdrop-blur-xs">
+            <div className="flex items-center gap-2">
+              {/* Mobile Layout Switcher */}
+              <div className="flex md:hidden items-center bg-white/5 rounded-lg p-0.5 border border-white/10">
+                {(["masonry", "ribbon"] as const).map((l) => (
+                  <button
+                    key={l}
+                    onClick={() => changeLayout(l)}
+                    className={`px-2 py-1 text-[9px] font-bold uppercase rounded tracking-wider transition-colors ${layout === l ? "bg-white/20 text-white" : "text-white/40 hover:text-white/70"}`}
+                    style={display}
+                  >
+                    {l === "masonry" ? "Grid" : "Ribbon"}
                   </button>
                 ))}
               </div>
-            ) : <div />}
+
+              {/* Columns Selector */}
+              {layout === "masonry" && (
+                <div className="flex items-center gap-1">
+                  <span className="text-white/30 text-[9px] uppercase tracking-widest mr-0.5 hidden xs:inline" style={display}>Cols</span>
+                  {([2, 3, 4] as const).map(n => (
+                    <button key={n} onClick={() => changeCols(n)} data-cursor="link"
+                      className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded border text-[10px] font-bold transition-colors
+                        ${masonryCols === n ? "border-white/60 text-white bg-white/15" : "border-white/12 text-white/30 hover:text-white/60 hover:border-white/30"}`}>
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Animation presets */}
             <div className="flex items-center">
               {(["fade-up", "fade", "scale"] as const).map((a) => (
                 <button key={a} onClick={() => changeAnim(a)} style={display} data-cursor="link"
                   className={`px-2 sm:px-2.5 py-1 text-[8px] sm:text-[9px] tracking-[0.12em] sm:tracking-[0.15em] uppercase transition-colors border-b ml-0.5 sm:ml-1
-                    ${entryAnim === a ? "border-white/60 text-white" : "border-transparent text-white/25 hover:text-white/50"}`}>
+                    ${entryAnim === a ? "border-white/60 text-white font-bold" : "border-transparent text-white/30 hover:text-white/60"}`}>
                   {a === "fade-up" ? "Fade ↑" : a === "fade" ? "Fade" : "Zoom"}
                 </button>
               ))}

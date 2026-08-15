@@ -197,32 +197,50 @@ export function Lightbox({
 
   function dismissTip() { setShowTip(false); localStorage.setItem("lb-tip-dismissed", "1") }
 
-  // ── Mobile Touch Swipe Handling ───────────────────────────────────────────
-  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
+  // ── Mobile Touch Swipe Handling (Resilient touchmove & touchend) ───────────
+  const touchStateRef = useRef<{
+    startX: number
+    startY: number
+    currentX: number
+    currentY: number
+    startTime: number
+  } | null>(null)
 
   function handleTouchStart(e: React.TouchEvent) {
-    if (e.touches.length === 1 && zoomLevel <= 1) {
-      touchStartRef.current = {
-        x: e.touches[0].clientX,
-        y: e.touches[0].clientY,
-        time: Date.now(),
-      }
-    } else {
-      touchStartRef.current = null
+    if (e.touches.length !== 1 || zoomLevel > 1 || compareMode || cropMode) {
+      touchStateRef.current = null
+      return
+    }
+    const touch = e.touches[0]
+    touchStateRef.current = {
+      startX: touch.clientX,
+      startY: touch.clientY,
+      currentX: touch.clientX,
+      currentY: touch.clientY,
+      startTime: Date.now(),
     }
   }
 
-  function handleTouchEnd(e: React.TouchEvent) {
-    if (!touchStartRef.current || zoomLevel > 1) return
-    const touch = e.changedTouches[0]
+  function handleTouchMove(e: React.TouchEvent) {
+    if (!touchStateRef.current || zoomLevel > 1) return
+    const touch = e.touches[0]
     if (!touch) return
+    touchStateRef.current.currentX = touch.clientX
+    touchStateRef.current.currentY = touch.clientY
+  }
 
-    const deltaX = touch.clientX - touchStartRef.current.x
-    const deltaY = touch.clientY - touchStartRef.current.y
-    touchStartRef.current = null
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (!touchStateRef.current || zoomLevel > 1) return
+    const { startX, startY, currentX, currentY, startTime } = touchStateRef.current
+    touchStateRef.current = null
 
-    // Horizontal Swipe (quick flick or > 45px distance)
-    if (Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
+    const deltaX = currentX - startX
+    const deltaY = currentY - startY
+    const elapsed = Date.now() - startTime
+
+    // Horizontal Swipe (flick or > 30px distance)
+    const isHorizontal = Math.abs(deltaX) > Math.abs(deltaY) * 1.1
+    if (isHorizontal && (Math.abs(deltaX) > 30 || (elapsed < 350 && Math.abs(deltaX) > 20))) {
       if (deltaX < 0) {
         goNext()
       } else {
@@ -231,8 +249,9 @@ export function Lightbox({
       return
     }
 
-    // Vertical Swipe Down to close (> 80px)
-    if (deltaY > 80 && Math.abs(deltaY) > Math.abs(deltaX) * 1.5) {
+    // Vertical Swipe Down to dismiss (> 60px down)
+    const isVerticalDown = deltaY > 60 && Math.abs(deltaY) > Math.abs(deltaX) * 1.3
+    if (isVerticalDown) {
       closeLightbox()
       return
     }
@@ -458,10 +477,13 @@ export function Lightbox({
 
       {/* ── Image area — curtain spring slider with touch swipe ── */}
       <div
-        className="relative flex-1 min-h-0 overflow-hidden select-none touch-pan-y"
+        className="relative flex-1 min-h-0 overflow-hidden select-none"
+        style={{ touchAction: "none" }}
         data-cursor="zoom"
         onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
+        onTouchCancel={handleTouchEnd}
       >
         {/* Curtain slides */}
         {renderRange.map(({ photo, absIdx }) => {
