@@ -16,6 +16,7 @@ import {
   Info,
   Check,
   RotateCw,
+  AlertTriangle,
 } from "lucide-react"
 import { deletePhoto, rotatePhoto } from "@/app/actions/galleries"
 import { toast } from "sonner"
@@ -27,6 +28,14 @@ import { cn } from "@/lib/utils"
 
 type Gallery = InferSelectModel<typeof galleries>
 type Photo = InferSelectModel<typeof photos>
+
+export type FailedUpload = {
+  id: string
+  name: string
+  size: number
+  reason: string
+  file: File
+}
 
 const DROPZONE_ACCEPT = {
   "image/jpeg": [".jpg", ".jpeg"],
@@ -49,6 +58,7 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
   const [activeSection, setActiveSection] = useState<"all" | "proofing" | "final">("proofing")
   const [uploadTargetSection, setUploadTargetSection] = useState<"proofing" | "final">("proofing")
   const [uploading, setUploading] = useState<{ name: string; progress: number }[]>([])
+  const [failedUploads, setFailedUploads] = useState<FailedUpload[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [rotatingIds, setRotatingIds] = useState<Set<string>>(new Set())
   const [previewPhoto, setPreviewPhoto] = useState<Photo | null>(null)
@@ -82,6 +92,10 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
       if (accepted.length === 0) return
       cancelRequestedRef.current = false
 
+      // Clear successful retried items from failedUploads
+      const acceptedNames = new Set(accepted.map(f => f.name))
+      setFailedUploads(prev => prev.filter(f => !acceptedNames.has(f.name)))
+
       // Queue initial list
       setUploading(accepted.map((f) => ({ name: f.name, progress: 0 })))
 
@@ -105,7 +119,16 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
           if (cancelRequestedRef.current) break
 
           if (!res.ok) {
-            toast.error(`Upload error: ${file.name}`)
+            const errData = await res.json().catch(() => ({}))
+            const reason = errData.error || `Server sign rejected (${res.status})`
+            setFailedUploads(f => [...f.filter(item => item.name !== file.name), {
+              id: crypto.randomUUID(),
+              name: file.name,
+              size: file.size,
+              reason,
+              file,
+            }])
+            toast.error(`Upload error (${file.name}): ${reason}`)
             setUploading((u) => u.filter((f) => f.name !== file.name))
             continue
           }
@@ -127,11 +150,11 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
             }
             xhr.onload = () => {
               currentXhrRef.current = null
-              xhr.status < 300 ? resolve() : reject(new Error(`S3 returned ${xhr.status}`))
+              xhr.status < 300 ? resolve() : reject(new Error(`S3 upload returned HTTP ${xhr.status}`))
             }
             xhr.onerror = () => {
               currentXhrRef.current = null
-              reject(new Error("Network error during upload"))
+              reject(new Error("Network connection dropped during S3 upload"))
             }
             xhr.onabort = () => {
               currentXhrRef.current = null
@@ -152,7 +175,16 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
           })
 
           if (!processRes.ok) {
-            toast.error(`Processing error: ${file.name}`)
+            const errData = await processRes.json().catch(() => ({}))
+            const reason = errData.error || `Image processing failed (${processRes.status})`
+            setFailedUploads(f => [...f.filter(item => item.name !== file.name), {
+              id: crypto.randomUUID(),
+              name: file.name,
+              size: file.size,
+              reason,
+              file,
+            }])
+            toast.error(`Processing error (${file.name}): ${reason}`)
             setUploading((u) => u.filter((f) => f.name !== file.name))
             continue
           }
@@ -164,7 +196,15 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
           if (cancelRequestedRef.current || err?.message === "aborted") {
             // Cancelled by user
           } else {
-            toast.error(`Upload failed: ${file.name}`)
+            const reason = err?.message || "Upload network error"
+            setFailedUploads(f => [...f.filter(item => item.name !== file.name), {
+              id: crypto.randomUUID(),
+              name: file.name,
+              size: file.size,
+              reason,
+              file,
+            }])
+            toast.error(`Upload failed (${file.name}): ${reason}`)
           }
         } finally {
           setUploading((u) => u.filter((f) => f.name !== file.name))
@@ -421,6 +461,65 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
                     className="h-full bg-primary rounded-full transition-all duration-150"
                     style={{ width: `${f.progress}%` }}
                   />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Upload Diagnostics & Failure Panel ── */}
+      {failedUploads.length > 0 && (
+        <div className="rounded-2xl bg-destructive/10 border border-destructive/30 p-4 sm:p-5 space-y-3 shadow-xs animate-in fade-in-50 duration-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-destructive/20">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="h-4 w-4 text-destructive shrink-0" />
+              <span className="text-sm font-bold text-destructive">
+                {failedUploads.length} Photo Upload{failedUploads.length !== 1 ? "s" : ""} Encountered Issues
+              </span>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => onDrop(failedUploads.map((f) => f.file))}
+                className="px-3 py-1.5 rounded-lg bg-destructive text-destructive-foreground hover:bg-destructive/90 text-xs font-semibold flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              >
+                <RotateCw className="h-3 w-3" />
+                <span>Retry All Failed ({failedUploads.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setFailedUploads([])}
+                className="px-2.5 py-1.5 rounded-lg border border-destructive/30 text-destructive hover:bg-destructive/10 text-xs font-medium transition-colors cursor-pointer"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
+            {failedUploads.map((f) => (
+              <div
+                key={f.id}
+                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-card p-3 rounded-xl border border-destructive/20 text-xs"
+              >
+                <div className="min-w-0 flex items-center gap-2">
+                  <span className="font-semibold text-foreground truncate max-w-xs">{f.name}</span>
+                  <span className="text-muted-foreground font-mono shrink-0">({formatBytes(f.size)})</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-destructive font-medium text-[11px] bg-destructive/10 px-2 py-0.5 rounded-md break-all">
+                    {f.reason}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => onDrop([f.file])}
+                    className="p-1 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors shrink-0"
+                    title="Retry this file"
+                  >
+                    <RotateCw className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </div>
             ))}

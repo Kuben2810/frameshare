@@ -39,6 +39,7 @@ export type DashboardGallery = {
   coverThumbKey: string | null
   previewThumbs: string[]
   selectionsCount: number
+  selectedPhotosCount?: number
 }
 
 interface DashboardClientViewProps {
@@ -64,7 +65,10 @@ export function DashboardClientView({
 
   // Metrics
   const totalPhotos = useMemo(() => galleries.reduce((acc, g) => acc + g.photosCount, 0), [galleries])
-  const totalSelections = useMemo(() => galleries.reduce((acc, g) => acc + g.selectionsCount, 0), [galleries])
+  const totalSelections = useMemo(
+    () => galleries.reduce((acc, g) => acc + (g.selectedPhotosCount ?? g.selectionsCount), 0),
+    [galleries]
+  )
   const storageUsedMB = (storageUsedBytes / (1024 * 1024)).toFixed(1)
   const storageLimitGB = (storageLimitBytes / (1024 * 1024 * 1024)).toFixed(0)
   const storagePct = Math.min(100, Math.round((storageUsedBytes / storageLimitBytes) * 100))
@@ -80,7 +84,7 @@ export function DashboardClientView({
 
       const isExpired = g.expiresAt ? new Date(g.expiresAt) < new Date() : false
       const isProtected = Boolean(g.passwordHash)
-      const hasSelections = g.selectionsCount > 0
+      const hasSelections = (g.selectedPhotosCount ?? 0) > 0 || g.selectionsCount > 0
 
       if (statusFilter === "active") return !isExpired
       if (statusFilter === "expired") return isExpired
@@ -381,10 +385,12 @@ export function DashboardClientView({
                         ? "Watermarked"
                         : "View Only"}
                     </span>
-                    {gallery.selectionsCount > 0 && (
+                    {(gallery.selectedPhotosCount !== undefined ? gallery.selectedPhotosCount > 0 : gallery.selectionsCount > 0) && (
                       <span className="inline-flex items-center gap-1 text-amber-600 dark:text-amber-400 font-semibold text-[11px]">
                         <Sparkles className="h-3 w-3" />
-                        {gallery.selectionsCount} proof{gallery.selectionsCount !== 1 ? "s" : ""}
+                        {gallery.selectedPhotosCount !== undefined
+                          ? `${gallery.selectedPhotosCount} selected`
+                          : `${gallery.selectionsCount} proof${gallery.selectionsCount !== 1 ? "s" : ""}`}
                       </span>
                     )}
                   </div>
@@ -436,6 +442,7 @@ export function DashboardClientView({
           {filteredGalleries.map((gallery) => {
             const isExpired = gallery.expiresAt ? new Date(gallery.expiresAt) < new Date() : false
             const isProtected = Boolean(gallery.passwordHash)
+            const hasSelected = gallery.selectedPhotosCount !== undefined ? gallery.selectedPhotosCount > 0 : gallery.selectionsCount > 0
 
             return (
               <div
@@ -469,11 +476,13 @@ export function DashboardClientView({
                       <span>{gallery.photosCount} photos</span>
                       <span>•</span>
                       <span>{formatDistanceToNow(new Date(gallery.createdAt), { addSuffix: true })}</span>
-                      {gallery.selectionsCount > 0 && (
+                      {hasSelected && (
                         <>
                           <span>•</span>
                           <span className="text-amber-500 font-medium">
-                            {gallery.selectionsCount} selection{gallery.selectionsCount !== 1 ? "s" : ""}
+                            {gallery.selectedPhotosCount !== undefined
+                              ? `${gallery.selectedPhotosCount} photo${gallery.selectedPhotosCount !== 1 ? "s" : ""} selected`
+                              : `${gallery.selectionsCount} selection${gallery.selectionsCount !== 1 ? "s" : ""}`}
                           </span>
                         </>
                       )}

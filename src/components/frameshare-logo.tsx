@@ -29,7 +29,7 @@ export function FrameshareLogo({
     <div className={`inline-flex items-center gap-3 select-none ${className}`}>
       {/* ── Frameshare Icon Mark ── */}
       <div
-        className="relative shrink-0 flex items-center justify-center rounded-xl bg-white text-black shadow-lg overflow-hidden group-hover:scale-105 transition-transform duration-300"
+        className="relative shrink-0 flex items-center justify-center rounded-xl bg-foreground text-background shadow-md overflow-hidden group-hover:scale-105 transition-transform duration-300"
         style={{ width: iconSize, height: iconSize }}
       >
         <svg
@@ -74,12 +74,12 @@ export function FrameshareLogo({
       {showText && (
         <div className="flex flex-col text-left">
           <span
-            className={`font-bold uppercase text-white font-oswald leading-none ${fontSizes[textSize]}`}
+            className={`font-bold uppercase text-foreground font-oswald leading-none ${fontSizes[textSize]}`}
           >
             Frameshare
           </span>
           <span
-            className={`font-semibold uppercase text-white/50 font-mono mt-0.5 leading-none ${subFontSizes[textSize]}`}
+            className={`font-semibold uppercase text-muted-foreground font-mono mt-0.5 leading-none ${subFontSizes[textSize]}`}
           >
             Studio Platform
           </span>

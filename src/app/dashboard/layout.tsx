@@ -11,6 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { ThemeToggle } from "@/components/theme-toggle"
+import { FrameshareLogo } from "@/components/frameshare-logo"
 import { Images, Settings, LogOut, ExternalLink, Sparkles } from "lucide-react"
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -31,18 +32,8 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           {/* Brand Logo & Studio Nav */}
           <div className="flex items-center gap-6 md:gap-8">
-            <Link href="/dashboard" className="flex items-center gap-2.5 group">
-              <div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground shadow-xs group-hover:scale-105 transition-transform">
-                <Images className="h-4 w-4" />
-              </div>
-              <div className="flex flex-col">
-                <span className="font-bold tracking-[0.12em] text-sm uppercase text-foreground leading-none" style={{ fontFamily: "var(--font-oswald, sans-serif)" }}>
-                  Frameshare
-                </span>
-                <span className="text-[9px] font-semibold tracking-[0.2em] text-muted-foreground uppercase mt-0.5">
-                  Studio
-                </span>
-              </div>
+            <Link href="/dashboard" className="group">
+              <FrameshareLogo iconSize={28} textSize="sm" />
             </Link>
 
             <nav className="hidden sm:flex items-center gap-1">

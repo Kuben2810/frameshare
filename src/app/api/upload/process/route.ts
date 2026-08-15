@@ -22,9 +22,10 @@ export async function POST(req: Request) {
     await processPhoto(photoId)
     const updated = await db.query.photos.findFirst({ where: eq(photos.id, photoId) })
     return Response.json({ photo: updated })
-  } catch (err) {
+  } catch (err: any) {
     await db.update(photos).set({ status: "error" }).where(eq(photos.id, photoId))
     console.error("Processing error", err)
-    return Response.json({ error: "Processing failed" }, { status: 500 })
+    const reason = err?.message || "Transcoding failed: Unsupported image compression or damaged file"
+    return Response.json({ error: reason }, { status: 500 })
   }
 }

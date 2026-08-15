@@ -63,6 +63,15 @@ export function GalleryDetailView({
   const totalSizeBytes = initialPhotos.reduce((sum, p) => sum + (p.fileSizeBytes || 0), 0)
   const totalSizeMB = (totalSizeBytes / (1024 * 1024)).toFixed(1)
 
+  // Total unique photos selected across all client submissions
+  const uniqueSelectedPhotoIds = new Set<string>()
+  for (const s of initialSelections) {
+    for (const sp of s.selectionPhotos) {
+      if (sp.photoId) uniqueSelectedPhotoIds.add(sp.photoId)
+    }
+  }
+  const totalSelectedPhotos = uniqueSelectedPhotoIds.size
+
   async function handleCopyLink() {
     await navigator.clipboard.writeText(shareUrl)
     setCopiedLink(true)
@@ -259,10 +268,13 @@ export function GalleryDetailView({
             <div className="hidden sm:block h-8 w-px bg-border/60" />
             <div className="text-center px-1 sm:px-2">
               <span className="text-[10px] uppercase font-semibold tracking-wider text-emerald-500 block flex items-center justify-center gap-1">
-                <Sparkles className="h-3 w-3" /> Selections
+                <Sparkles className="h-3 w-3" /> Selected
               </span>
               <span className="text-2xl sm:text-3xl font-bold text-foreground tabular-nums font-oswald">
-                {initialSelections.length}
+                {totalSelectedPhotos}
+              </span>
+              <span className="text-[9px] text-muted-foreground block font-mono">
+                {initialSelections.length} session{initialSelections.length !== 1 ? "s" : ""}
               </span>
             </div>
           </div>
@@ -312,11 +324,15 @@ export function GalleryDetailView({
         >
           <Sparkles className="h-4 w-4 text-amber-500" />
           <span>Client Selections</span>
-          {initialSelections.length > 0 && (
+          {totalSelectedPhotos > 0 ? (
+            <span className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded-md font-semibold font-mono">
+              {totalSelectedPhotos} photos ({initialSelections.length})
+            </span>
+          ) : initialSelections.length > 0 ? (
             <span className="text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 px-1.5 py-0.5 rounded-md font-semibold font-mono">
               {initialSelections.length}
             </span>
-          )}
+          ) : null}
         </button>
 
         <button

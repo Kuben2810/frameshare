@@ -30,7 +30,11 @@ export async function POST(req: Request) {
   const user = await db.query.users.findFirst({ where: eq(users.id, session.user.id) })
   if (!user) return Response.json({ error: "User not found" }, { status: 404 })
   if (user.storageUsedBytes + fileSize > STORAGE_LIMIT) {
-    return Response.json({ error: "Storage quota exceeded" }, { status: 413 })
+    const usedMB = (user.storageUsedBytes / (1024 * 1024)).toFixed(1)
+    const limitGB = (STORAGE_LIMIT / (1024 * 1024 * 1024)).toFixed(0)
+    return Response.json({
+      error: `Storage quota exceeded: Used ${usedMB} MB of ${limitGB} GB limit. Upgrade storage or delete unused photos.`,
+    }, { status: 413 })
   }
 
   const photoId = crypto.randomUUID()
