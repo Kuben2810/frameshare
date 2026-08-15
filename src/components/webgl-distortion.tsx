@@ -90,10 +90,10 @@ export function WebGLDistortion({
 
       const renderer = new THREE.WebGLRenderer({
         alpha: true,
-        antialias: false,
+        antialias: true,
         powerPreference: "high-performance",
       })
-      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 1.5))
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2.0))
       renderer.setSize(w, h)
       renderer.domElement.style.cssText = "position:absolute;inset:0;width:100%;height:100%;pointer-events:none;"
 
@@ -107,7 +107,8 @@ export function WebGLDistortion({
         src,
         (t) => {
           if (isDisposed) return
-          t.minFilter = THREE.LinearFilter
+          t.generateMipmaps = true
+          t.minFilter = THREE.LinearMipmapLinearFilter
           t.magFilter = THREE.LinearFilter
           if (matRef.current) {
             matRef.current.uniforms.uImageResolution.value.set(t.image.width, t.image.height)
@@ -278,6 +279,9 @@ export function WebGLDistortion({
           display: "block",
           position: "relative",
           zIndex: 1,
+          imageRendering: "-webkit-optimize-contrast",
+          transform: "translateZ(0)",
+          backfaceVisibility: "hidden",
         }}
       />
     </div>

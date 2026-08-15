@@ -271,9 +271,9 @@ export async function rotatePhoto(photoId: string, angle: 90 | 180 | 270 = 90) {
   ])
 
   const [newThumb, newDisplay, newWm] = await Promise.all([
-    thumbBuf ? sharp(thumbBuf).rotate(angle).webp({ quality: 80 }).toBuffer() : null,
-    displayBuf ? sharp(displayBuf).rotate(angle).webp({ quality: 85 }).toBuffer() : null,
-    wmBuf ? sharp(wmBuf).rotate(angle).jpeg({ quality: 82 }).toBuffer() : null,
+    thumbBuf ? sharp(thumbBuf).rotate(angle).webp({ quality: 90, effort: 4 }).toBuffer() : null,
+    displayBuf ? sharp(displayBuf).rotate(angle).webp({ quality: 92, effort: 4 }).toBuffer() : null,
+    wmBuf ? sharp(wmBuf).rotate(angle).jpeg({ quality: 88, mozjpeg: true }).toBuffer() : null,
   ])
 
   await Promise.all([

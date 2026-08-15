@@ -96,15 +96,26 @@ export async function processPhoto(photoId: string): Promise<void> {
   const rotateBuffer = (buf: Buffer) => (rotateAngle !== undefined ? sharp(buf).rotate(rotateAngle) : sharp(buf).rotate())
 
   const [thumb, display, watermarked] = await Promise.all([
+    // Ultra-crisp grid thumbnail: 1200px Lanczos3 with studio unsharp masking
     rotateBuffer(original)
-      .resize(400, 400, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 80 })
+      .resize(1200, 1200, {
+        fit: "inside",
+        withoutEnlargement: true,
+        kernel: sharp.kernel.lanczos3,
+      })
+      .sharpen({ sigma: 0.75, m1: 0.5, m2: 1.5 })
+      .webp({ quality: 90, effort: 4 })
       .toBuffer(),
 
-    // Display image: if proofing, composite the proofing watermark; if final, render pristine master
+    // Display image: 2.5K QHD (2560px) master web display
     (async () => {
       const resized = await rotateBuffer(original)
-        .resize(2048, 2048, { fit: "inside", withoutEnlargement: true })
+        .resize(2560, 2560, {
+          fit: "inside",
+          withoutEnlargement: true,
+          kernel: sharp.kernel.lanczos3,
+        })
+        .sharpen({ sigma: 0.6, m1: 0.4, m2: 1.2 })
         .toBuffer()
 
       if (isProofing) {
@@ -113,17 +124,22 @@ export async function processPhoto(photoId: string): Promise<void> {
         const rh = rMeta.height ?? 800
         return sharp(resized)
           .composite([{ input: proofWatermarkSvg(photographerName, rw, rh), blend: "over" }])
-          .webp({ quality: 85 })
+          .webp({ quality: 88, effort: 4 })
           .toBuffer()
       }
 
-      return sharp(resized).webp({ quality: 88 }).toBuffer()
+      return sharp(resized).webp({ quality: 92, effort: 4 }).toBuffer()
     })(),
 
-    // Watermarked variant
+    // Watermarked variant: 1600px
     (async () => {
       const resized = await rotateBuffer(original)
-        .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
+        .resize(1600, 1600, {
+          fit: "inside",
+          withoutEnlargement: true,
+          kernel: sharp.kernel.lanczos3,
+        })
+        .sharpen({ sigma: 0.6, m1: 0.4, m2: 1.2 })
         .toBuffer()
       const resizedMeta = await sharp(resized).metadata()
       const rw = resizedMeta.width ?? 1200
@@ -134,7 +150,7 @@ export async function processPhoto(photoId: string): Promise<void> {
 
       return sharp(resized)
         .composite([{ input: wmSvg, blend: "over" }])
-        .jpeg({ quality: 82 })
+        .jpeg({ quality: 88, mozjpeg: true })
         .toBuffer()
     })(),
   ])
