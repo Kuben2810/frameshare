@@ -7,6 +7,10 @@ import { getDecodableImageBuffer, extractRawOrientation } from "@/lib/raw-decode
 import { adjustStorageQuota } from "@/lib/db-guards"
 import sharp from "sharp"
 
+// Configure Sharp for low-memory environments (prevents container OOM kills on 24MP+ RAW files)
+sharp.cache(false)
+sharp.concurrency(1)
+
 function proofWatermarkSvg(name: string, width: number, height: number): Buffer {
   const escaped = (name || "Frameshare").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
   const fontSizeMain = Math.max(18, Math.round(Math.min(width, height) * 0.055))
@@ -84,76 +88,66 @@ export async function processPhoto(photoId: string): Promise<void> {
   else if (effectiveOrientation === 6) rotateAngle = 90
   else if (effectiveOrientation === 8) rotateAngle = 270
 
-  const isRotated = rotateAngle === 90 || rotateAngle === 270 || (meta.orientation && meta.orientation >= 5 && meta.orientation <= 8)
-  const origW = meta.width ?? 1200
-  const origH = meta.height ?? 800
-  const w = isRotated ? origH : origW
-  const h = isRotated ? origW : origH
-
   const isProofing = (photo.section ?? "proofing") === "proofing"
 
   // Rotator helper: rotates explicitly if RAW IFD orientation exists, or uses Sharp auto-rotate
   const rotateBuffer = (buf: Buffer) => (rotateAngle !== undefined ? sharp(buf).rotate(rotateAngle) : sharp(buf).rotate())
 
-  const [thumb, display, watermarked] = await Promise.all([
-    // Ultra-crisp grid thumbnail: 1200px Lanczos3 with studio unsharp masking
-    rotateBuffer(original)
-      .resize(1200, 1200, {
-        fit: "inside",
-        withoutEnlargement: true,
-        kernel: sharp.kernel.lanczos3,
-      })
-      .sharpen({ sigma: 0.75, m1: 0.5, m2: 1.5 })
-      .webp({ quality: 90, effort: 4 })
-      .toBuffer(),
+  // Step 1: Decode raw original ONCE and resize to clean 2560px master image
+  const masterBase = await rotateBuffer(original)
+    .resize(2560, 2560, {
+      fit: "inside",
+      withoutEnlargement: true,
+      kernel: sharp.kernel.lanczos3,
+    })
+    .sharpen({ sigma: 0.6, m1: 0.4, m2: 1.2 })
+    .toBuffer()
 
-    // Display image: 2.5K QHD (2560px) master web display
-    (async () => {
-      const resized = await rotateBuffer(original)
-        .resize(2560, 2560, {
-          fit: "inside",
-          withoutEnlargement: true,
-          kernel: sharp.kernel.lanczos3,
-        })
-        .sharpen({ sigma: 0.6, m1: 0.4, m2: 1.2 })
-        .toBuffer()
+  const masterMeta = await sharp(masterBase).metadata()
+  const masterW = masterMeta.width ?? 1200
+  const masterH = masterMeta.height ?? 800
 
-      if (isProofing) {
-        const rMeta = await sharp(resized).metadata()
-        const rw = rMeta.width ?? 1200
-        const rh = rMeta.height ?? 800
-        return sharp(resized)
-          .composite([{ input: proofWatermarkSvg(photographerName, rw, rh), blend: "over" }])
-          .webp({ quality: 88, effort: 4 })
-          .toBuffer()
-      }
+  // Step 2: Derive crisp grid thumbnail (1200px Lanczos3 WebP) from masterBase
+  const thumb = await sharp(masterBase)
+    .resize(1200, 1200, {
+      fit: "inside",
+      withoutEnlargement: true,
+      kernel: sharp.kernel.lanczos3,
+    })
+    .sharpen({ sigma: 0.75, m1: 0.5, m2: 1.5 })
+    .webp({ quality: 90, effort: 4 })
+    .toBuffer()
 
-      return sharp(resized).webp({ quality: 92, effort: 4 }).toBuffer()
-    })(),
+  // Step 3: Derive display variant from masterBase
+  let display: Buffer
+  if (isProofing) {
+    display = await sharp(masterBase)
+      .composite([{ input: proofWatermarkSvg(photographerName, masterW, masterH), blend: "over" }])
+      .webp({ quality: 88, effort: 4 })
+      .toBuffer()
+  } else {
+    display = await sharp(masterBase).webp({ quality: 92, effort: 4 }).toBuffer()
+  }
 
-    // Watermarked variant: 1600px
-    (async () => {
-      const resized = await rotateBuffer(original)
-        .resize(1600, 1600, {
-          fit: "inside",
-          withoutEnlargement: true,
-          kernel: sharp.kernel.lanczos3,
-        })
-        .sharpen({ sigma: 0.6, m1: 0.4, m2: 1.2 })
-        .toBuffer()
-      const resizedMeta = await sharp(resized).metadata()
-      const rw = resizedMeta.width ?? 1200
-      const rh = resizedMeta.height ?? 800
-      const wmSvg = isProofing
-        ? proofWatermarkSvg(photographerName, rw, rh)
-        : studioWatermarkSvg(photographerName, rw, rh)
+  // Step 4: Derive watermarked variant (1600px JPEG) from masterBase
+  const resizedWm = await sharp(masterBase)
+    .resize(1600, 1600, {
+      fit: "inside",
+      withoutEnlargement: true,
+      kernel: sharp.kernel.lanczos3,
+    })
+    .toBuffer()
+  const wmMeta = await sharp(resizedWm).metadata()
+  const wmW = wmMeta.width ?? 1200
+  const wmH = wmMeta.height ?? 800
+  const wmSvg = isProofing
+    ? proofWatermarkSvg(photographerName, wmW, wmH)
+    : studioWatermarkSvg(photographerName, wmW, wmH)
 
-      return sharp(resized)
-        .composite([{ input: wmSvg, blend: "over" }])
-        .jpeg({ quality: 88, mozjpeg: true })
-        .toBuffer()
-    })(),
-  ])
+  const watermarked = await sharp(resizedWm)
+    .composite([{ input: wmSvg, blend: "over" }])
+    .jpeg({ quality: 88, mozjpeg: true })
+    .toBuffer()
 
   const thumbKey       = keys.thumb()
   const displayKey     = keys.display()
@@ -193,8 +187,8 @@ export async function processPhoto(photoId: string): Promise<void> {
       thumbKey,
       displayKey,
       watermarkedKey,
-      width: w,
-      height: h,
+      width: masterW,
+      height: masterH,
       fileSizeBytes: finalFileSizeBytes,
       status: "ready",
     })

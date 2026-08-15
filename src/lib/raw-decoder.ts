@@ -207,15 +207,24 @@ export function extractJpegsFromTiffIfds(buffer: Buffer): Buffer[] {
 
 /**
  * Extracts all embedded JPEG buffers from a camera RAW file by scanning SOI markers.
+ * Used only as a fallback if TIFF IFDs are absent or non-standard.
  */
 export function extractJpegsFromRaw(buffer: Buffer): Buffer[] {
   const jpegs: Buffer[] = []
   
-  // Find all SOI locations (0xFF 0xD8 0xFF)
+  // Find valid JPEG SOI locations (0xFF 0xD8 0xFF followed by valid JPEG marker: APP0-APP2, DQT, SOF0, SOF2, APP14)
+  const validMarkers = new Set([0xe0, 0xe1, 0xe2, 0xdb, 0xc0, 0xc2, 0xee])
   const soiOffsets: number[] = []
+
   for (let i = 0; i < buffer.length - 4; i++) {
-    if (buffer[i] === 0xff && buffer[i + 1] === 0xd8 && buffer[i + 2] === 0xff) {
+    if (
+      buffer[i] === 0xff &&
+      buffer[i + 1] === 0xd8 &&
+      buffer[i + 2] === 0xff &&
+      validMarkers.has(buffer[i + 3])
+    ) {
       soiOffsets.push(i)
+      if (soiOffsets.length >= 6) break // Limit to at most 6 potential JPEG headers
     }
   }
 
@@ -225,23 +234,23 @@ export function extractJpegsFromRaw(buffer: Buffer): Buffer[] {
     
     // Find the last EOI (0xFF 0xD9) before the next SOI
     let lastEoi = -1
-    for (let j = Math.max(start + 100, nextStart - 4096); j < nextStart - 1; j++) {
+    for (let j = Math.max(start + 500, nextStart - 4096); j < nextStart - 1; j++) {
       if (buffer[j] === 0xff && buffer[j + 1] === 0xd9) {
         lastEoi = j
       }
     }
     
     if (lastEoi === -1) {
-      for (let j = start + 100; j < nextStart - 1; j++) {
+      for (let j = start + 500; j < nextStart - 1; j++) {
         if (buffer[j] === 0xff && buffer[j + 1] === 0xd9) {
           lastEoi = j
         }
       }
     }
 
-    if (lastEoi !== -1 && lastEoi + 2 - start > 4096) {
+    if (lastEoi !== -1 && lastEoi + 2 - start > 16384) {
       jpegs.push(buffer.subarray(start, lastEoi + 2))
-    } else if (nextStart - start > 4096) {
+    } else if (nextStart - start > 16384) {
       jpegs.push(buffer.subarray(start, nextStart))
     }
   }
@@ -257,12 +266,14 @@ export async function getDecodableImageBuffer(buffer: Buffer, filename?: string)
   const ext = filename?.split(".").pop()?.toLowerCase() ?? ""
   const isRawExt = ["cr2", "cr3", "nef", "arw", "dng", "raf", "orf", "rw2", "pef", "srw", "raw"].includes(ext)
 
-  // 1. For RAW files, gather all candidates from TIFF IFDs and binary SOI/EOI scanning
+  // 1. For RAW files: First try high-speed, structured TIFF IFD extraction
   if (isRawExt) {
-    const candidates: Buffer[] = [
-      ...extractJpegsFromTiffIfds(buffer),
-      ...extractJpegsFromRaw(buffer),
-    ]
+    let candidates: Buffer[] = extractJpegsFromTiffIfds(buffer)
+    
+    // Fallback to binary scanner ONLY if IFD parser found nothing
+    if (candidates.length === 0) {
+      candidates = extractJpegsFromRaw(buffer)
+    }
 
     const validCandidates: { buf: Buffer; width: number; height: number; pixels: number }[] = []
 
@@ -289,17 +300,14 @@ export async function getDecodableImageBuffer(buffer: Buffer, filename?: string)
     }
   }
 
-  // 2. For standard formats (JPG, PNG, WebP, TIFF), decode with Sharp
+  // 2. For standard formats (JPG, PNG, WebP, TIFF), decode directly with Sharp
   try {
     const meta = await sharp(buffer).metadata()
     if (meta && meta.width && meta.height) {
       return buffer
     }
   } catch {
-    const candidates = [
-      ...extractJpegsFromTiffIfds(buffer),
-      ...extractJpegsFromRaw(buffer),
-    ]
+    const candidates = extractJpegsFromTiffIfds(buffer)
     const validCandidates: { buf: Buffer; pixels: number }[] = []
     for (const buf of candidates) {
       try {

@@ -103,24 +103,56 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
         if (cancelRequestedRef.current) break
 
         try {
-          // 1. Get presigned upload URL with target section
-          const res = await fetch("/api/upload/sign", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              galleryId: gallery.id,
-              filename: file.name,
-              fileSize: file.size,
-              mimeType: file.type,
-              section: uploadTargetSection,
-            }),
-          })
+          // 1. Get presigned upload URL with target section (with retry for transient server restarts)
+          let res: Response
+          try {
+            res = await fetch("/api/upload/sign", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                galleryId: gallery.id,
+                filename: file.name,
+                fileSize: file.size,
+                mimeType: file.type,
+                section: uploadTargetSection,
+              }),
+            })
+            // If transient 502/503 occurs, retry once after short pause
+            if (res.status === 502 || res.status === 503) {
+              await new Promise((r) => setTimeout(r, 1500))
+              res = await fetch("/api/upload/sign", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  galleryId: gallery.id,
+                  filename: file.name,
+                  fileSize: file.size,
+                  mimeType: file.type,
+                  section: uploadTargetSection,
+                }),
+              })
+            }
+          } catch (netErr: any) {
+            // Retry network error once
+            await new Promise((r) => setTimeout(r, 1500))
+            res = await fetch("/api/upload/sign", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                galleryId: gallery.id,
+                filename: file.name,
+                fileSize: file.size,
+                mimeType: file.type,
+                section: uploadTargetSection,
+              }),
+            })
+          }
 
           if (cancelRequestedRef.current) break
 
           if (!res.ok) {
             const errData = await res.json().catch(() => ({}))
-            const reason = errData.error || `Server sign rejected (${res.status})`
+            const reason = errData.error || (res.status === 502 ? "Server temporarily busy / restarting (502)" : `Server sign rejected (${res.status})`)
             setFailedUploads(f => [...f.filter(item => item.name !== file.name), {
               id: crypto.randomUUID(),
               name: file.name,
@@ -168,15 +200,24 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
           if (cancelRequestedRef.current) break
 
           // 3. Process variants (Sharp thumbnails, display, watermarks)
-          const processRes = await fetch("/api/upload/process", {
+          let processRes = await fetch("/api/upload/process", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ photoId }),
           })
 
+          if ((processRes.status === 502 || processRes.status === 503) && !cancelRequestedRef.current) {
+            await new Promise((r) => setTimeout(r, 1500))
+            processRes = await fetch("/api/upload/process", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ photoId }),
+            })
+          }
+
           if (!processRes.ok) {
             const errData = await processRes.json().catch(() => ({}))
-            const reason = errData.error || `Image processing failed (${processRes.status})`
+            const reason = errData.error || (processRes.status === 502 ? "Server busy / restarting (502)" : `Image processing failed (${processRes.status})`)
             setFailedUploads(f => [...f.filter(item => item.name !== file.name), {
               id: crypto.randomUUID(),
               name: file.name,
