@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useRef } from "react"
 import { useDropzone } from "react-dropzone"
 import {
   Trash2,
@@ -56,6 +56,9 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
   const [isMovingBatch, setIsMovingBatch] = useState(false)
   const [isRotatingBatch, setIsRotatingBatch] = useState(false)
 
+  const currentXhrRef = useRef<XMLHttpRequest | null>(null)
+  const cancelRequestedRef = useRef(false)
+
   const proofingCount = photoList.filter((p) => (p.section ?? "proofing") === "proofing").length
   const finalCount = photoList.filter((p) => p.section === "final").length
 
@@ -64,12 +67,26 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
     return (p.section ?? "proofing") === activeSection
   })
 
+  function handleCancelUpload() {
+    cancelRequestedRef.current = true
+    if (currentXhrRef.current) {
+      currentXhrRef.current.abort()
+      currentXhrRef.current = null
+    }
+    setUploading([])
+    toast.info("Uploads cancelled")
+  }
+
   const onDrop = useCallback(
     async (accepted: File[]) => {
       if (accepted.length === 0) return
+      cancelRequestedRef.current = false
+
+      // Queue initial list
+      setUploading(accepted.map((f) => ({ name: f.name, progress: 0 })))
 
       for (const file of accepted) {
-        setUploading((u) => [...u, { name: file.name, progress: 0 }])
+        if (cancelRequestedRef.current) break
 
         try {
           // 1. Get presigned upload URL with target section
@@ -85,15 +102,22 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
             }),
           })
 
+          if (cancelRequestedRef.current) break
+
           if (!res.ok) {
             toast.error(`Upload error: ${file.name}`)
+            setUploading((u) => u.filter((f) => f.name !== file.name))
             continue
           }
           const { url, photoId } = await res.json()
 
-          // 2. Direct S3 PUT
+          if (cancelRequestedRef.current) break
+
+          // 2. Direct S3 PUT with cancelable XHR
           await new Promise<void>((resolve, reject) => {
             const xhr = new XMLHttpRequest()
+            currentXhrRef.current = xhr
+
             xhr.upload.onprogress = (e) => {
               if (e.lengthComputable) {
                 setUploading((u) =>
@@ -101,12 +125,24 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
                 )
               }
             }
-            xhr.onload = () => (xhr.status < 300 ? resolve() : reject(xhr.status))
-            xhr.onerror = reject
+            xhr.onload = () => {
+              currentXhrRef.current = null
+              xhr.status < 300 ? resolve() : reject(new Error(`S3 returned ${xhr.status}`))
+            }
+            xhr.onerror = () => {
+              currentXhrRef.current = null
+              reject(new Error("Network error during upload"))
+            }
+            xhr.onabort = () => {
+              currentXhrRef.current = null
+              reject(new Error("aborted"))
+            }
             xhr.open("PUT", url)
-            xhr.setRequestHeader("Content-Type", file.type)
+            xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream")
             xhr.send(file)
           })
+
+          if (cancelRequestedRef.current) break
 
           // 3. Process variants (Sharp thumbnails, display, watermarks)
           const processRes = await fetch("/api/upload/process", {
@@ -117,14 +153,19 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
 
           if (!processRes.ok) {
             toast.error(`Processing error: ${file.name}`)
+            setUploading((u) => u.filter((f) => f.name !== file.name))
             continue
           }
 
           const { photo } = await processRes.json()
           setPhotoList((p) => [...p, photo])
           toast.success(`Uploaded to ${uploadTargetSection === "final" ? "Final Delivery" : "Proofing"}: ${file.name}`)
-        } catch {
-          toast.error(`Upload failed: ${file.name}`)
+        } catch (err: any) {
+          if (cancelRequestedRef.current || err?.message === "aborted") {
+            // Cancelled by user
+          } else {
+            toast.error(`Upload failed: ${file.name}`)
+          }
         } finally {
           setUploading((u) => u.filter((f) => f.name !== file.name))
         }
@@ -349,17 +390,26 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
         </div>
       </div>
 
-      {/* ── Active Uploads Progress Bar Queue ── */}
+      {/* ── Active Uploads Progress Bar Queue with Cancel Upload Button ── */}
       {uploading.length > 0 && (
-        <div className="rounded-2xl bg-card border border-border/80 p-4 space-y-3 shadow-xs">
+        <div className="rounded-2xl bg-card border border-border/80 p-4 space-y-3 shadow-xs animate-in fade-in-50 duration-200">
           <div className="flex items-center justify-between text-xs font-semibold text-foreground pb-1">
             <span className="flex items-center gap-2">
               <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
               <span>Uploading & Processing {uploading.length} photo(s)…</span>
             </span>
+            <button
+              type="button"
+              onClick={handleCancelUpload}
+              className="px-3 py-1 rounded-lg border border-destructive/40 bg-destructive/10 hover:bg-destructive text-destructive hover:text-destructive-foreground font-semibold text-xs transition-colors flex items-center gap-1.5 cursor-pointer shadow-xs"
+              title="Cancel all remaining uploads"
+            >
+              <X className="h-3.5 w-3.5" />
+              <span>Cancel Upload</span>
+            </button>
           </div>
 
-          <div className="space-y-2.5">
+          <div className="space-y-2.5 max-h-64 overflow-y-auto pr-1">
             {uploading.map((f) => (
               <div key={f.name} className="space-y-1 bg-muted/30 p-2.5 rounded-xl border border-border/40">
                 <div className="flex items-center justify-between text-xs">

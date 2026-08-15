@@ -75,7 +75,7 @@ export async function processPhoto(photoId: string): Promise<void> {
   const original = await getDecodableImageBuffer(rawOriginal, photo.filename)
 
   const keys = s3Keys(photoId)
-  const rawOrientation = extractRawOrientation(rawOriginal)
+  const rawOrientation = extractRawOrientation(rawOriginal) ?? extractRawOrientation(original)
   const meta = await sharp(original).metadata()
 
   const effectiveOrientation = rawOrientation ?? meta.orientation ?? 1
