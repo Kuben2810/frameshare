@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef } from "react"
-import { Star } from "lucide-react"
+import { Star, MessageSquare, Send, X, User, MessageCircle } from "lucide-react"
 import type { InferSelectModel } from "drizzle-orm"
 import type { galleries, photos, stars, comments } from "@/db/schema"
 import { useStar } from "@/lib/hooks/use-star"
@@ -54,6 +54,12 @@ export function GalleryView({
   const [currentSection, setCurrentSection] = useState<"proofing" | "final">(defaultSection)
   const activePhotos = currentSection === "final" ? finalPhotos : proofingPhotos
 
+  // ── Quick Comment Modal State on Grid Thumbnails ──────────────────────────
+  const [quickCommentPhoto, setQuickCommentPhoto] = useState<Photo | null>(null)
+  const [quickCommentBody, setQuickCommentBody] = useState("")
+  const [quickCommentAuthor, setQuickCommentAuthor] = useState("")
+  const [isSubmittingQuickComment, setIsSubmittingQuickComment] = useState(false)
+
   // ── Layout state ───────────────────────────────────────────────────────────
   const [layout, setLayout] = useState<Layout>("masonry")
   const [entryAnim, setEntryAnim] = useState<EntryAnim>("fade-up")
@@ -69,6 +75,18 @@ export function GalleryView({
 
   const { activeIdx, isSlideshow, setIsSlideshow, openLightbox, closeLightbox, goNext, goPrev } =
     useSlideshow(activePhotos.length)
+
+  async function handleSendQuickComment(e: React.FormEvent) {
+    e.preventDefault()
+    if (!quickCommentPhoto || !quickCommentBody.trim()) return
+    setIsSubmittingQuickComment(true)
+    try {
+      await submitComment(quickCommentPhoto.id, quickCommentBody.trim(), quickCommentAuthor.trim())
+      setQuickCommentBody("")
+    } finally {
+      setIsSubmittingQuickComment(false)
+    }
+  }
 
   // ── Restore persisted prefs ────────────────────────────────────────────────
   useEffect(() => {
@@ -116,44 +134,106 @@ export function GalleryView({
 
   // ── Shared card interior ───────────────────────────────────────────────────
   function cardInner(photo: Photo, coverFit: boolean) {
+    const isProofing = currentSection === "proofing"
     const starred = starredIds.has(photo.id)
+    const commentsList = commentMap[photo.id] ?? []
+    const commentCount = commentsList.length
     const thumb = imgUrl(photo.thumbKey)
     const title = photo.filename.replace(/\.[^.]+$/, "")
     const fileType = photo.mimeType.split("/")[1]?.toUpperCase() ?? "IMG"
+
     return (
       <>
         {thumb ? (
-          <WebGLDistortion src={thumb} alt={photo.filename}
+          <WebGLDistortion
+            src={thumb}
+            alt={photo.filename}
             className={coverFit ? "w-full h-full" : ""}
             style={coverFit ? {} : { height: "auto" }}
-            intensity={1.0} speed={1.0}
+            intensity={1.0}
+            speed={1.0}
           />
         ) : (
           <div className={`${coverFit ? "w-full h-full" : "aspect-square"} bg-neutral-900`} />
         )}
+
         {/* Gradient hover overlay */}
-        <div className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"
-          style={{ background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.04) 60%, transparent 100%)" }}>
+        <div
+          className="absolute inset-0 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+          style={{ background: "linear-gradient(to top, rgba(0,0,0,0.88) 0%, rgba(0,0,0,0.04) 60%, transparent 100%)" }}
+        >
           <div className="absolute bottom-0 left-0 right-0 px-4 pb-4">
             <span className="block text-[9px] font-bold tracking-[2px] uppercase text-white/50 mb-1">{fileType}</span>
-            <h3 className="text-sm font-bold text-white truncate leading-tight" style={display}>{title}</h3>
+            <h3 className="text-sm font-bold text-white truncate leading-tight" style={display}>
+              {title}
+            </h3>
             {photo.width && photo.height && (
-              <p className="text-[11px] text-white/40 mt-1">{photo.width} × {photo.height}</p>
+              <p className="text-[11px] text-white/40 mt-1">
+                {photo.width} × {photo.height}
+              </p>
             )}
           </div>
         </div>
-        {/* Star + comment count (Prominent in Proofing mode) */}
-        <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-          <button onClick={(e) => { e.stopPropagation(); toggleStar(photo.id) }}
-            className="p-1.5 rounded-full bg-black/60 backdrop-blur-sm shadow-sm transition-transform hover:scale-110 active:scale-95">
-            <Star className={`h-3.5 w-3.5 ${starred ? "fill-yellow-400 text-yellow-400" : "text-white/80"}`} />
-          </button>
-          {(commentMap[photo.id]?.length ?? 0) > 0 && (
-            <span className="text-[10px] bg-white text-black px-1.5 py-0.5 font-medium rounded">
-              {commentMap[photo.id].length}
+
+        {/* PROOFING CONTROLS: Direct Star Selection + Comment Button on Thumbnail */}
+        {isProofing && (
+          <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 z-20">
+            {/* Star Selection Button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                toggleStar(photo.id)
+              }}
+              data-cursor="link"
+              className={cn(
+                "flex items-center gap-1.5 px-3 py-1.5 rounded-full backdrop-blur-md shadow-md transition-all active:scale-95 cursor-pointer font-mono text-xs",
+                starred
+                  ? "bg-amber-400 text-black font-bold ring-2 ring-amber-300/60 shadow-amber-400/20"
+                  : "bg-black/75 text-white/90 hover:bg-black hover:text-white border border-white/20"
+              )}
+              title={starred ? "Selected for retouching (click to unselect)" : "Select for retouching"}
+            >
+              <Star className={cn("h-3.5 w-3.5", starred ? "fill-black text-black" : "text-white")} />
+              <span className="text-[11px] font-sans font-semibold">
+                {starred ? "Selected" : "Select"}
+              </span>
+            </button>
+
+            {/* Comment Button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setQuickCommentPhoto(photo)
+              }}
+              data-cursor="link"
+              className={cn(
+                "p-1.5 px-2 rounded-full backdrop-blur-md shadow-md transition-all active:scale-95 cursor-pointer flex items-center gap-1",
+                commentCount > 0
+                  ? "bg-white text-black hover:bg-white/90"
+                  : "bg-black/75 text-white/90 hover:bg-black hover:text-white border border-white/20"
+              )}
+              title={commentCount > 0 ? `${commentCount} note(s) - click to view/add` : "Add notes for editor"}
+            >
+              <MessageSquare className="h-3.5 w-3.5" />
+              {commentCount > 0 && (
+                <span className="text-[10px] font-bold font-mono">
+                  {commentCount}
+                </span>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* FINAL DELIVERY BADGE: Clean, no starring or commenting */}
+        {!isProofing && (
+          <div className="absolute top-2.5 right-2.5 z-20 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
+            <span className="bg-amber-500/90 text-white font-bold text-[10px] uppercase px-2.5 py-1 rounded-full backdrop-blur-md shadow-sm font-mono">
+              Final Master ✨
             </span>
-          )}
-        </div>
+          </div>
+        )}
       </>
     )
   }
@@ -532,6 +612,110 @@ export function GalleryView({
               {submitting ? "Submitting…" : "Submit"}
             </button>
           )}
+        </div>
+      )}
+
+      {/* ── Direct Thumbnail Quick Comment Modal Dialog ── */}
+      {quickCommentPhoto && (
+        <div
+          className="fixed inset-0 z-50 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in-50 duration-200"
+          onClick={() => setQuickCommentPhoto(null)}
+        >
+          <div
+            className="bg-neutral-900 border border-white/20 rounded-2xl max-w-lg w-full overflow-hidden shadow-2xl flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="p-4 border-b border-white/10 flex items-center justify-between bg-neutral-900/90">
+              <div className="flex items-center gap-3 min-w-0">
+                {quickCommentPhoto.thumbKey && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={imgUrl(quickCommentPhoto.thumbKey)!}
+                    alt={quickCommentPhoto.filename}
+                    className="h-10 w-10 rounded-lg object-cover shrink-0 border border-white/15"
+                  />
+                )}
+                <div className="min-w-0">
+                  <h4 className="text-sm font-bold text-white truncate" style={display}>
+                    {quickCommentPhoto.filename}
+                  </h4>
+                  <p className="text-[11px] text-white/50">
+                    Editing notes for the photographer
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setQuickCommentPhoto(null)}
+                className="p-1.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+                title="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Comments List */}
+            <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-60 min-h-[100px] scrollbar-thin">
+              {(commentMap[quickCommentPhoto.id]?.length ?? 0) === 0 ? (
+                <div className="h-full flex flex-col items-center justify-center py-6 text-center text-white/40">
+                  <MessageCircle className="h-8 w-8 mb-2 stroke-1 text-white/20" />
+                  <p className="text-xs">No notes yet on this photo.</p>
+                  <p className="text-[11px] text-white/30 mt-0.5">Type specific retouching requests below.</p>
+                </div>
+              ) : (
+                commentMap[quickCommentPhoto.id].map((c) => (
+                  <div key={c.id} className="bg-white/5 border border-white/10 rounded-xl p-3 space-y-1">
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className="font-semibold text-amber-300 flex items-center gap-1.5">
+                        <User className="h-3 w-3" />
+                        {c.authorName || "Client"}
+                      </span>
+                      <span className="text-white/40 text-[10px] font-mono">
+                        {new Date(c.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                      </span>
+                    </div>
+                    <p className="text-xs text-white/90 leading-relaxed break-words">{c.body}</p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            {/* New Comment Input Form */}
+            <form onSubmit={handleSendQuickComment} className="p-4 border-t border-white/10 bg-neutral-950/70 space-y-2.5">
+              <input
+                type="text"
+                value={quickCommentAuthor}
+                onChange={(e) => setQuickCommentAuthor(e.target.value)}
+                placeholder="Your Name (Optional)"
+                className="w-full bg-white/5 border border-white/15 rounded-xl px-3 py-1.5 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-amber-400/80 transition-colors"
+              />
+
+              <div className="relative">
+                <textarea
+                  value={quickCommentBody}
+                  onChange={(e) => setQuickCommentBody(e.target.value)}
+                  placeholder="e.g., Please brighten the shadows and soften the skin..."
+                  rows={2}
+                  className="w-full bg-white/5 border border-white/15 rounded-xl p-3 pr-12 text-xs text-white placeholder:text-white/30 focus:outline-none focus:border-amber-400/80 transition-colors resize-none"
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault()
+                      handleSendQuickComment(e)
+                    }
+                  }}
+                />
+                <button
+                  type="submit"
+                  disabled={!quickCommentBody.trim() || isSubmittingQuickComment}
+                  className="absolute right-2 bottom-3 p-2 rounded-lg bg-amber-400 hover:bg-amber-300 disabled:opacity-30 text-black transition-all cursor-pointer shadow-sm active:scale-95"
+                  title="Send note"
+                >
+                  <Send className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 

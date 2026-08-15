@@ -58,6 +58,7 @@ export function Lightbox({
   clientSection?: "proofing" | "final"
   proofingPhotos?: Photo[]
 }) {
+  const isProofing = (clientSection ?? "proofing") === "proofing"
   const activePhoto = activeIdx !== null ? photos[activeIdx] : null
 
   // ── Tools state ────────────────────────────────────────────────────────────
@@ -295,16 +296,42 @@ export function Lightbox({
         <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Desktop-only tool buttons */}
           <div className="hidden sm:flex items-center gap-1.5">
-            <button onClick={() => setShowFilters(f => !f)} data-cursor="link"
-              className={`p-2 rounded-full transition-colors ${showFilters ? "bg-white/25" : "bg-white/10 hover:bg-white/20"}`}
-              title="Filters & adjustments">
-              <SlidersHorizontal className="h-4 w-4 text-white" />
-            </button>
-            <button onClick={() => setCropMode(m => !m)} data-cursor="link"
-              className={`p-2 rounded-full transition-colors ${cropMode ? "bg-white/25" : "bg-white/10 hover:bg-white/20"}`}
-              title="Crop">
-              <Crop className="h-4 w-4 text-white" />
-            </button>
+            {/* Editing tools (Final Delivery only) */}
+            {!isProofing && (
+              <>
+                <button
+                  onClick={() => setShowFilters(f => !f)}
+                  data-cursor="link"
+                  className={`p-2 rounded-full transition-colors ${showFilters ? "bg-white/25" : "bg-white/10 hover:bg-white/20"}`}
+                  title="Filters & adjustments"
+                >
+                  <SlidersHorizontal className="h-4 w-4 text-white" />
+                </button>
+                <button
+                  onClick={() => setCropMode(m => !m)}
+                  data-cursor="link"
+                  className={`p-2 rounded-full transition-colors ${cropMode ? "bg-white/25" : "bg-white/10 hover:bg-white/20"}`}
+                  title="Crop"
+                >
+                  <Crop className="h-4 w-4 text-white" />
+                </button>
+                <button
+                  onClick={() => { setCompareMode(m => !m); setComparePos(50) }}
+                  data-cursor="link"
+                  className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+                    compareMode
+                      ? "bg-amber-400 text-black shadow-md font-bold"
+                      : "bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30"
+                  }`}
+                  title="Before / After split comparison"
+                >
+                  <ArrowLeftRight className="h-3.5 w-3.5" />
+                  <span>{compareMode ? "Comparing" : "Compare"}</span>
+                </button>
+              </>
+            )}
+
+            {/* General Navigation / Inspection Tools */}
             <button onClick={() => setIsSlideshow(s => !s)} data-cursor="link"
               className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
               {isSlideshow ? <Pause className="h-4 w-4 text-white" /> : <Play className="h-4 w-4 text-white" />}
@@ -327,21 +354,6 @@ export function Lightbox({
               title="Photo details">
               <Info className="h-4 w-4 text-white" />
             </button>
-            <button
-              onClick={() => { setCompareMode(m => !m); setComparePos(50) }}
-              data-cursor="link"
-              className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-all ${
-                compareMode
-                  ? "bg-amber-400 text-black shadow-md font-bold"
-                  : clientSection === "final"
-                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30"
-                  : "bg-white/10 hover:bg-white/20 text-white"
-              }`}
-              title="Before / After split comparison"
-            >
-              <ArrowLeftRight className="h-3.5 w-3.5" />
-              <span>{compareMode ? "Comparing" : "Compare"}</span>
-            </button>
           </div>
 
           {/* Mobile Tools Dropdown Menu */}
@@ -358,21 +370,32 @@ export function Lightbox({
               <>
                 <div className="fixed inset-0 z-40" onClick={() => setShowMobileTools(false)} />
                 <div className="absolute right-0 top-full mt-2 w-48 bg-neutral-900/95 backdrop-blur-md border border-white/15 rounded-xl shadow-2xl p-1.5 z-50 divide-y divide-white/10 text-xs">
+                  {!isProofing && (
+                    <div className="py-1">
+                      <button
+                        onClick={() => { setShowFilters(f => !f); setShowMobileTools(false) }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-white hover:bg-white/10 text-left transition-colors"
+                      >
+                        <SlidersHorizontal className="h-4 w-4 text-white/70" />
+                        <span>{showFilters ? "Hide Filters" : "Filters & Sliders"}</span>
+                      </button>
+                      <button
+                        onClick={() => { setCropMode(m => !m); setShowMobileTools(false) }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-white hover:bg-white/10 text-left transition-colors"
+                      >
+                        <Crop className="h-4 w-4 text-white/70" />
+                        <span>Crop Tool</span>
+                      </button>
+                      <button
+                        onClick={() => { setCompareMode(m => !m); setComparePos(50); setShowMobileTools(false) }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-white hover:bg-white/10 text-left transition-colors"
+                      >
+                        <ArrowLeftRight className="h-4 w-4 text-white/70" />
+                        <span>Before / After</span>
+                      </button>
+                    </div>
+                  )}
                   <div className="py-1">
-                    <button
-                      onClick={() => { setShowFilters(f => !f); setShowMobileTools(false) }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-white hover:bg-white/10 text-left transition-colors"
-                    >
-                      <SlidersHorizontal className="h-4 w-4 text-white/70" />
-                      <span>{showFilters ? "Hide Filters" : "Filters & Sliders"}</span>
-                    </button>
-                    <button
-                      onClick={() => { setCropMode(m => !m); setShowMobileTools(false) }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-white hover:bg-white/10 text-left transition-colors"
-                    >
-                      <Crop className="h-4 w-4 text-white/70" />
-                      <span>Crop Tool</span>
-                    </button>
                     <button
                       onClick={() => { setIsSlideshow(s => !s); setShowMobileTools(false) }}
                       className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-white hover:bg-white/10 text-left transition-colors"
@@ -380,8 +403,6 @@ export function Lightbox({
                       {isSlideshow ? <Pause className="h-4 w-4 text-white/70" /> : <Play className="h-4 w-4 text-white/70" />}
                       <span>{isSlideshow ? "Pause Slideshow" : "Play Slideshow"}</span>
                     </button>
-                  </div>
-                  <div className="py-1">
                     <button
                       onClick={() => { setShowDetails(d => !d); setShowMobileTools(false) }}
                       className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-white hover:bg-white/10 text-left transition-colors"
@@ -389,59 +410,61 @@ export function Lightbox({
                       <Info className="h-4 w-4 text-white/70" />
                       <span>Photo Details</span>
                     </button>
-                    <button
-                      onClick={() => { setCompareMode(m => !m); setComparePos(50); setShowMobileTools(false) }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-white hover:bg-white/10 text-left transition-colors"
-                    >
-                      <ArrowLeftRight className="h-4 w-4 text-white/70" />
-                      <span>Before / After</span>
-                    </button>
                   </div>
                 </div>
               </>
             )}
           </div>
 
-          {/* Star with Live Limit Countdown */}
-          <div className="flex items-center gap-1.5 bg-white/10 p-0.5 pl-1.5 pr-2 rounded-full border border-white/15">
-            <button
-              onClick={() => toggleStar(activePhoto.id)}
-              data-cursor="link"
-              className="p-1 rounded-full hover:bg-white/20 active:scale-90 transition-all cursor-pointer"
-              title={starredIds.has(activePhoto.id) ? "Remove from selection" : "Select for retouching"}
-            >
-              <Star className={`h-4 w-4 ${starredIds.has(activePhoto.id) ? "fill-yellow-400 text-yellow-400" : "text-white"}`} />
-            </button>
-            {gallery.maxSelections ? (
-              <span className="text-[11px] font-mono text-white/80 select-none">
-                <strong className={
-                  starredIds.size > gallery.maxSelections
-                    ? "text-amber-400 font-bold"
-                    : starredIds.size === gallery.maxSelections
-                    ? "text-emerald-400 font-bold"
-                    : "text-white"
-                }>
-                  {starredIds.size}
-                </strong>
-                <span className="text-white/40">/{gallery.maxSelections}</span>
-              </span>
-            ) : (
-              <span className="text-[11px] font-mono text-white/80 select-none">
-                {starredIds.size}
-              </span>
-            )}
-          </div>
+          {/* Proofing Only: Star with Live Limit Countdown & Comment Drawer */}
+          {isProofing && (
+            <>
+              {/* Star with Live Limit Countdown */}
+              <div className="flex items-center gap-1.5 bg-white/10 p-0.5 pl-1.5 pr-2 rounded-full border border-white/15">
+                <button
+                  onClick={() => toggleStar(activePhoto.id)}
+                  data-cursor="link"
+                  className="p-1 rounded-full hover:bg-white/20 active:scale-90 transition-all cursor-pointer"
+                  title={starredIds.has(activePhoto.id) ? "Remove from selection" : "Select for retouching"}
+                >
+                  <Star className={`h-4 w-4 ${starredIds.has(activePhoto.id) ? "fill-yellow-400 text-yellow-400" : "text-white"}`} />
+                </button>
+                {gallery.maxSelections ? (
+                  <span className="text-[11px] font-mono text-white/80 select-none">
+                    <strong className={
+                      starredIds.size > gallery.maxSelections
+                        ? "text-amber-400 font-bold"
+                        : starredIds.size === gallery.maxSelections
+                        ? "text-emerald-400 font-bold"
+                        : "text-white"
+                    }>
+                      {starredIds.size}
+                    </strong>
+                    <span className="text-white/40">/{gallery.maxSelections}</span>
+                  </span>
+                ) : (
+                  <span className="text-[11px] font-mono text-white/80 select-none">
+                    {starredIds.size}
+                  </span>
+                )}
+              </div>
 
-          {/* Comment (Always visible) */}
-          <button onClick={() => setCommentPhotoId(commentPhotoId === activePhoto.id ? null : activePhoto.id)}
-            data-cursor="link" className="p-2 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 transition-all relative">
-            <MessageSquare className="h-4 w-4 text-white" />
-            {(commentMap[activePhoto.id]?.length ?? 0) > 0 && (
-              <span className="absolute -top-1 -right-1 bg-white text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">
-                {commentMap[activePhoto.id].length}
-              </span>
-            )}
-          </button>
+              {/* Comment Button */}
+              <button
+                onClick={() => setCommentPhotoId(commentPhotoId === activePhoto.id ? null : activePhoto.id)}
+                data-cursor="link"
+                className="p-2 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 transition-all relative cursor-pointer"
+                title="Add editing notes for photographer"
+              >
+                <MessageSquare className="h-4 w-4 text-white" />
+                {(commentMap[activePhoto.id]?.length ?? 0) > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-white text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">
+                    {commentMap[activePhoto.id].length}
+                  </span>
+                )}
+              </button>
+            </>
+          )}
 
           {/* Download (Always visible if enabled) */}
           {gallery.downloadMode !== "none" && (
@@ -454,14 +477,16 @@ export function Lightbox({
                 <>
                   <div className="fixed inset-0 z-40" onClick={() => setShowDownloadMenu(false)} />
                   <div className="absolute right-0 top-full mt-2 bg-neutral-900/95 backdrop-blur-md border border-white/15 rounded-xl overflow-hidden text-xs w-48 z-50 shadow-2xl p-1">
-                    <button onClick={downloadWithEdits} data-cursor="link"
-                      className="w-full px-3 py-2 text-left text-white hover:bg-white/10 rounded-lg transition-colors">
-                      Download with edits
-                    </button>
+                    {!isProofing && (
+                      <button onClick={downloadWithEdits} data-cursor="link"
+                        className="w-full px-3 py-2 text-left text-white hover:bg-white/10 rounded-lg transition-colors">
+                        Download with edits
+                      </button>
+                    )}
                     <a href={imgUrl(gallery.downloadMode === "lowres" ? activePhoto.watermarkedKey : activePhoto.originalKey) ?? "#"}
                       download={activePhoto.filename} onClick={() => setShowDownloadMenu(false)} data-cursor="link"
                       className="block px-3 py-2 text-white hover:bg-white/10 rounded-lg transition-colors">
-                      Download original
+                      {isProofing ? "Download proof" : "Download master original"}
                     </a>
                   </div>
                 </>
@@ -469,7 +494,7 @@ export function Lightbox({
             </div>
           )}
 
-          {/* Close button (Always prominently visible) */}
+          {/* Close button */}
           <button onClick={closeLightbox} data-cursor="close"
             className="p-2 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 transition-all ml-0.5"
             title="Close lightbox">
@@ -478,8 +503,8 @@ export function Lightbox({
         </div>
       </div>
 
-      {/* Filters + adjustments */}
-      {showFilters && (
+      {/* Filters + adjustments (Final Delivery only) */}
+      {showFilters && !isProofing && (
         <div className="px-4 pb-3 space-y-2 shrink-0 animate-in slide-in-from-top-2 duration-200" style={{ zIndex: 60 }}>
           <div className="flex items-center gap-1.5 overflow-x-auto scrollbar-none">
             {Object.keys(FILTERS).map((name) => (
@@ -640,8 +665,8 @@ export function Lightbox({
               Next
             </button>
 
-            {/* Editing tip */}
-            {showTip && (
+            {/* First-time tip: editing tools (Final Delivery only) */}
+            {showTip && !isProofing && (
               <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-30 bg-neutral-900/95 border border-white/10 rounded-xl px-4 py-3 shadow-2xl w-72 animate-in slide-in-from-bottom-2 duration-300">
                 <div className="flex items-center justify-between mb-2.5">
                   <span className="text-white/50 text-[10px] uppercase tracking-widest font-semibold">Editing tools</span>
@@ -670,8 +695,8 @@ export function Lightbox({
           </>
         )}
 
-        {/* Crop tool */}
-        {cropMode && (
+        {/* Crop tool (Final Delivery only) */}
+        {cropMode && !isProofing && (
           <LightboxCrop
             imageUrl={imgUrl(activePhoto.displayKey ?? activePhoto.originalKey)!}
             naturalWidth={activePhoto.width ?? 0}
@@ -702,8 +727,8 @@ export function Lightbox({
         )}
       </div>
 
-      {/* Comment panel */}
-      {commentPhotoId === activePhoto.id && (
+      {/* Comment panel (Proofing only) */}
+      {commentPhotoId === activePhoto.id && isProofing && (
         <div className="bg-neutral-900 text-white px-4 py-3 max-h-56 overflow-y-auto space-y-3 shrink-0 animate-in slide-in-from-bottom-2 duration-200">
           {(commentMap[activePhoto.id] ?? []).map((c) => (
             <div key={c.id} className="text-sm">
