@@ -1,7 +1,7 @@
 import { db } from "@/db"
 import { selections, selectionPhotos, galleries, stars } from "@/db/schema"
 import { eq, and } from "drizzle-orm"
-import { sendEmail } from "@/lib/email"
+import { sendSelectionNotificationEmail } from "@/lib/email"
 import { users } from "@/db/schema"
 import { getBaseUrl } from "@/lib/utils"
 
@@ -30,15 +30,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
     )
   }
 
-  // Notify photographer
+  // Notify photographer with luxury formatted email
   const photographer = await db.query.users.findFirst({ where: eq(users.id, gallery.userId) })
   if (photographer?.email) {
-    const shareUrl = `${getBaseUrl()}/g/${slug}`
-    await sendEmail({
-      to: photographer.email,
-      subject: `Client submitted selection — ${gallery.name}`,
-      html: `<p>Your client submitted a selection of <strong>${photoIds.length} photo${photoIds.length !== 1 ? "s" : ""}</strong> from <strong>${gallery.name}</strong>.</p>
-             <p><a href="${shareUrl}">View gallery</a></p>`,
+    sendSelectionNotificationEmail({
+      photographerEmail: photographer.email,
+      photographerName: photographer.name ?? "Photographer",
+      galleryName: gallery.name,
+      galleryId: gallery.id,
+      slug,
+      photoCount: photoIds.length,
     }).catch(() => {}) // non-fatal
   }
 

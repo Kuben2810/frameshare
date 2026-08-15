@@ -196,6 +196,47 @@ export function Lightbox({
 
   function dismissTip() { setShowTip(false); localStorage.setItem("lb-tip-dismissed", "1") }
 
+  // ── Mobile Touch Swipe Handling ───────────────────────────────────────────
+  const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null)
+
+  function handleTouchStart(e: React.TouchEvent) {
+    if (e.touches.length === 1 && zoomLevel <= 1) {
+      touchStartRef.current = {
+        x: e.touches[0].clientX,
+        y: e.touches[0].clientY,
+        time: Date.now(),
+      }
+    } else {
+      touchStartRef.current = null
+    }
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (!touchStartRef.current || zoomLevel > 1) return
+    const touch = e.changedTouches[0]
+    if (!touch) return
+
+    const deltaX = touch.clientX - touchStartRef.current.x
+    const deltaY = touch.clientY - touchStartRef.current.y
+    touchStartRef.current = null
+
+    // Horizontal Swipe (quick flick or > 45px distance)
+    if (Math.abs(deltaX) > 45 && Math.abs(deltaX) > Math.abs(deltaY) * 1.2) {
+      if (deltaX < 0) {
+        goNext()
+      } else {
+        goPrev()
+      }
+      return
+    }
+
+    // Vertical Swipe Down to close (> 80px)
+    if (deltaY > 80 && Math.abs(deltaY) > Math.abs(deltaX) * 1.5) {
+      closeLightbox()
+      return
+    }
+  }
+
   function compareMoveAt(clientX: number) {
     if (!compareRef.current || !compareDragging.current) return
     const rect = compareRef.current.getBoundingClientRect()
@@ -342,8 +383,13 @@ export function Lightbox({
         </div>
       )}
 
-      {/* ── Image area — curtain spring slider ── */}
-      <div className="relative flex-1 min-h-0 overflow-hidden" data-cursor="zoom">
+      {/* ── Image area — curtain spring slider with touch swipe ── */}
+      <div
+        className="relative flex-1 min-h-0 overflow-hidden select-none touch-pan-y"
+        data-cursor="zoom"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+      >
         {/* Curtain slides */}
         {renderRange.map(({ photo, absIdx }) => {
           const src = imgUrl(photo.displayKey ?? photo.originalKey)

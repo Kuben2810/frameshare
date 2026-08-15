@@ -94,6 +94,30 @@ export function AshadeSidebar({
                 ✓ Selection submitted
               </p>
             )}
+
+            {/* Bulk Downloads */}
+            {gallery.downloadMode !== "none" && (
+              <div className="mt-4 pt-4 border-t border-white/10 space-y-2">
+                <a
+                  href={`/api/galleries/${gallery.slug}/download?type=all`}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-white text-xs font-semibold uppercase tracking-wider transition-colors"
+                  data-cursor="link"
+                  download
+                >
+                  <span>Download Collection (.ZIP)</span>
+                </a>
+                {starredCount > 0 && (
+                  <a
+                    href={`/api/galleries/${gallery.slug}/download?type=starred&clientId=${typeof window !== "undefined" ? localStorage.getItem(`frameshare_client_id_${gallery.slug}`) || "" : ""}`}
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-white/5 hover:bg-white/15 text-white/80 text-[11px] font-medium tracking-wider transition-colors"
+                    data-cursor="link"
+                    download
+                  >
+                    <span>Download Starred ({starredCount}) (.ZIP)</span>
+                  </a>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Contact placeholder */}

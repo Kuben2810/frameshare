@@ -122,6 +122,16 @@ export function GalleryDetailView({
         </Link>
 
         <div className="flex items-center gap-2">
+          {initialPhotos.length > 0 && (
+            <a
+              href={`/api/galleries/${gallery.slug}/download?type=all`}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5 rounded-xl")}
+              download
+            >
+              <Download className="h-3.5 w-3.5" />
+              <span>Download ZIP</span>
+            </a>
+          )}
           <button
             onClick={handleCopyLink}
             className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5 rounded-xl")}
