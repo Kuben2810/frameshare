@@ -9,6 +9,9 @@ import { PassThrough, Readable } from "stream"
 import { s3, BUCKET } from "@/lib/s3"
 import { GetObjectCommand } from "@aws-sdk/client-s3"
 
+export const dynamic = "force-dynamic"
+export const runtime = "nodejs"
+
 export async function GET(req: Request, { params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params
   const { searchParams } = new URL(req.url)
