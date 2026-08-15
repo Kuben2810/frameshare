@@ -11,6 +11,7 @@ import { cookies } from "next/headers"
 import { requireAuth } from "@/lib/require-auth"
 import { deleteKey } from "@/lib/s3"
 import { adjustStorageQuota } from "@/lib/db-guards"
+import { ensureColumnsMigrated } from "@/db/auto-migrate"
 
 function randomSlug() {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 12)
@@ -18,6 +19,7 @@ function randomSlug() {
 
 export async function createGallery(formData: FormData) {
   const userId = await requireAuth()
+  await ensureColumnsMigrated()
 
   const name = (formData.get("name") as string)?.trim()
   if (!name) return { error: "Name required" }

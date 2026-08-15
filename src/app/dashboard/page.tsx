@@ -5,10 +5,13 @@ import { eq, and, asc, desc } from "drizzle-orm"
 import { redirect } from "next/navigation"
 import { DashboardClientView, DashboardGallery } from "@/components/dashboard-client-view"
 import { getBaseUrl } from "@/lib/utils"
+import { ensureColumnsMigrated } from "@/db/auto-migrate"
 
 export default async function DashboardPage() {
   const session = await auth()
   if (!session?.user?.id) redirect("/login")
+
+  await ensureColumnsMigrated()
 
   const [user, userGalleries] = await Promise.all([
     db.query.users.findFirst({ where: eq(users.id, session.user.id) }),

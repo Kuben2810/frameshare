@@ -6,6 +6,7 @@ import { cookies } from "next/headers"
 import { auth } from "@/auth"
 import { GalleryView } from "@/components/gallery-view"
 import { PasswordGate } from "@/components/password-gate"
+import { ensureColumnsMigrated } from "@/db/auto-migrate"
 
 export default async function GallerySharePage({
   params,
@@ -13,6 +14,8 @@ export default async function GallerySharePage({
   params: Promise<{ slug: string }>
 }) {
   const { slug } = await params
+
+  await ensureColumnsMigrated()
 
   const gallery = await db.query.galleries.findFirst({ where: eq(galleries.slug, slug) })
   if (!gallery) notFound()
