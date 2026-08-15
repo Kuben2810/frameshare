@@ -9,9 +9,10 @@ import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 import { cookies } from "next/headers"
 import { requireAuth } from "@/lib/require-auth"
-import { deleteKey } from "@/lib/s3"
+import { deleteKey, downloadBuffer, uploadBuffer } from "@/lib/s3"
 import { adjustStorageQuota } from "@/lib/db-guards"
 import { ensureColumnsMigrated } from "@/db/auto-migrate"
+import sharp from "sharp"
 
 function randomSlug() {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 12)
@@ -252,5 +253,42 @@ export async function unlockGallery(galleryId: string, password: string) {
     maxAge: 60 * 60 * 24 * 7, // 7 days
   })
 
+  return { success: true }
+}
+
+export async function rotatePhoto(photoId: string, angle: 90 | 180 | 270 = 90) {
+  const userId = await requireAuth()
+
+  const photo = await db.query.photos.findFirst({
+    where: and(eq(photos.id, photoId), eq(photos.userId, userId)),
+  })
+  if (!photo) return { error: "Photo not found" }
+
+  const [thumbBuf, displayBuf, wmBuf] = await Promise.all([
+    photo.thumbKey ? downloadBuffer(photo.thumbKey) : null,
+    photo.displayKey ? downloadBuffer(photo.displayKey) : null,
+    photo.watermarkedKey ? downloadBuffer(photo.watermarkedKey) : null,
+  ])
+
+  const [newThumb, newDisplay, newWm] = await Promise.all([
+    thumbBuf ? sharp(thumbBuf).rotate(angle).webp({ quality: 80 }).toBuffer() : null,
+    displayBuf ? sharp(displayBuf).rotate(angle).webp({ quality: 85 }).toBuffer() : null,
+    wmBuf ? sharp(wmBuf).rotate(angle).jpeg({ quality: 82 }).toBuffer() : null,
+  ])
+
+  await Promise.all([
+    photo.thumbKey && newThumb ? uploadBuffer(photo.thumbKey, newThumb, "image/webp") : null,
+    photo.displayKey && newDisplay ? uploadBuffer(photo.displayKey, newDisplay, "image/webp") : null,
+    photo.watermarkedKey && newWm ? uploadBuffer(photo.watermarkedKey, newWm, "image/jpeg") : null,
+  ])
+
+  const newW = photo.height ?? photo.width
+  const newH = photo.width ?? photo.height
+
+  await db.update(photos)
+    .set({ width: newW, height: newH })
+    .where(eq(photos.id, photoId))
+
+  revalidatePath(`/dashboard/galleries/${photo.galleryId}`)
   return { success: true }
 }

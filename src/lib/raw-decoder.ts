@@ -1,6 +1,43 @@
 import sharp from "sharp"
 
 /**
+ * Extracts the EXIF Orientation tag (0x0112) from TIFF/CR2/NEF/ARW headers in IFD0.
+ * Returns 1 (normal), 3 (180°), 6 (90° CW), 8 (270° CW), or null if not found.
+ */
+export function extractRawOrientation(buffer: Buffer): number | null {
+  if (buffer.length < 16) return null
+
+  const isLittleEndian = buffer[0] === 0x49 && buffer[1] === 0x49 // "II"
+  const isBigEndian = buffer[0] === 0x4d && buffer[1] === 0x4d // "MM"
+
+  if (!isLittleEndian && !isBigEndian) return null
+
+  const readU16 = (pos: number) => (isLittleEndian ? buffer.readUInt16LE(pos) : buffer.readUInt16BE(pos))
+  const readU32 = (pos: number) => (isLittleEndian ? buffer.readUInt32LE(pos) : buffer.readUInt32BE(pos))
+
+  const magic = readU16(2)
+  if (magic !== 42 && magic !== 0x4352 && magic !== 0x55) return null
+
+  const ifd0Offset = readU32(4)
+  if (ifd0Offset < 8 || ifd0Offset + 2 > buffer.length) return null
+
+  const numEntries = readU16(ifd0Offset)
+  let pos = ifd0Offset + 2
+
+  for (let i = 0; i < numEntries; i++) {
+    if (pos + 12 > buffer.length) break
+    const tag = readU16(pos)
+    if (tag === 0x0112) {
+      // Tag 0x0112 is Orientation
+      return readU16(pos + 8)
+    }
+    pos += 12
+  }
+
+  return null
+}
+
+/**
  * Extracts a complete JPEG buffer starting at `startIndex` by parsing standard JPEG marker segments.
  */
 function findCompleteJpeg(buffer: Buffer, startIndex: number): Buffer | null {

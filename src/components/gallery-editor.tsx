@@ -15,8 +15,9 @@ import {
   Sparkles,
   Info,
   Check,
+  RotateCw,
 } from "lucide-react"
-import { deletePhoto } from "@/app/actions/galleries"
+import { deletePhoto, rotatePhoto } from "@/app/actions/galleries"
 import { toast } from "sonner"
 import type { InferSelectModel } from "drizzle-orm"
 import type { galleries, photos } from "@/db/schema"
@@ -49,9 +50,11 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
   const [uploadTargetSection, setUploadTargetSection] = useState<"proofing" | "final">("proofing")
   const [uploading, setUploading] = useState<{ name: string; progress: number }[]>([])
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [rotatingIds, setRotatingIds] = useState<Set<string>>(new Set())
   const [previewPhoto, setPreviewPhoto] = useState<Photo | null>(null)
   const [isDeletingBatch, setIsDeletingBatch] = useState(false)
   const [isMovingBatch, setIsMovingBatch] = useState(false)
+  const [isRotatingBatch, setIsRotatingBatch] = useState(false)
 
   const proofingCount = photoList.filter((p) => (p.section ?? "proofing") === "proofing").length
   const finalCount = photoList.filter((p) => p.section === "final").length
@@ -149,6 +152,69 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
       return n
     })
     toast.success("Photo deleted")
+  }
+
+  async function handleRotate(photoId: string, e?: React.MouseEvent) {
+    if (e) e.stopPropagation()
+    setRotatingIds((s) => new Set(s).add(photoId))
+    try {
+      await rotatePhoto(photoId, 90)
+      const cacheBust = `?t=${Date.now()}`
+      setPhotoList((list) =>
+        list.map((p) => {
+          if (p.id === photoId) {
+            return {
+              ...p,
+              width: p.height ?? p.width,
+              height: p.width ?? p.height,
+              thumbKey: p.thumbKey ? `${p.thumbKey.split("?")[0]}${cacheBust}` : p.thumbKey,
+              displayKey: p.displayKey ? `${p.displayKey.split("?")[0]}${cacheBust}` : p.displayKey,
+            }
+          }
+          return p
+        })
+      )
+      toast.success("Photo rotated 90°")
+    } catch {
+      toast.error("Failed to rotate photo")
+    } finally {
+      setRotatingIds((s) => {
+        const next = new Set(s)
+        next.delete(photoId)
+        return next
+      })
+    }
+  }
+
+  async function handleRotateSelected() {
+    if (selectedIds.size === 0) return
+    setIsRotatingBatch(true)
+    const ids = Array.from(selectedIds)
+    try {
+      for (const id of ids) {
+        await rotatePhoto(id, 90)
+      }
+      const cacheBust = `?t=${Date.now()}`
+      setPhotoList((list) =>
+        list.map((p) => {
+          if (selectedIds.has(p.id)) {
+            return {
+              ...p,
+              width: p.height ?? p.width,
+              height: p.width ?? p.height,
+              thumbKey: p.thumbKey ? `${p.thumbKey.split("?")[0]}${cacheBust}` : p.thumbKey,
+              displayKey: p.displayKey ? `${p.displayKey.split("?")[0]}${cacheBust}` : p.displayKey,
+            }
+          }
+          return p
+        })
+      )
+      toast.success(`Rotated ${ids.length} photo(s) 90°`)
+    } catch {
+      toast.error("Failed to rotate selected photos")
+    } finally {
+      setIsRotatingBatch(false)
+    }
   }
 
   function toggleSelect(photoId: string, e: React.MouseEvent) {
@@ -375,7 +441,20 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
               </button>
 
               {selectedIds.size > 0 && (
-                <div className="flex items-center gap-1.5">
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <button
+                    onClick={handleRotateSelected}
+                    disabled={isRotatingBatch}
+                    className={cn(
+                      buttonVariants({ variant: "outline", size: "sm" }),
+                      "h-8 gap-1.5 rounded-lg text-xs cursor-pointer"
+                    )}
+                    title="Rotate selected photos 90 degrees"
+                  >
+                    <RotateCw className={cn("h-3.5 w-3.5", isRotatingBatch && "animate-spin")} />
+                    <span>Rotate 90° ↻ ({selectedIds.size})</span>
+                  </button>
+
                   <button
                     onClick={() => handleMoveSelected("final")}
                     disabled={isMovingBatch}
@@ -444,8 +523,23 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
                     </div>
                   )}
 
-                  {/* Top section badge */}
-                  <div className="absolute top-2 right-2 flex items-center gap-1">
+                  {/* Top action buttons & section badge */}
+                  <div className="absolute top-2 right-2 flex items-center gap-1 z-20">
+                    <button
+                      onClick={(e) => handleRotate(photo.id, e)}
+                      disabled={rotatingIds.has(photo.id)}
+                      className="p-1 rounded-md bg-black/75 hover:bg-black text-white hover:text-primary backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all shadow-xs cursor-pointer"
+                      title="Rotate 90° clockwise"
+                    >
+                      <RotateCw className={cn("h-3.5 w-3.5", rotatingIds.has(photo.id) && "animate-spin")} />
+                    </button>
+                    <button
+                      onClick={(e) => handleDelete(photo.id, e)}
+                      className="p-1 rounded-md bg-black/75 hover:bg-destructive text-white backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all shadow-xs cursor-pointer"
+                      title="Delete photo"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                     <span
                       className={cn(
                         "text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-md font-mono shadow-xs backdrop-blur-md",
@@ -465,7 +559,7 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
                   <button
                     onClick={(e) => toggleSelect(photo.id, e)}
                     className={cn(
-                      "absolute top-2 left-2 p-1 rounded-md transition-all",
+                      "absolute top-2 left-2 p-1 rounded-md transition-all z-20",
                       isSelected
                         ? "bg-primary text-primary-foreground opacity-100"
                         : "bg-black/60 text-white opacity-0 group-hover:opacity-100 hover:bg-black/80"
@@ -476,7 +570,7 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
                   </button>
 
                   {/* Bottom Filename / Dimension info */}
-                  <div className="absolute bottom-1.5 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-white pointer-events-none">
+                  <div className="absolute bottom-1.5 left-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-white pointer-events-none z-10">
                     <p className="text-[11px] font-medium truncate drop-shadow-sm font-mono">{photo.filename}</p>
                     {photo.width && photo.height && (
                       <p className="text-[9px] text-white/70">
@@ -513,6 +607,14 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
 
               <div className="flex items-center gap-2">
                 <button
+                  onClick={() => handleRotate(previewPhoto.id)}
+                  disabled={rotatingIds.has(previewPhoto.id)}
+                  className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+                  title="Rotate 90° clockwise"
+                >
+                  <RotateCw className={cn("h-4 w-4", rotatingIds.has(previewPhoto.id) && "animate-spin")} />
+                </button>
+                <button
                   onClick={() => handleDelete(previewPhoto.id)}
                   className="p-2 rounded-xl bg-white/10 hover:bg-destructive text-white transition-colors"
                   title="Delete"
@@ -522,20 +624,20 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
                 <button
                   onClick={() => setPreviewPhoto(null)}
                   className="p-2 rounded-xl bg-white/10 hover:bg-white/20 text-white transition-colors"
-                  title="Close"
+                  title="Close preview"
                 >
                   <X className="h-4 w-4" />
                 </button>
               </div>
             </div>
 
-            {/* Image */}
-            <div className="relative max-h-[78vh] w-full flex items-center justify-center rounded-2xl overflow-hidden bg-black/40 border border-white/10">
+            {/* Display Image */}
+            <div className="relative max-h-[75vh] max-w-full overflow-hidden rounded-xl bg-black border border-white/10 flex items-center justify-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={`/api/s3/${previewPhoto.displayKey ?? previewPhoto.originalKey}`}
+                src={`/api/s3/${previewPhoto.displayKey || previewPhoto.thumbKey}`}
                 alt={previewPhoto.filename}
-                className="max-h-[75vh] w-auto max-w-full object-contain rounded-lg"
+                className="max-h-[75vh] w-auto object-contain rounded-lg"
               />
             </div>
           </div>

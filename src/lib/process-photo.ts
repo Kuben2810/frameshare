@@ -3,7 +3,7 @@ import { photos, users } from "@/db/schema"
 import { eq } from "drizzle-orm"
 import { uploadBuffer, downloadBuffer, deleteKey } from "@/lib/s3"
 import { s3Keys } from "@/lib/s3-keys"
-import { getDecodableImageBuffer } from "@/lib/raw-decoder"
+import { getDecodableImageBuffer, extractRawOrientation } from "@/lib/raw-decoder"
 import { adjustStorageQuota } from "@/lib/db-guards"
 import sharp from "sharp"
 
@@ -75,24 +75,35 @@ export async function processPhoto(photoId: string): Promise<void> {
   const original = await getDecodableImageBuffer(rawOriginal, photo.filename)
 
   const keys = s3Keys(photoId)
+  const rawOrientation = extractRawOrientation(rawOriginal)
   const meta = await sharp(original).metadata()
-  const isRotated = meta.orientation && meta.orientation >= 5 && meta.orientation <= 8
-  const w = (isRotated ? meta.height : meta.width) ?? 1200
-  const h = (isRotated ? meta.width : meta.height) ?? 800
+
+  const effectiveOrientation = rawOrientation ?? meta.orientation ?? 1
+  let rotateAngle: number | undefined
+  if (effectiveOrientation === 3) rotateAngle = 180
+  else if (effectiveOrientation === 6) rotateAngle = 90
+  else if (effectiveOrientation === 8) rotateAngle = 270
+
+  const isRotated = rotateAngle === 90 || rotateAngle === 270 || (meta.orientation && meta.orientation >= 5 && meta.orientation <= 8)
+  const origW = meta.width ?? 1200
+  const origH = meta.height ?? 800
+  const w = isRotated ? origH : origW
+  const h = isRotated ? origW : origH
 
   const isProofing = (photo.section ?? "proofing") === "proofing"
 
+  // Rotator helper: rotates explicitly if RAW IFD orientation exists, or uses Sharp auto-rotate
+  const rotateBuffer = (buf: Buffer) => (rotateAngle !== undefined ? sharp(buf).rotate(rotateAngle) : sharp(buf).rotate())
+
   const [thumb, display, watermarked] = await Promise.all([
-    sharp(original)
-      .rotate()
+    rotateBuffer(original)
       .resize(400, 400, { fit: "inside", withoutEnlargement: true })
       .webp({ quality: 80 })
       .toBuffer(),
 
     // Display image: if proofing, composite the proofing watermark; if final, render pristine master
     (async () => {
-      const resized = await sharp(original)
-        .rotate()
+      const resized = await rotateBuffer(original)
         .resize(2048, 2048, { fit: "inside", withoutEnlargement: true })
         .toBuffer()
 
@@ -111,8 +122,7 @@ export async function processPhoto(photoId: string): Promise<void> {
 
     // Watermarked variant
     (async () => {
-      const resized = await sharp(original)
-        .rotate()
+      const resized = await rotateBuffer(original)
         .resize(1200, 1200, { fit: "inside", withoutEnlargement: true })
         .toBuffer()
       const resizedMeta = await sharp(resized).metadata()
