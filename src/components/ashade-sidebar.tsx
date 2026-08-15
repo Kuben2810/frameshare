@@ -108,7 +108,7 @@ export function AshadeSidebar({
                 </a>
                 {starredCount > 0 && (
                   <a
-                    href={`/api/galleries/${gallery.slug}/download?type=starred&clientId=${typeof window !== "undefined" ? localStorage.getItem(`frameshare_client_id_${gallery.slug}`) || "" : ""}`}
+                    href={`/api/galleries/${gallery.slug}/download?type=starred&clientId=${typeof window !== "undefined" ? localStorage.getItem(`frameshare_client_id_${gallery.slug}`) || localStorage.getItem("frameshare_client_id") || "" : ""}`}
                     className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg bg-white/5 hover:bg-white/15 text-white/80 text-[11px] font-medium tracking-wider transition-colors"
                     data-cursor="link"
                     download

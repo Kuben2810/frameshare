@@ -164,45 +164,47 @@ export function GalleryView({
       <header className={`ashade-header ${isScrolled ? "is-scrolled" : ""}`}>
         <div className="ashade-header-inner">
           {/* Logo */}
-          <a className="ashade-logo" href="#" onClick={(e) => e.preventDefault()} data-cursor="link">
+          <a className="ashade-logo min-w-0 pr-3" href="#" onClick={(e) => e.preventDefault()} data-cursor="link">
             {gallery.logoKey ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={imgUrl(gallery.logoKey)!} alt="" className="h-7 w-auto object-contain" />
             ) : (
               <>
-                <span className="ashade-logo-text">{gallery.name}</span>
+                <span className="ashade-logo-text truncate max-w-[140px] xs:max-w-[200px] sm:max-w-xs md:max-w-md">
+                  {gallery.name}
+                </span>
                 <span className="ashade-logo-tag">Photography Gallery</span>
               </>
             )}
           </a>
 
           {/* Nav */}
-          <div className="ashade-nav-block">
+          <div className="ashade-nav-block shrink-0">
             <nav className="ashade-nav">
               <ul className="main-menu">
-                {/* Layout pickers */}
+                {/* Layout pickers (desktop/tablet) */}
                 {(["masonry", "ribbon"] as const).map((l) => (
-                  <li key={l} className={layout === l ? "is-active" : ""}>
+                  <li key={l} className={`hidden sm:inline-block ${layout === l ? "is-active" : ""}`}>
                     <button className="nav-link" style={display} onClick={() => changeLayout(l)} data-cursor="link">
                       {l === "masonry" ? "Mason" : "Ribbon"}
                     </button>
                   </li>
                 ))}
 
-                {/* Slideshow */}
-                <li>
+                {/* Slideshow (desktop/tablet) */}
+                <li className="hidden sm:inline-block">
                   <button className="nav-link" style={display} onClick={() => openLightbox(0, true)} data-cursor="link">
                     Slideshow
                   </button>
                 </li>
 
-                {/* Submit */}
+                {/* Submit (Always visible when client selects) */}
                 {starredIds.size > 0 && !submitted && (
                   <li>
-                    <button className="nav-link"
-                      style={{ ...display, border: "1px solid rgba(255,255,255,0.25)", padding: "5px 14px" }}
+                    <button className="nav-link text-xs whitespace-nowrap font-bold"
+                      style={{ ...display, border: "1px solid rgba(255,255,255,0.4)", padding: "4px 10px sm:padding: 5px 14px", background: "rgba(255,255,255,0.08)" }}
                       onClick={submitSelection} disabled={submitting} data-cursor="link">
-                      {submitting ? "Submitting…" : `Submit ${starredIds.size}`}
+                      {submitting ? "Submitting…" : `Submit (${starredIds.size})`}
                     </button>
                   </li>
                 )}
@@ -223,16 +225,16 @@ export function GalleryView({
 
       {/* ── Gallery main scroll area ── */}
       <div className="ashade-gallery-main" style={{ position: "relative", zIndex: 2, minHeight: "100vh", overflowY: "auto" }}>
-        <div style={{ paddingTop: 100 }}>
+        <div style={{ paddingTop: 84 }}>
 
           {/* Controls bar */}
-          <div className="flex items-center justify-between py-2 px-12 mb-0.5">
+          <div className="flex items-center justify-between py-2 px-3 sm:px-8 md:px-12 mb-0.5">
             {layout === "masonry" ? (
-              <div className="flex items-center gap-1.5">
-                <span className="text-white/25 text-[9px] uppercase tracking-widest" style={display}>Cols</span>
+              <div className="flex items-center gap-1 sm:gap-1.5">
+                <span className="text-white/30 text-[9px] uppercase tracking-widest mr-0.5" style={display}>Cols</span>
                 {([2, 3, 4] as const).map(n => (
                   <button key={n} onClick={() => changeCols(n)} data-cursor="link"
-                    className={`w-7 h-7 flex items-center justify-center rounded border text-[10px] font-bold transition-colors
+                    className={`w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded border text-[10px] font-bold transition-colors
                       ${masonryCols === n ? "border-white/60 text-white" : "border-white/12 text-white/25 hover:text-white/50 hover:border-white/30"}`}>
                     {n}
                   </button>
@@ -242,7 +244,7 @@ export function GalleryView({
             <div className="flex items-center">
               {(["fade-up", "fade", "scale"] as const).map((a) => (
                 <button key={a} onClick={() => changeAnim(a)} style={display} data-cursor="link"
-                  className={`px-2.5 py-1 text-[9px] tracking-[0.15em] uppercase transition-colors border-b ml-1
+                  className={`px-2 sm:px-2.5 py-1 text-[8px] sm:text-[9px] tracking-[0.12em] sm:tracking-[0.15em] uppercase transition-colors border-b ml-0.5 sm:ml-1
                     ${entryAnim === a ? "border-white/60 text-white" : "border-transparent text-white/25 hover:text-white/50"}`}>
                   {a === "fade-up" ? "Fade ↑" : a === "fade" ? "Fade" : "Zoom"}
                 </button>

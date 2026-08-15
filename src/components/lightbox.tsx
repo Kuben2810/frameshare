@@ -58,6 +58,7 @@ export function Lightbox({
 
   // ── Tools state ────────────────────────────────────────────────────────────
   const [showFilters, setShowFilters] = useState(false)
+  const [showMobileTools, setShowMobileTools] = useState(false)
   const [activeFilter, setActiveFilter] = useState("Normal")
   const [adjustments, setAdjustments] = useState({ brightness: 1, contrast: 1, saturation: 1, sharpness: 0 })
   const [cropMode, setCropMode] = useState(false)
@@ -260,63 +261,132 @@ export function Lightbox({
       )}
 
       {/* Top bar */}
-      <div className="flex items-center justify-between px-4 py-3 shrink-0" style={{ zIndex: 60 }}>
-        <div className="flex items-center gap-2">
-          <span style={display} className="text-white/40 text-[11px] tracking-[0.1em] uppercase">
+      <div className="flex items-center justify-between px-3 sm:px-4 py-2.5 sm:py-3 shrink-0 relative z-[60]">
+        <div className="flex items-center gap-2 min-w-0 pr-2">
+          <span style={display} className="text-white/40 text-[11px] tracking-[0.1em] uppercase truncate max-w-[120px] sm:max-w-xs">
             {gallery.name}
           </span>
         </div>
-        <div className="flex items-center gap-2">
-          <button onClick={() => setShowFilters(f => !f)} data-cursor="link"
-            className={`p-2 rounded-full transition-colors ${showFilters ? "bg-white/25" : "bg-white/10 hover:bg-white/20"}`}
-            title="Filters & adjustments">
-            <SlidersHorizontal className="h-4 w-4 text-white" />
-          </button>
-          <button onClick={() => setCropMode(m => !m)} data-cursor="link"
-            className={`p-2 rounded-full transition-colors ${cropMode ? "bg-white/25" : "bg-white/10 hover:bg-white/20"}`}
-            title="Crop">
-            <Crop className="h-4 w-4 text-white" />
-          </button>
-          <button onClick={() => setIsSlideshow(s => !s)} data-cursor="link"
-            className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
-            {isSlideshow ? <Pause className="h-4 w-4 text-white" /> : <Play className="h-4 w-4 text-white" />}
-          </button>
-          <button onClick={() => setZoomLevel(z => Math.max(1, z - 0.5))} data-cursor="link"
-            className={`p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors ${zoomLevel <= 1 ? "opacity-30" : ""}`}
-            title="Zoom out">
-            <ZoomOut className="h-4 w-4 text-white" />
-          </button>
-          {zoomLevel !== 1 && (
-            <span style={display} className="text-white/50 text-[10px] min-w-[28px] text-center tabular-nums">{Math.round(zoomLevel * 100)}%</span>
-          )}
-          <button onClick={() => setZoomLevel(z => Math.min(3, z + 0.5))} data-cursor="link"
-            className={`p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors ${zoomLevel >= 3 ? "opacity-30" : ""}`}
-            title="Zoom in">
-            <ZoomIn className="h-4 w-4 text-white" />
-          </button>
-          <button onClick={() => setShowDetails(d => !d)} data-cursor="link"
-            className={`p-2 rounded-full transition-colors ${showDetails ? "bg-white/25" : "bg-white/10 hover:bg-white/20"}`}
-            title="Photo details">
-            <Info className="h-4 w-4 text-white" />
-          </button>
-          <button onClick={() => { setCompareMode(m => !m); setComparePos(50) }} data-cursor="link"
-            className={`p-2 rounded-full transition-colors ${compareMode ? "bg-white/25" : "bg-white/10 hover:bg-white/20"}`}
-            title="Before / After compare">
-            <ArrowLeftRight className="h-4 w-4 text-white" />
-          </button>
+
+        {/* Action Buttons Cluster */}
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+          {/* Desktop-only tool buttons */}
+          <div className="hidden sm:flex items-center gap-1.5">
+            <button onClick={() => setShowFilters(f => !f)} data-cursor="link"
+              className={`p-2 rounded-full transition-colors ${showFilters ? "bg-white/25" : "bg-white/10 hover:bg-white/20"}`}
+              title="Filters & adjustments">
+              <SlidersHorizontal className="h-4 w-4 text-white" />
+            </button>
+            <button onClick={() => setCropMode(m => !m)} data-cursor="link"
+              className={`p-2 rounded-full transition-colors ${cropMode ? "bg-white/25" : "bg-white/10 hover:bg-white/20"}`}
+              title="Crop">
+              <Crop className="h-4 w-4 text-white" />
+            </button>
+            <button onClick={() => setIsSlideshow(s => !s)} data-cursor="link"
+              className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
+              {isSlideshow ? <Pause className="h-4 w-4 text-white" /> : <Play className="h-4 w-4 text-white" />}
+            </button>
+            <button onClick={() => setZoomLevel(z => Math.max(1, z - 0.5))} data-cursor="link"
+              className={`p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors ${zoomLevel <= 1 ? "opacity-30" : ""}`}
+              title="Zoom out">
+              <ZoomOut className="h-4 w-4 text-white" />
+            </button>
+            {zoomLevel !== 1 && (
+              <span style={display} className="text-white/50 text-[10px] min-w-[28px] text-center tabular-nums">{Math.round(zoomLevel * 100)}%</span>
+            )}
+            <button onClick={() => setZoomLevel(z => Math.min(3, z + 0.5))} data-cursor="link"
+              className={`p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors ${zoomLevel >= 3 ? "opacity-30" : ""}`}
+              title="Zoom in">
+              <ZoomIn className="h-4 w-4 text-white" />
+            </button>
+            <button onClick={() => setShowDetails(d => !d)} data-cursor="link"
+              className={`p-2 rounded-full transition-colors ${showDetails ? "bg-white/25" : "bg-white/10 hover:bg-white/20"}`}
+              title="Photo details">
+              <Info className="h-4 w-4 text-white" />
+            </button>
+            <button onClick={() => { setCompareMode(m => !m); setComparePos(50) }} data-cursor="link"
+              className={`p-2 rounded-full transition-colors ${compareMode ? "bg-white/25" : "bg-white/10 hover:bg-white/20"}`}
+              title="Before / After compare">
+              <ArrowLeftRight className="h-4 w-4 text-white" />
+            </button>
+          </div>
+
+          {/* Mobile Tools Dropdown Menu */}
+          <div className="relative sm:hidden">
+            <button
+              onClick={() => setShowMobileTools(m => !m)}
+              className={`p-2 rounded-full transition-colors ${showMobileTools ? "bg-white/25" : "bg-white/10 hover:bg-white/20"}`}
+              title="More tools"
+            >
+              <SlidersHorizontal className="h-4 w-4 text-white" />
+            </button>
+
+            {showMobileTools && (
+              <>
+                <div className="fixed inset-0 z-40" onClick={() => setShowMobileTools(false)} />
+                <div className="absolute right-0 top-full mt-2 w-48 bg-neutral-900/95 backdrop-blur-md border border-white/15 rounded-xl shadow-2xl p-1.5 z-50 divide-y divide-white/10 text-xs">
+                  <div className="py-1">
+                    <button
+                      onClick={() => { setShowFilters(f => !f); setShowMobileTools(false) }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-white hover:bg-white/10 text-left transition-colors"
+                    >
+                      <SlidersHorizontal className="h-4 w-4 text-white/70" />
+                      <span>{showFilters ? "Hide Filters" : "Filters & Sliders"}</span>
+                    </button>
+                    <button
+                      onClick={() => { setCropMode(m => !m); setShowMobileTools(false) }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-white hover:bg-white/10 text-left transition-colors"
+                    >
+                      <Crop className="h-4 w-4 text-white/70" />
+                      <span>Crop Tool</span>
+                    </button>
+                    <button
+                      onClick={() => { setIsSlideshow(s => !s); setShowMobileTools(false) }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-white hover:bg-white/10 text-left transition-colors"
+                    >
+                      {isSlideshow ? <Pause className="h-4 w-4 text-white/70" /> : <Play className="h-4 w-4 text-white/70" />}
+                      <span>{isSlideshow ? "Pause Slideshow" : "Play Slideshow"}</span>
+                    </button>
+                  </div>
+                  <div className="py-1">
+                    <button
+                      onClick={() => { setShowDetails(d => !d); setShowMobileTools(false) }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-white hover:bg-white/10 text-left transition-colors"
+                    >
+                      <Info className="h-4 w-4 text-white/70" />
+                      <span>Photo Details</span>
+                    </button>
+                    <button
+                      onClick={() => { setCompareMode(m => !m); setComparePos(50); setShowMobileTools(false) }}
+                      className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-white hover:bg-white/10 text-left transition-colors"
+                    >
+                      <ArrowLeftRight className="h-4 w-4 text-white/70" />
+                      <span>Before / After</span>
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+
+          {/* Star (Always visible) */}
           <button onClick={() => toggleStar(activePhoto.id)} data-cursor="link"
-            className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
+            className="p-2 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 transition-all">
             <Star className={`h-4 w-4 ${starredIds.has(activePhoto.id) ? "fill-yellow-400 text-yellow-400" : "text-white"}`} />
           </button>
+
+          {/* Comment (Always visible) */}
           <button onClick={() => setCommentPhotoId(commentPhotoId === activePhoto.id ? null : activePhoto.id)}
-            data-cursor="link" className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors relative">
+            data-cursor="link" className="p-2 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 transition-all relative">
             <MessageSquare className="h-4 w-4 text-white" />
             {(commentMap[activePhoto.id]?.length ?? 0) > 0 && (
-              <span className="absolute -top-1 -right-1 bg-white text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-medium">
+              <span className="absolute -top-1 -right-1 bg-white text-black text-[10px] rounded-full h-4 w-4 flex items-center justify-center font-bold">
                 {commentMap[activePhoto.id].length}
               </span>
             )}
           </button>
+
+          {/* Download (Always visible if enabled) */}
           {gallery.downloadMode !== "none" && (
             <div className="relative">
               <button onClick={() => setShowDownloadMenu(m => !m)} data-cursor="link"
@@ -325,15 +395,15 @@ export function Lightbox({
               </button>
               {showDownloadMenu && (
                 <>
-                  <div className="fixed inset-0 z-10" onClick={() => setShowDownloadMenu(false)} />
-                  <div className="absolute right-0 top-full mt-1 bg-neutral-900 border border-white/10 rounded-lg overflow-hidden text-sm w-48 z-20 shadow-xl">
+                  <div className="fixed inset-0 z-40" onClick={() => setShowDownloadMenu(false)} />
+                  <div className="absolute right-0 top-full mt-2 bg-neutral-900/95 backdrop-blur-md border border-white/15 rounded-xl overflow-hidden text-xs w-48 z-50 shadow-2xl p-1">
                     <button onClick={downloadWithEdits} data-cursor="link"
-                      className="w-full px-4 py-2.5 text-left text-white hover:bg-white/10 transition-colors">
+                      className="w-full px-3 py-2 text-left text-white hover:bg-white/10 rounded-lg transition-colors">
                       Download with edits
                     </button>
                     <a href={imgUrl(gallery.downloadMode === "lowres" ? activePhoto.watermarkedKey : activePhoto.originalKey) ?? "#"}
                       download={activePhoto.filename} onClick={() => setShowDownloadMenu(false)} data-cursor="link"
-                      className="block px-4 py-2.5 text-white hover:bg-white/10 transition-colors">
+                      className="block px-3 py-2 text-white hover:bg-white/10 rounded-lg transition-colors">
                       Download original
                     </a>
                   </div>
@@ -341,8 +411,11 @@ export function Lightbox({
               )}
             </div>
           )}
+
+          {/* Close button (Always prominently visible) */}
           <button onClick={closeLightbox} data-cursor="close"
-            className="p-2 rounded-full bg-white/10 hover:bg-white/20 transition-colors">
+            className="p-2 rounded-full bg-white/15 hover:bg-white/25 active:scale-95 transition-all ml-0.5"
+            title="Close lightbox">
             <X className="h-4 w-4 text-white" />
           </button>
         </div>

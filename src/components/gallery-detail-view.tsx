@@ -112,7 +112,7 @@ export function GalleryDetailView({
   return (
     <div className="space-y-8 pb-16">
       {/* ── Top Navigation & Back Link ── */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <Link
           href="/dashboard"
           className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground transition-colors group"
@@ -121,11 +121,11 @@ export function GalleryDetailView({
           <span>Back to Collections</span>
         </Link>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
           {initialPhotos.length > 0 && (
             <a
               href={`/api/galleries/${gallery.slug}/download?type=all`}
-              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5 rounded-xl")}
+              className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5 rounded-xl text-xs flex-1 sm:flex-none justify-center")}
               download
             >
               <Download className="h-3.5 w-3.5" />
@@ -134,7 +134,7 @@ export function GalleryDetailView({
           )}
           <button
             onClick={handleCopyLink}
-            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5 rounded-xl")}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5 rounded-xl text-xs flex-1 sm:flex-none justify-center")}
           >
             {copiedLink ? <Check className="h-3.5 w-3.5 text-emerald-500" /> : <Copy className="h-3.5 w-3.5" />}
             <span>{copiedLink ? "Copied" : "Copy Link"}</span>
@@ -142,7 +142,7 @@ export function GalleryDetailView({
           <Link
             href={shareUrl}
             target="_blank"
-            className={cn(buttonVariants({ size: "sm" }), "gap-1.5 rounded-xl shadow-xs")}
+            className={cn(buttonVariants({ size: "sm" }), "gap-1.5 rounded-xl shadow-xs text-xs flex-1 sm:flex-none justify-center")}
           >
             <ExternalLink className="h-3.5 w-3.5" />
             <span>Open Client View</span>
@@ -151,7 +151,7 @@ export function GalleryDetailView({
       </div>
 
       {/* ── Atmospheric Hero Header Card ── */}
-      <div className="relative rounded-2xl overflow-hidden bg-card border border-border/80 p-6 md:p-8 shadow-xs">
+      <div className="relative rounded-2xl overflow-hidden bg-card border border-border/80 p-5 md:p-8 shadow-xs">
         <div className="relative z-10 flex flex-col md:flex-row md:items-center md:justify-between gap-6">
           <div className="space-y-2 max-w-2xl">
             <div className="flex items-center gap-2 flex-wrap">
@@ -164,7 +164,7 @@ export function GalleryDetailView({
               </span>
             </div>
 
-            <h1 className="text-3xl md:text-4xl font-bold tracking-wide text-foreground font-oswald uppercase">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold tracking-wide text-foreground font-oswald uppercase break-words">
               {gallery.name}
             </h1>
 
@@ -209,30 +209,30 @@ export function GalleryDetailView({
           </div>
 
           {/* Quick Stats Block */}
-          <div className="flex items-center gap-4 bg-muted/40 p-4 rounded-xl border border-border/50 shrink-0">
-            <div className="text-center px-2">
+          <div className="grid grid-cols-3 sm:flex items-center gap-2 sm:gap-4 bg-muted/40 p-3 sm:p-4 rounded-xl border border-border/50 shrink-0">
+            <div className="text-center px-1 sm:px-2">
               <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground block">
                 Photos
               </span>
-              <span className="text-3xl font-bold text-foreground tabular-nums font-oswald">
+              <span className="text-2xl sm:text-3xl font-bold text-foreground tabular-nums font-oswald">
                 {initialPhotos.length}
               </span>
             </div>
-            <div className="h-8 w-px bg-border/60" />
-            <div className="text-center px-2">
+            <div className="hidden sm:block h-8 w-px bg-border/60" />
+            <div className="text-center px-1 sm:px-2">
               <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground block">
                 Size
               </span>
-              <span className="text-3xl font-bold text-foreground tabular-nums font-oswald">
+              <span className="text-2xl sm:text-3xl font-bold text-foreground tabular-nums font-oswald">
                 {totalSizeMB} <span className="text-xs font-normal text-muted-foreground font-sans">MB</span>
               </span>
             </div>
-            <div className="h-8 w-px bg-border/60" />
-            <div className="text-center px-2">
+            <div className="hidden sm:block h-8 w-px bg-border/60" />
+            <div className="text-center px-1 sm:px-2">
               <span className="text-[10px] uppercase font-semibold tracking-wider text-amber-500 block flex items-center justify-center gap-1">
                 <Sparkles className="h-3 w-3" /> Proofs
               </span>
-              <span className="text-3xl font-bold text-foreground tabular-nums font-oswald">
+              <span className="text-2xl sm:text-3xl font-bold text-foreground tabular-nums font-oswald">
                 {initialSelections.length}
               </span>
             </div>
@@ -255,7 +255,7 @@ export function GalleryDetailView({
       </div>
 
       {/* ── Studio Tabs Bar ── */}
-      <div className="flex items-center gap-1 border-b border-border/80 pb-px">
+      <div className="flex items-center gap-1 border-b border-border/80 pb-px overflow-x-auto scrollbar-none">
         <button
           onClick={() => setActiveTab("photos")}
           className={cn(
