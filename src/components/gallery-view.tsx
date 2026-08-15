@@ -138,15 +138,19 @@ export function GalleryView({
     const starred = starredIds.has(photo.id)
     const commentsList = commentMap[photo.id] ?? []
     const commentCount = commentsList.length
-    const thumb = imgUrl(photo.thumbKey)
+    // In proofing and final, thumbKey is 1200px and displayKey is 2560px QHD.
+    // For 2-column or full layouts with wide cards, use displayKey for crystal-clear Retina viewing.
+    const imageSrc = (masonryCols === 2 || layout === "ribbon")
+      ? (imgUrl(photo.displayKey) ?? imgUrl(photo.thumbKey))
+      : (imgUrl(photo.thumbKey) ?? imgUrl(photo.displayKey))
     const title = photo.filename.replace(/\.[^.]+$/, "")
     const fileType = photo.mimeType.split("/")[1]?.toUpperCase() ?? "IMG"
 
     return (
       <>
-        {thumb ? (
+        {imageSrc ? (
           <WebGLDistortion
-            src={thumb}
+            src={imageSrc}
             alt={photo.filename}
             className={coverFit ? "w-full h-full" : ""}
             style={coverFit ? {} : { height: "auto" }}
