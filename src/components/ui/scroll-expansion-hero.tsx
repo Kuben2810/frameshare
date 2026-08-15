@@ -111,11 +111,29 @@ export const ScrollExpandMedia = ({
     };
 
     const handleScroll = (): void => {
-      if (!mediaFullyExpanded) {
-        window.scrollTo(0, 0);
+      if (!mediaFullyExpanded && window.scrollY > 20) {
+        setScrollProgress(1);
+        setMediaFullyExpanded(true);
+        setShowContent(true);
       }
     };
 
+    const handleExpandHero = (e: Event) => {
+      const customEvent = e as CustomEvent<{ targetId?: string }>;
+      setScrollProgress(1);
+      setMediaFullyExpanded(true);
+      setShowContent(true);
+      if (customEvent.detail?.targetId) {
+        setTimeout(() => {
+          const el = document.getElementById(customEvent.detail.targetId!);
+          if (el) {
+            el.scrollIntoView({ behavior: 'smooth' });
+          }
+        }, 150);
+      }
+    };
+
+    window.addEventListener('expandHero', handleExpandHero as EventListener);
     window.addEventListener('wheel', handleWheel as unknown as EventListener, {
       passive: false,
     });
@@ -133,6 +151,7 @@ export const ScrollExpandMedia = ({
     window.addEventListener('touchend', handleTouchEnd as EventListener);
 
     return () => {
+      window.removeEventListener('expandHero', handleExpandHero as EventListener);
       window.removeEventListener(
         'wheel',
         handleWheel as unknown as EventListener

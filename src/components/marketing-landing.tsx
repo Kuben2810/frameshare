@@ -4,25 +4,19 @@ import { useState } from "react"
 import Link from "next/link"
 import { motion } from "framer-motion"
 import {
-  Images,
   Download,
   Sparkles,
   Smartphone,
   Mail,
-  ShieldCheck,
-  Zap,
   ArrowRight,
   CheckCircle2,
   Lock,
   ChevronDown,
-  Layers,
   Heart,
   SlidersHorizontal,
-  Cloud,
-  Eye,
-  ExternalLink,
 } from "lucide-react"
 import { ScrollExpandMedia } from "@/components/ui/scroll-expansion-hero"
+import { FrameshareLogo } from "@/components/frameshare-logo"
 
 interface MarketingLandingProps {
   userSession?: {
@@ -31,38 +25,26 @@ interface MarketingLandingProps {
   } | null
 }
 
-interface MediaItem {
-  src: string
-  poster?: string
-  background: string
-  title: string
-  date: string
-  scrollToExpand: string
-}
-
-const sampleMediaContent: Record<"video" | "image", MediaItem> = {
-  video: {
-    src: "https://me7aitdbxq.ufs.sh/f/2wsMIGDMQRdYuZ5R8ahEEZ4aQK56LizRdfBSqeDMsmUIrJN1",
-    poster: "https://images.unsplash.com/photo-1537633552985-df8429e8048b?q=80&w=1600&auto=format&fit=crop",
-    background: "https://images.unsplash.com/photo-1492691527719-9d1e07e534b4?q=80&w=1920&auto=format&fit=crop",
-    title: "FRAMESHARE STUDIO",
-    date: "ELEVATE YOUR CLIENT DELIVERY",
-    scrollToExpand: "SCROLL TO EXPLORE THE PLATFORM",
-  },
-  image: {
-    src: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=1600&auto=format&fit=crop",
-    background: "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1920&auto=format&fit=crop",
-    title: "FRAMESHARE STUDIO",
-    date: "HIGH-IMPACT CLIENT PROOFING",
-    scrollToExpand: "SCROLL TO EXPLORE THE PLATFORM",
-  },
+const mediaContent = {
+  src: "https://images.unsplash.com/photo-1516035069371-29a1b244cc32?q=80&w=1600&auto=format&fit=crop",
+  background: "https://images.unsplash.com/photo-1519741497674-611481863552?q=80&w=1920&auto=format&fit=crop",
+  title: "FRAMESHARE STUDIO",
+  date: "HIGH-IMPACT CLIENT PROOFING",
+  scrollToExpand: "SCROLL TO EXPLORE THE PLATFORM",
 }
 
 export function MarketingLanding({ userSession }: MarketingLandingProps) {
-  const [mediaType, setMediaType] = useState<"image" | "video">("image")
   const [activeFaq, setActiveFaq] = useState<number | null>(null)
 
-  const currentMedia = sampleMediaContent[mediaType]
+  function scrollToSection(id: string) {
+    if (typeof window !== "undefined") {
+      window.dispatchEvent(new CustomEvent("expandHero", { detail: { targetId: id } }))
+      const el = document.getElementById(id)
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth" })
+      }
+    }
+  }
 
   const faqs = [
     {
@@ -90,56 +72,47 @@ export function MarketingLanding({ userSession }: MarketingLandingProps) {
   return (
     <div className="min-h-screen bg-black text-white selection:bg-white/20 font-sans">
       {/* ── Floating Luxury Header ── */}
-      <header className="fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-black/80 backdrop-blur-md border-b border-white/10">
+      <header className="fixed top-0 left-0 right-0 z-50 transition-all duration-300 bg-black/85 backdrop-blur-md border-b border-white/10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-4">
-          {/* Brand Logo */}
-          <Link href="/" className="flex items-center gap-3 group">
-            <div className="h-9 w-9 rounded-xl bg-white text-black flex items-center justify-center shadow-lg group-hover:scale-105 transition-transform">
-              <Images className="h-5 w-5" />
-            </div>
-            <div className="flex flex-col">
-              <span className="font-bold tracking-[0.15em] text-base sm:text-lg uppercase text-white font-oswald leading-none">
-                Frameshare
-              </span>
-              <span className="text-[9px] font-semibold tracking-[0.25em] text-white/50 uppercase mt-0.5 font-mono">
-                Studio Platform
-              </span>
-            </div>
+          {/* Bespoke Frameshare Logo */}
+          <Link href="/" className="group flex items-center">
+            <FrameshareLogo iconSize={36} textSize="md" />
           </Link>
 
-          {/* Desktop Nav Links */}
+          {/* Desktop Nav Links (Interactive Anchor Jumpers) */}
           <nav className="hidden md:flex items-center gap-8 text-xs font-semibold uppercase tracking-widest text-white/60">
-            <a href="#features" className="hover:text-white transition-colors">Features</a>
-            <a href="#workflow" className="hover:text-white transition-colors">Workflow</a>
-            <a href="#storage" className="hover:text-white transition-colors">Economics</a>
-            <a href="#faq" className="hover:text-white transition-colors">FAQ</a>
+            <button
+              onClick={() => scrollToSection("features")}
+              className="hover:text-white transition-colors cursor-pointer"
+            >
+              Features
+            </button>
+            <button
+              onClick={() => scrollToSection("workflow")}
+              className="hover:text-white transition-colors cursor-pointer"
+            >
+              Workflow
+            </button>
+            <button
+              onClick={() => scrollToSection("economics")}
+              className="hover:text-white transition-colors cursor-pointer"
+            >
+              Economics
+            </button>
+            <button
+              onClick={() => scrollToSection("faq")}
+              className="hover:text-white transition-colors cursor-pointer"
+            >
+              FAQ
+            </button>
           </nav>
 
-          {/* Media Switcher & CTAs */}
+          {/* CTAs */}
           <div className="flex items-center gap-3">
-            <div className="hidden sm:flex items-center bg-white/5 rounded-lg p-1 border border-white/10 text-xs">
-              <button
-                onClick={() => setMediaType("image")}
-                className={`px-2.5 py-1 rounded font-medium transition-colors ${
-                  mediaType === "image" ? "bg-white text-black" : "text-white/60 hover:text-white"
-                }`}
-              >
-                Photo
-              </button>
-              <button
-                onClick={() => setMediaType("video")}
-                className={`px-2.5 py-1 rounded font-medium transition-colors ${
-                  mediaType === "video" ? "bg-white text-black" : "text-white/60 hover:text-white"
-                }`}
-              >
-                Video
-              </button>
-            </div>
-
             {userSession ? (
               <Link
                 href="/dashboard"
-                className="px-4 py-2 rounded-xl bg-white text-black text-xs font-bold uppercase tracking-wider hover:bg-white/90 transition-all shadow-lg flex items-center gap-1.5"
+                className="px-4 py-2.5 rounded-xl bg-white text-black text-xs font-bold uppercase tracking-wider hover:bg-white/90 transition-all shadow-lg flex items-center gap-1.5"
               >
                 <span>Studio Dashboard</span>
                 <ArrowRight className="h-3.5 w-3.5" />
@@ -154,7 +127,7 @@ export function MarketingLanding({ userSession }: MarketingLandingProps) {
                 </Link>
                 <Link
                   href="/register"
-                  className="px-4 py-2 rounded-xl bg-white text-black text-xs font-bold uppercase tracking-wider hover:bg-white/90 transition-all shadow-lg flex items-center gap-1.5"
+                  className="px-4 py-2.5 rounded-xl bg-white text-black text-xs font-bold uppercase tracking-wider hover:bg-white/90 transition-all shadow-lg flex items-center gap-1.5"
                 >
                   <span>Get Started</span>
                   <ArrowRight className="h-3.5 w-3.5" />
@@ -167,13 +140,12 @@ export function MarketingLanding({ userSession }: MarketingLandingProps) {
 
       {/* ── Scroll Expand Hero Section ── */}
       <ScrollExpandMedia
-        mediaType={mediaType}
-        mediaSrc={currentMedia.src}
-        posterSrc={mediaType === "video" ? currentMedia.poster : undefined}
-        bgImageSrc={currentMedia.background}
-        title={currentMedia.title}
-        date={currentMedia.date}
-        scrollToExpand={currentMedia.scrollToExpand}
+        mediaType="image"
+        mediaSrc={mediaContent.src}
+        bgImageSrc={mediaContent.background}
+        title={mediaContent.title}
+        date={mediaContent.date}
+        scrollToExpand={mediaContent.scrollToExpand}
       >
         {/* ── Expanded Content (Floats in on scroll) ── */}
         <div className="max-w-6xl mx-auto w-full space-y-24 pt-8">
@@ -201,17 +173,17 @@ export function MarketingLanding({ userSession }: MarketingLandingProps) {
                 <span>Launch Your Studio Free</span>
                 <ArrowRight className="h-4 w-4" />
               </Link>
-              <a
-                href="#features"
-                className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/20 font-semibold text-sm uppercase tracking-wider transition-all text-center"
+              <button
+                onClick={() => scrollToSection("features")}
+                className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/20 font-semibold text-sm uppercase tracking-wider transition-all text-center cursor-pointer"
               >
                 Explore Features
-              </a>
+              </button>
             </div>
           </div>
 
           {/* ── Feature Highlights Grid ── */}
-          <div id="features" className="space-y-12 pt-8">
+          <div id="features" className="space-y-12 pt-8 scroll-mt-28">
             <div className="text-center space-y-3">
               <span className="text-xs font-bold uppercase tracking-[0.25em] text-white/50 font-mono">
                 Architected for Excellence
@@ -303,7 +275,7 @@ export function MarketingLanding({ userSession }: MarketingLandingProps) {
           </div>
 
           {/* ── Workflow Diagram ── */}
-          <div id="workflow" className="rounded-3xl bg-neutral-950 border border-white/15 p-8 sm:p-12 space-y-12">
+          <div id="workflow" className="rounded-3xl bg-neutral-950 border border-white/15 p-8 sm:p-12 space-y-12 scroll-mt-28">
             <div className="text-center space-y-2">
               <span className="text-xs font-bold uppercase tracking-[0.25em] text-white/50 font-mono">
                 Simple 3-Step Process
@@ -347,7 +319,7 @@ export function MarketingLanding({ userSession }: MarketingLandingProps) {
           </div>
 
           {/* ── Cloud Economics & Zero Markup ── */}
-          <div id="storage" className="space-y-8">
+          <div id="economics" className="space-y-8 scroll-mt-28">
             <div className="text-center space-y-3">
               <span className="text-xs font-bold uppercase tracking-[0.25em] text-emerald-400 font-mono">
                 Fair & Open Economics
@@ -409,7 +381,7 @@ export function MarketingLanding({ userSession }: MarketingLandingProps) {
           </div>
 
           {/* ── FAQ Section ── */}
-          <div id="faq" className="space-y-8 max-w-3xl mx-auto">
+          <div id="faq" className="space-y-8 max-w-3xl mx-auto scroll-mt-28">
             <div className="text-center space-y-2">
               <span className="text-xs font-bold uppercase tracking-[0.25em] text-white/50 font-mono">
                 Questions & Answers
@@ -427,7 +399,7 @@ export function MarketingLanding({ userSession }: MarketingLandingProps) {
                 >
                   <button
                     onClick={() => setActiveFaq(activeFaq === idx ? null : idx)}
-                    className="w-full px-6 py-4.5 flex items-center justify-between text-left font-semibold text-sm sm:text-base hover:text-white text-white/90"
+                    className="w-full px-6 py-4.5 flex items-center justify-between text-left font-semibold text-sm sm:text-base hover:text-white text-white/90 cursor-pointer"
                   >
                     <span>{faq.q}</span>
                     <ChevronDown
@@ -467,13 +439,15 @@ export function MarketingLanding({ userSession }: MarketingLandingProps) {
 
           {/* ── Footer ── */}
           <footer className="pt-12 pb-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-white/40 font-mono">
-            <div>
-              © {new Date().getFullYear()} FRAMESHARE STUDIO. ALL RIGHTS RESERVED.
+            <div className="flex items-center gap-3">
+              <FrameshareLogo iconSize={24} textSize="sm" />
             </div>
             <div className="flex items-center gap-6">
               <Link href="/login" className="hover:text-white transition-colors">Studio Login</Link>
               <Link href="/register" className="hover:text-white transition-colors">Register</Link>
-              <a href="#features" className="hover:text-white transition-colors">Features</a>
+              <button onClick={() => scrollToSection("features")} className="hover:text-white transition-colors cursor-pointer">
+                Features
+              </button>
             </div>
           </footer>
 
