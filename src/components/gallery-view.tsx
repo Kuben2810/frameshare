@@ -13,6 +13,7 @@ import { AshadeSidebar } from "@/components/ashade-sidebar"
 import { WebGLDistortion } from "@/components/webgl-distortion"
 import { Lightbox } from "@/components/lightbox"
 import { Ribbon } from "@/components/ribbon"
+import { cn } from "@/lib/utils"
 
 type Gallery = InferSelectModel<typeof galleries>
 type Photo = InferSelectModel<typeof photos>
@@ -281,28 +282,77 @@ export function GalleryView({
         </div>
       </header>
 
-      {/* ── Sticky Stage Workflow Subheader Bar ── */}
+      {/* ── Sticky Stage Workflow Subheader Bar with Live Countdown ── */}
       {currentSection === "proofing" ? (
-        <div className="bg-neutral-900/90 border-b border-white/10 px-4 sm:px-8 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs relative z-30">
-          <div className="flex items-center gap-2">
-            <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="text-white/80">
-              <strong className="text-white font-semibold">Stage 1: Proofing & Selection</strong> • Star your favorites and leave comments/notes for the editor before retouching.
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            {gallery.maxSelections && (
-              <span className="font-mono text-[11px] bg-white/10 border border-white/15 px-2.5 py-0.5 rounded-md text-white">
-                Quota: <strong className="text-emerald-400">{starredIds.size}</strong> / {gallery.maxSelections} Selected
+        <div className="bg-neutral-900/95 border-b border-white/10 px-4 sm:px-8 py-3 flex flex-wrap items-center justify-between gap-3 text-xs relative z-30 shadow-md">
+          <div className="flex items-center gap-2.5">
+            <span className="flex h-2.5 w-2.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
+              <span className="text-white font-semibold tracking-wide">
+                Proofing &amp; Selection Phase
               </span>
+              <span className="text-white/40 hidden sm:inline">•</span>
+              <span className="text-white/60 text-[11px]">
+                Star your favorites for retouching.
+              </span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* Live Countdown & Progress Pill */}
+            {gallery.maxSelections ? (
+              <div className="flex items-center gap-2 bg-black/60 border border-white/15 px-3 py-1.5 rounded-xl font-mono text-xs">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-white/60">Selected:</span>
+                  <strong className={
+                    starredIds.size > gallery.maxSelections
+                      ? "text-amber-400 font-bold"
+                      : starredIds.size === gallery.maxSelections
+                      ? "text-emerald-400 font-bold"
+                      : "text-white"
+                  }>
+                    {starredIds.size}
+                  </strong>
+                  <span className="text-white/40">/ {gallery.maxSelections}</span>
+                </div>
+
+                <div className="h-3 w-px bg-white/20" />
+
+                <span className={cn(
+                  "text-[11px] font-semibold px-2 py-0.5 rounded-md",
+                  starredIds.size > gallery.maxSelections
+                    ? "bg-amber-500/20 text-amber-300"
+                    : starredIds.size === gallery.maxSelections
+                    ? "bg-emerald-500/20 text-emerald-300"
+                    : "bg-white/10 text-white/90"
+                )}>
+                  {starredIds.size > gallery.maxSelections
+                    ? `${starredIds.size - gallery.maxSelections} Over Quota`
+                    : starredIds.size === gallery.maxSelections
+                    ? "Quota Reached ✓"
+                    : `${gallery.maxSelections - starredIds.size} Remaining`}
+                </span>
+              </div>
+            ) : (
+              <div className="bg-white/10 border border-white/15 px-3 py-1.5 rounded-xl font-mono text-xs text-white">
+                Selected: <strong className="text-emerald-400">{starredIds.size}</strong> photos
+              </div>
             )}
+
             {starredIds.size > 0 && !submitted && (
               <button
                 onClick={submitSelection}
                 disabled={submitting}
-                className="px-3 py-1 rounded-lg bg-emerald-400 hover:bg-emerald-300 text-black font-bold text-xs uppercase tracking-wider transition-colors shadow-sm cursor-pointer"
+                className={cn(
+                  "px-4 py-1.5 rounded-xl font-bold text-xs uppercase tracking-wider transition-all shadow-md flex items-center gap-1.5 cursor-pointer",
+                  starredIds.size === gallery.maxSelections
+                    ? "bg-emerald-400 hover:bg-emerald-300 text-black animate-pulse"
+                    : starredIds.size > (gallery.maxSelections ?? Infinity)
+                    ? "bg-amber-400 hover:bg-amber-300 text-black"
+                    : "bg-white hover:bg-neutral-200 text-black"
+                )}
               >
-                {submitting ? "Submitting…" : `Submit Selections (${starredIds.size})`}
+                <span>{submitting ? "Submitting…" : `Submit Selections (${starredIds.size})`}</span>
               </button>
             )}
           </div>
@@ -447,6 +497,43 @@ export function GalleryView({
 
         </div>
       </div>
+
+      {/* Floating Bottom Limit Countdown Pill in Proofing Mode */}
+      {currentSection === "proofing" && starredIds.size > 0 && (
+        <div className="fixed bottom-5 left-1/2 -translate-x-1/2 z-40 bg-neutral-900/95 backdrop-blur-md border border-white/20 rounded-2xl shadow-2xl p-2 px-4 flex items-center gap-3 animate-in slide-in-from-bottom-4 duration-300">
+          <div className="flex items-center gap-2 text-xs font-mono">
+            <Star className="h-4 w-4 fill-yellow-400 text-yellow-400 shrink-0" />
+            <span className="text-white">
+              <strong>{starredIds.size}</strong>
+              {gallery.maxSelections ? ` of ${gallery.maxSelections}` : " selected"}
+            </span>
+            {gallery.maxSelections && (
+              <span className={
+                starredIds.size > gallery.maxSelections
+                  ? "text-amber-400 font-semibold"
+                  : starredIds.size === gallery.maxSelections
+                  ? "text-emerald-400 font-semibold"
+                  : "text-white/60"
+              }>
+                ({starredIds.size > gallery.maxSelections
+                  ? `${starredIds.size - gallery.maxSelections} over`
+                  : starredIds.size === gallery.maxSelections
+                  ? "quota complete"
+                  : `${gallery.maxSelections - starredIds.size} left`})
+              </span>
+            )}
+          </div>
+          {!submitted && (
+            <button
+              onClick={submitSelection}
+              disabled={submitting}
+              className="px-3.5 py-1.5 rounded-xl bg-emerald-400 hover:bg-emerald-300 text-black text-xs font-bold uppercase tracking-wider transition-colors shadow-sm cursor-pointer"
+            >
+              {submitting ? "Submitting…" : "Submit"}
+            </button>
+          )}
+        </div>
+      )}
 
       {/* ── Lightbox ── */}
       <Lightbox

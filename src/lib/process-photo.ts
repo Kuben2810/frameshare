@@ -3,10 +3,52 @@ import { photos, users } from "@/db/schema"
 import { eq } from "drizzle-orm"
 import { uploadBuffer, downloadBuffer } from "@/lib/s3"
 import { s3Keys } from "@/lib/s3-keys"
+import { getDecodableImageBuffer } from "@/lib/raw-decoder"
 import sharp from "sharp"
 
-function watermarkSvg(name: string, width: number, height: number): Buffer {
-  const escaped = name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+function proofWatermarkSvg(name: string, width: number, height: number): Buffer {
+  const escaped = (name || "Frameshare").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+  const fontSizeMain = Math.max(18, Math.round(Math.min(width, height) * 0.055))
+  const fontSizeSub = Math.max(11, Math.round(fontSizeMain * 0.42))
+
+  const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="proofShadow" x="-20%" y="-20%" width="140%" height="140%">
+        <feDropShadow dx="1" dy="2" stdDeviation="3" flood-color="#000000" flood-opacity="0.85"/>
+      </filter>
+    </defs>
+    <!-- Center Diagonal Main Proof Watermark -->
+    <g transform="translate(${width / 2}, ${height / 2}) rotate(-28)" filter="url(#proofShadow)">
+      <text
+        x="0" y="-${fontSizeSub * 0.8}"
+        font-family="Arial, Helvetica, sans-serif" font-weight="900" font-size="${fontSizeMain}"
+        letter-spacing="6"
+        fill="white" fill-opacity="0.4"
+        text-anchor="middle" dominant-baseline="central"
+      >PROOF ONLY • NOT FINAL EDIT</text>
+      <text
+        x="0" y="${fontSizeMain * 0.75}"
+        font-family="Arial, Helvetica, sans-serif" font-weight="700" font-size="${fontSizeSub}"
+        letter-spacing="3"
+        fill="white" fill-opacity="0.32"
+        text-anchor="middle" dominant-baseline="central"
+      >© ${escaped} • FOR CLIENT SELECTION ONLY</text>
+    </g>
+
+    <!-- Subtle bottom right studio copyright -->
+    <text
+      x="${width - 16}" y="${height - 16}"
+      font-family="Arial, Helvetica, sans-serif" font-weight="600" font-size="${Math.max(11, Math.round(width * 0.016))}"
+      fill="white" fill-opacity="0.55" filter="url(#proofShadow)"
+      text-anchor="end" dominant-baseline="auto"
+    >© ${escaped} [PROOF PREVIEW]</text>
+  </svg>`
+
+  return Buffer.from(svg)
+}
+
+function studioWatermarkSvg(name: string, width: number, height: number): Buffer {
+  const escaped = (name || "Frameshare").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
   const fontSize = Math.max(12, Math.round(width * 0.02))
   const padding = Math.round(fontSize * 0.8)
   const svg = `<svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
@@ -27,12 +69,17 @@ export async function processPhoto(photoId: string): Promise<void> {
   const user = await db.query.users.findFirst({ where: eq(users.id, photo.userId) })
   const photographerName = user?.name ?? "Frameshare"
 
-  const original = await downloadBuffer(photo.originalKey)
+  const rawOriginal = await downloadBuffer(photo.originalKey)
+  // Convert or extract decodable image buffer for RAW (CR2, NEF, ARW, DNG) or standard images
+  const original = await getDecodableImageBuffer(rawOriginal, photo.filename)
+
   const keys = s3Keys(photoId)
   const meta = await sharp(original).metadata()
   const isRotated = meta.orientation && meta.orientation >= 5 && meta.orientation <= 8
   const w = (isRotated ? meta.height : meta.width) ?? 1200
   const h = (isRotated ? meta.width : meta.height) ?? 800
+
+  const isProofing = (photo.section ?? "proofing") === "proofing"
 
   const [thumb, display, watermarked] = await Promise.all([
     sharp(original)
@@ -40,11 +87,28 @@ export async function processPhoto(photoId: string): Promise<void> {
       .resize(400, 400, { fit: "inside", withoutEnlargement: true })
       .webp({ quality: 80 })
       .toBuffer(),
-    sharp(original)
-      .rotate()
-      .resize(2048, 2048, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: 85 })
-      .toBuffer(),
+
+    // Display image: if proofing, composite the proofing watermark; if final, render pristine master
+    (async () => {
+      const resized = await sharp(original)
+        .rotate()
+        .resize(2048, 2048, { fit: "inside", withoutEnlargement: true })
+        .toBuffer()
+
+      if (isProofing) {
+        const rMeta = await sharp(resized).metadata()
+        const rw = rMeta.width ?? 1200
+        const rh = rMeta.height ?? 800
+        return sharp(resized)
+          .composite([{ input: proofWatermarkSvg(photographerName, rw, rh), blend: "over" }])
+          .webp({ quality: 85 })
+          .toBuffer()
+      }
+
+      return sharp(resized).webp({ quality: 88 }).toBuffer()
+    })(),
+
+    // Watermarked variant
     (async () => {
       const resized = await sharp(original)
         .rotate()
@@ -53,8 +117,12 @@ export async function processPhoto(photoId: string): Promise<void> {
       const resizedMeta = await sharp(resized).metadata()
       const rw = resizedMeta.width ?? 1200
       const rh = resizedMeta.height ?? 800
+      const wmSvg = isProofing
+        ? proofWatermarkSvg(photographerName, rw, rh)
+        : studioWatermarkSvg(photographerName, rw, rh)
+
       return sharp(resized)
-        .composite([{ input: watermarkSvg(photographerName, rw, rh), blend: "over" }])
+        .composite([{ input: wmSvg, blend: "over" }])
         .jpeg({ quality: 82 })
         .toBuffer()
     })(),

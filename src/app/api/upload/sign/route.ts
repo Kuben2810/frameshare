@@ -17,7 +17,7 @@ export async function POST(req: Request) {
 
   const { galleryId, filename, fileSize, mimeType, section } = await req.json()
 
-  const v = validatePhoto({ type: mimeType, size: fileSize })
+  const v = validatePhoto({ name: filename, type: mimeType, size: fileSize })
   if (!v.ok) return Response.json({ error: v.error }, { status: 400 })
 
   // Verify gallery ownership

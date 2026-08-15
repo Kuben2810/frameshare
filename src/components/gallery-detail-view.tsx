@@ -486,19 +486,49 @@ export function GalleryDetailView({
                 </p>
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Client Selection Quota (Optional)
+              <div className="space-y-2">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
+                  <span>Client Selection Quota / Limit</span>
+                  <span className="text-[11px] text-primary lowercase font-normal">Live countdown shown to client</span>
                 </label>
-                <input
-                  name="maxSelections"
-                  type="number"
-                  defaultValue={gallery.maxSelections ?? ""}
-                  placeholder="e.g. 40 (number of included photos in package)"
-                  className="w-full px-3.5 py-2.5 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all font-mono"
-                />
+                <div className="space-y-2">
+                  <input
+                    id="maxSelectionsInput"
+                    name="maxSelections"
+                    type="number"
+                    defaultValue={gallery.maxSelections ?? ""}
+                    placeholder="e.g. 25 (number of included retouched photos)"
+                    className="w-full px-3.5 py-2.5 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all font-mono"
+                  />
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] text-muted-foreground uppercase font-mono mr-1">Presets:</span>
+                    {[10, 20, 30, 40, 50, 75, 100].map((num) => (
+                      <button
+                        key={num}
+                        type="button"
+                        onClick={() => {
+                          const input = document.getElementById("maxSelectionsInput") as HTMLInputElement
+                          if (input) input.value = String(num)
+                        }}
+                        className="px-2 py-0.5 text-xs font-mono rounded-md border border-border bg-muted/40 hover:bg-primary/10 hover:border-primary/40 transition-colors cursor-pointer"
+                      >
+                        {num}
+                      </button>
+                    ))}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const input = document.getElementById("maxSelectionsInput") as HTMLInputElement
+                        if (input) input.value = ""
+                      }}
+                      className="px-2 py-0.5 text-xs font-mono rounded-md border border-border text-muted-foreground hover:bg-muted transition-colors cursor-pointer"
+                    >
+                      Clear (No Limit)
+                    </button>
+                  </div>
+                </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Displays a live quota counter to the client (e.g. &quot;Selected 25 of 40 included&quot;).
+                  Clients will see a real-time countdown widget as they star images (e.g. &quot;15 of 25 Selected • 10 Remaining&quot;).
                 </p>
               </div>
 

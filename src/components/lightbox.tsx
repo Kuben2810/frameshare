@@ -402,11 +402,35 @@ export function Lightbox({
             )}
           </div>
 
-          {/* Star (Always visible) */}
-          <button onClick={() => toggleStar(activePhoto.id)} data-cursor="link"
-            className="p-2 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 transition-all">
-            <Star className={`h-4 w-4 ${starredIds.has(activePhoto.id) ? "fill-yellow-400 text-yellow-400" : "text-white"}`} />
-          </button>
+          {/* Star with Live Limit Countdown */}
+          <div className="flex items-center gap-1.5 bg-white/10 p-0.5 pl-1.5 pr-2 rounded-full border border-white/15">
+            <button
+              onClick={() => toggleStar(activePhoto.id)}
+              data-cursor="link"
+              className="p-1 rounded-full hover:bg-white/20 active:scale-90 transition-all cursor-pointer"
+              title={starredIds.has(activePhoto.id) ? "Remove from selection" : "Select for retouching"}
+            >
+              <Star className={`h-4 w-4 ${starredIds.has(activePhoto.id) ? "fill-yellow-400 text-yellow-400" : "text-white"}`} />
+            </button>
+            {gallery.maxSelections ? (
+              <span className="text-[11px] font-mono text-white/80 select-none">
+                <strong className={
+                  starredIds.size > gallery.maxSelections
+                    ? "text-amber-400 font-bold"
+                    : starredIds.size === gallery.maxSelections
+                    ? "text-emerald-400 font-bold"
+                    : "text-white"
+                }>
+                  {starredIds.size}
+                </strong>
+                <span className="text-white/40">/{gallery.maxSelections}</span>
+              </span>
+            ) : (
+              <span className="text-[11px] font-mono text-white/80 select-none">
+                {starredIds.size}
+              </span>
+            )}
+          </div>
 
           {/* Comment (Always visible) */}
           <button onClick={() => setCommentPhotoId(commentPhotoId === activePhoto.id ? null : activePhoto.id)}

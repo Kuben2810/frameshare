@@ -27,7 +27,21 @@ import { cn } from "@/lib/utils"
 type Gallery = InferSelectModel<typeof galleries>
 type Photo = InferSelectModel<typeof photos>
 
-const ACCEPTED = Object.fromEntries(ACCEPTED_TYPES.map((t) => [t, []]))
+const DROPZONE_ACCEPT = {
+  "image/jpeg": [".jpg", ".jpeg"],
+  "image/png": [".png"],
+  "image/webp": [".webp"],
+  "image/tiff": [".tif", ".tiff"],
+  "image/x-canon-cr2": [".cr2"],
+  "image/x-canon-cr3": [".cr3"],
+  "image/x-nikon-nef": [".nef"],
+  "image/x-sony-arw": [".arw"],
+  "image/x-adobe-dng": [".dng"],
+  "image/x-fuji-raf": [".raf"],
+  "image/x-panasonic-raw": [".rw2"],
+  "image/x-olympus-orf": [".orf"],
+  "application/octet-stream": [".cr2", ".cr3", ".nef", ".arw", ".dng", ".raf", ".orf", ".rw2", ".raw"],
+}
 
 export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gallery; photos: Photo[] }) {
   const [photoList, setPhotoList] = useState<Photo[]>(initialPhotos)
@@ -118,7 +132,7 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: ACCEPTED,
+    accept: DROPZONE_ACCEPT,
     maxSize: MAX_SIZE_BYTES,
     multiple: true,
   })
@@ -262,7 +276,7 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
                   : `Drag & drop photos into ${uploadTargetSection === "final" ? "Final Delivery" : "Proofing Set"}`}
               </p>
               <p className="text-xs text-muted-foreground">
-                JPEG, PNG, WebP, TIFF • Max 50 MB per photo • Batch uploads supported
+                RAW (CR2, CR3, NEF, ARW, DNG, RAF), JPEG, PNG, WebP • Max 100 MB per photo • Auto-converted for web proofing
               </p>
             </div>
           </div>
