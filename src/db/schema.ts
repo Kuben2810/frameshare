@@ -49,22 +49,25 @@ export const verificationTokens = pgTable("verification_tokens", {
 })
 
 export const galleries = pgTable("galleries", {
-  id:           text("id").primaryKey(),
-  userId:       text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
-  name:         text("name").notNull(),
-  slug:         text("slug").notNull().unique(),
-  passwordHash: text("password_hash"),
-  expiresAt:    timestamp("expires_at", { mode: "date" }),
-  downloadMode: text("download_mode", { enum: ["none", "lowres", "full"] }).notNull().default("none"),
-  logoKey:      text("logo_key"),
-  accentColor:  text("accent_color"),
-  createdAt:    timestamp("created_at").defaultNow().notNull(),
+  id:            text("id").primaryKey(),
+  userId:        text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  name:          text("name").notNull(),
+  slug:          text("slug").notNull().unique(),
+  passwordHash:  text("password_hash"),
+  expiresAt:     timestamp("expires_at", { mode: "date" }),
+  downloadMode:  text("download_mode", { enum: ["none", "lowres", "full"] }).notNull().default("none"),
+  stage:         text("stage", { enum: ["proofing", "delivered", "both"] }).notNull().default("proofing"),
+  maxSelections: integer("max_selections"),
+  logoKey:       text("logo_key"),
+  accentColor:   text("accent_color"),
+  createdAt:     timestamp("created_at").defaultNow().notNull(),
 })
 
 export const photos = pgTable("photos", {
   id:             text("id").primaryKey(),
   galleryId:      text("gallery_id").notNull().references(() => galleries.id, { onDelete: "cascade" }),
   userId:         text("user_id").notNull().references(() => users.id),
+  section:        text("section", { enum: ["proofing", "final"] }).notNull().default("proofing"),
   originalKey:    text("original_key").notNull(),
   thumbKey:       text("thumb_key"),
   displayKey:     text("display_key"),

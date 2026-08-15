@@ -40,6 +40,8 @@ export function Lightbox({
   commentMap,
   submitComment,
   toggleStar,
+  clientSection,
+  proofingPhotos,
 }: {
   gallery: Gallery
   photos: Photo[]
@@ -53,6 +55,8 @@ export function Lightbox({
   commentMap: Record<string, Comment[]>
   submitComment: (photoId: string, body: string, authorName: string) => Promise<boolean | undefined>
   toggleStar: (photoId: string) => Promise<void>
+  clientSection?: "proofing" | "final"
+  proofingPhotos?: Photo[]
 }) {
   const activePhoto = activeIdx !== null ? photos[activeIdx] : null
 
@@ -518,6 +522,11 @@ export function Lightbox({
         {/* Before / After compare mode */}
         {compareMode && (() => {
           const src = imgUrl(activePhoto.displayKey ?? activePhoto.originalKey)!
+          const matchingProof = proofingPhotos?.find(
+            (p) => p.filename === activePhoto.filename || p.filename.replace(/\.[^.]+$/, "") === activePhoto.filename.replace(/\.[^.]+$/, "")
+          )
+          const beforeSrc = matchingProof ? imgUrl(matchingProof.displayKey ?? matchingProof.originalKey)! : src
+
           return (
             <div ref={compareRef} className="lb-compare-stage"
               onMouseDown={(e) => { compareDragging.current = true; compareMoveAt(e.clientX) }}
@@ -528,17 +537,17 @@ export function Lightbox({
               onTouchMove={(e) => compareMoveAt(e.touches[0].clientX)}
               onTouchEnd={() => { compareDragging.current = false }}
               data-cursor="slider">
-              {/* After — with filter */}
+              {/* After — with filter / retouched master */}
               <div className="lb-compare-layer">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={src} alt="after" className="lb-compare-img" style={{ filter: appliedFilter || undefined }} />
-                <div className="lb-compare-badge lb-badge-after">Edited</div>
+                <div className="lb-compare-badge lb-badge-after">Retouched Master</div>
               </div>
-              {/* Before — no filter, clipped */}
+              {/* Before — raw / unretouched proof, clipped */}
               <div className="lb-compare-layer lb-compare-before" style={{ clipPath: `inset(0 ${100 - comparePos}% 0 0)` }}>
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={src} alt="before" className="lb-compare-img" />
-                <div className="lb-compare-badge lb-badge-before">Original</div>
+                <img src={beforeSrc} alt="before" className="lb-compare-img" />
+                <div className="lb-compare-badge lb-badge-before">{matchingProof ? "Original Proof" : "Original"}</div>
               </div>
               {/* Divider + handle */}
               <div className="lb-compare-divider" style={{ left: `${comparePos}%` }}>

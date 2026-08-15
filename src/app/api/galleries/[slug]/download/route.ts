@@ -16,6 +16,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const { slug } = await params
   const { searchParams } = new URL(req.url)
   const type = searchParams.get("type") || "all"
+  const section = searchParams.get("section") as "proofing" | "final" | null
   const clientId = searchParams.get("clientId")
 
   const gallery = await db.query.galleries.findFirst({ where: eq(galleries.slug, slug) })
@@ -56,6 +57,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     where: and(
       eq(photos.galleryId, gallery.id),
       eq(photos.status, "ready"),
+      section ? eq(photos.section, section) : undefined,
       selectedPhotoIds ? inArray(photos.id, selectedPhotoIds) : undefined
     ),
     orderBy: [asc(photos.sortOrder), asc(photos.createdAt)],
@@ -109,7 +111,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   })()
 
   const safeTitle = (gallery.name || "gallery").replace(/[^a-zA-Z0-9_-]/g, "_")
-  const zipFilename = type === "starred" ? `${safeTitle}-favorites.zip` : `${safeTitle}.zip`
+  const sectionTag = section === "final" ? "-master-edits" : section === "proofing" ? "-proofing-set" : ""
+  const zipFilename = type === "starred" ? `${safeTitle}-favorites.zip` : `${safeTitle}${sectionTag}.zip`
 
   // Convert Node stream to Web ReadableStream
   const webStream = new ReadableStream({

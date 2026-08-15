@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   const session = await auth()
   if (!session?.user?.id) return Response.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { galleryId, filename, fileSize, mimeType } = await req.json()
+  const { galleryId, filename, fileSize, mimeType, section } = await req.json()
 
   const v = validatePhoto({ type: mimeType, size: fileSize })
   if (!v.ok) return Response.json({ error: v.error }, { status: 400 })
@@ -37,6 +37,8 @@ export async function POST(req: Request) {
   const ext = filename.split(".").pop()?.toLowerCase() ?? "jpg"
   const originalKey = s3Keys(photoId).original(ext)
 
+  const photoSection = section === "final" ? "final" : "proofing"
+
   // Reserve quota and insert pending photo atomically
   await db.transaction(async (tx) => {
     await adjustStorageQuota(session.user!.id!, fileSize, tx)
@@ -44,6 +46,7 @@ export async function POST(req: Request) {
       id: photoId,
       galleryId,
       userId: session.user!.id!,
+      section: photoSection,
       originalKey,
       filename,
       mimeType,

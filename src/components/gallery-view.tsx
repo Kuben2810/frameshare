@@ -39,6 +39,20 @@ export function GalleryView({
   initialStars: Star[]
   initialComments: Comment[]
 }) {
+  // ── Split Photos by Section ────────────────────────────────────────────────
+  const proofingPhotos = photos.filter((p) => (p.section ?? "proofing") === "proofing")
+  const finalPhotos = photos.filter((p) => p.section === "final")
+
+  const defaultSection =
+    gallery.stage === "delivered" && finalPhotos.length > 0
+      ? "final"
+      : proofingPhotos.length === 0 && finalPhotos.length > 0
+      ? "final"
+      : "proofing"
+
+  const [currentSection, setCurrentSection] = useState<"proofing" | "final">(defaultSection)
+  const activePhotos = currentSection === "final" ? finalPhotos : proofingPhotos
+
   // ── Layout state ───────────────────────────────────────────────────────────
   const [layout, setLayout] = useState<Layout>("masonry")
   const [entryAnim, setEntryAnim] = useState<EntryAnim>("fade-up")
@@ -53,7 +67,7 @@ export function GalleryView({
   const { submitting, submitted, submitSelection } = useSelection(gallery.slug)
 
   const { activeIdx, isSlideshow, setIsSlideshow, openLightbox, closeLightbox, goNext, goPrev } =
-    useSlideshow(photos.length)
+    useSlideshow(activePhotos.length)
 
   // ── Restore persisted prefs ────────────────────────────────────────────────
   useEffect(() => {
@@ -93,7 +107,7 @@ export function GalleryView({
     )
     cards.forEach((card) => observer.observe(card))
     return () => observer.disconnect()
-  }, [photos, layout])
+  }, [activePhotos, layout])
 
   function changeLayout(l: Layout) { setLayout(l); localStorage.setItem("gallery-layout", l) }
   function changeAnim(a: EntryAnim) { setEntryAnim(a); localStorage.setItem("gallery-entry-anim", a) }
@@ -127,7 +141,7 @@ export function GalleryView({
             )}
           </div>
         </div>
-        {/* Star + comment count */}
+        {/* Star + comment count (Prominent in Proofing mode) */}
         <div className="absolute top-2.5 right-2.5 flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
           <button onClick={(e) => { e.stopPropagation(); toggleStar(photo.id) }}
             className="p-1.5 rounded-full bg-black/60 backdrop-blur-sm shadow-sm transition-transform hover:scale-110 active:scale-95">
@@ -142,6 +156,8 @@ export function GalleryView({
       </>
     )
   }
+
+  const hasBothSets = (proofingPhotos.length > 0 && finalPhotos.length > 0) || gallery.stage === "both"
 
   return (
     <div className="ashade-app min-h-screen bg-black text-white">
@@ -170,13 +186,43 @@ export function GalleryView({
               <img src={imgUrl(gallery.logoKey)!} alt="" className="h-7 w-auto object-contain" />
             ) : (
               <>
-                <span className="ashade-logo-text truncate max-w-[160px] xs:max-w-[220px] sm:max-w-xs md:max-w-md">
+                <span className="ashade-logo-text truncate max-w-[140px] xs:max-w-[180px] sm:max-w-xs md:max-w-md">
                   {gallery.name}
                 </span>
-                <span className="ashade-logo-tag">Photography Gallery</span>
+                <span className="ashade-logo-tag">
+                  {currentSection === "final" ? "Final Delivery Master" : "Proofing Collection"}
+                </span>
               </>
             )}
           </a>
+
+          {/* Center Stage Switcher (When multiple sets exist) */}
+          {hasBothSets && (
+            <div className="hidden sm:flex items-center bg-white/10 rounded-full p-1 border border-white/15">
+              <button
+                onClick={() => { setCurrentSection("proofing"); closeLightbox() }}
+                className={`px-3.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${
+                  currentSection === "proofing"
+                    ? "bg-white text-black shadow-sm"
+                    : "text-white/60 hover:text-white"
+                }`}
+                style={display}
+              >
+                🌟 Proofing ({proofingPhotos.length})
+              </button>
+              <button
+                onClick={() => { setCurrentSection("final"); closeLightbox() }}
+                className={`px-3.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${
+                  currentSection === "final"
+                    ? "bg-amber-400 text-black shadow-sm font-bold"
+                    : "text-white/60 hover:text-white"
+                }`}
+                style={display}
+              >
+                ✨ Final Delivery ({finalPhotos.length})
+              </button>
+            </div>
+          )}
 
           {/* Nav */}
           <div className="ashade-nav-block shrink-0">
@@ -198,13 +244,27 @@ export function GalleryView({
                   </button>
                 </li>
 
-                {/* Submit (Always visible when client selects) */}
-                {starredIds.size > 0 && !submitted && (
+                {/* Final Delivery: Direct Download All Button */}
+                {currentSection === "final" && gallery.downloadMode !== "none" && (
+                  <li>
+                    <a
+                      href={`/api/galleries/${gallery.slug}/download?section=final`}
+                      className="nav-link text-xs whitespace-nowrap font-bold inline-flex items-center gap-1"
+                      style={{ ...display, border: "1px solid rgba(245,158,11,0.4)", padding: "5px 12px", background: "rgba(245,158,11,0.12)", color: "#fbbf24" }}
+                      download
+                    >
+                      Download Masters ({finalPhotos.length})
+                    </a>
+                  </li>
+                )}
+
+                {/* Proofing: Submit Selection */}
+                {currentSection === "proofing" && starredIds.size > 0 && !submitted && (
                   <li>
                     <button className="nav-link text-xs whitespace-nowrap font-bold"
                       style={{ ...display, border: "1px solid rgba(255,255,255,0.4)", padding: "4px 10px sm:padding: 5px 14px", background: "rgba(255,255,255,0.08)" }}
                       onClick={submitSelection} disabled={submitting} data-cursor="link">
-                      {submitting ? "Submitting…" : `Submit (${starredIds.size})`}
+                      {submitting ? "Submitting…" : `Submit (${starredIds.size}${gallery.maxSelections ? `/${gallery.maxSelections}` : ""})`}
                     </button>
                   </li>
                 )}
@@ -226,6 +286,32 @@ export function GalleryView({
       {/* ── Gallery main scroll area ── */}
       <div className="ashade-gallery-main" style={{ position: "relative", zIndex: 2, minHeight: "100vh", overflowY: "auto" }}>
         <div className="pt-2 pb-12">
+
+          {/* Mobile Phase Switcher (if both sets exist) */}
+          {hasBothSets && (
+            <div className="flex sm:hidden items-center justify-center py-2 px-3 bg-black/60 border-b border-white/10">
+              <div className="flex items-center bg-white/10 rounded-full p-0.5 border border-white/15 w-full max-w-xs">
+                <button
+                  onClick={() => { setCurrentSection("proofing"); closeLightbox() }}
+                  className={`flex-1 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all text-center ${
+                    currentSection === "proofing" ? "bg-white text-black shadow-sm" : "text-white/60"
+                  }`}
+                  style={display}
+                >
+                  🌟 Proofing ({proofingPhotos.length})
+                </button>
+                <button
+                  onClick={() => { setCurrentSection("final"); closeLightbox() }}
+                  className={`flex-1 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all text-center ${
+                    currentSection === "final" ? "bg-amber-400 text-black shadow-sm" : "text-white/60"
+                  }`}
+                  style={display}
+                >
+                  ✨ Final ({finalPhotos.length})
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Controls bar */}
           <div className="flex items-center justify-between py-2 px-3 sm:px-8 md:px-12 mb-2 bg-black/40 border-b border-white/5 backdrop-blur-xs">
@@ -257,6 +343,13 @@ export function GalleryView({
                   ))}
                 </div>
               )}
+
+              {/* Selection quota badge in proofing */}
+              {currentSection === "proofing" && gallery.maxSelections && (
+                <div className="hidden sm:flex items-center text-[10px] font-mono text-white/60 bg-white/5 px-2.5 py-1 rounded-md border border-white/10">
+                  <span>Selected: <strong className="text-white">{starredIds.size}</strong> / {gallery.maxSelections}</span>
+                </div>
+              )}
             </div>
 
             {/* Animation presets */}
@@ -274,7 +367,7 @@ export function GalleryView({
           {/* ── MASONRY ── */}
           {layout === "masonry" && (
             <div ref={gridRef} className="masonry-grid px-2" data-anim={entryAnim} style={{ columns: masonryCols }}>
-              {photos.map((photo, idx) => {
+              {activePhotos.map((photo, idx) => {
                 const starred = starredIds.has(photo.id)
                 return (
                   <div key={photo.id} data-delay={Math.min(idx * 50, 400)}
@@ -289,7 +382,7 @@ export function GalleryView({
 
           {/* ── RIBBON ── */}
           {layout === "ribbon" && (
-            <Ribbon photos={photos} openLightbox={openLightbox} />
+            <Ribbon photos={activePhotos} openLightbox={openLightbox} />
           )}
 
         </div>
@@ -298,7 +391,7 @@ export function GalleryView({
       {/* ── Lightbox ── */}
       <Lightbox
         gallery={gallery}
-        photos={photos}
+        photos={activePhotos}
         activeIdx={activeIdx}
         isSlideshow={isSlideshow}
         setIsSlideshow={setIsSlideshow}
@@ -309,6 +402,8 @@ export function GalleryView({
         commentMap={commentMap}
         submitComment={submitComment}
         toggleStar={toggleStar}
+        clientSection={currentSection}
+        proofingPhotos={proofingPhotos}
       />
     </div>
   )

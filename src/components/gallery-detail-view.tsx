@@ -175,10 +175,30 @@ export function GalleryDetailView({
                   Expired on {new Date(gallery.expiresAt!).toLocaleDateString()}
                 </Badge>
               ) : (
-                <span className="inline-flex items-center gap-1.5 bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-xs font-medium px-2.5 py-0.5 rounded-full">
-                  <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-                  Active Proofing
+                <span className={cn(
+                  "inline-flex items-center gap-1.5 border text-xs font-medium px-2.5 py-0.5 rounded-full",
+                  gallery.stage === "delivered"
+                    ? "bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20"
+                    : gallery.stage === "both"
+                    ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
+                    : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                )}>
+                  <span className={cn(
+                    "h-1.5 w-1.5 rounded-full",
+                    gallery.stage === "delivered" ? "bg-amber-500" : gallery.stage === "both" ? "bg-purple-500" : "bg-emerald-500"
+                  )} />
+                  {gallery.stage === "delivered"
+                    ? "Final Delivery Published ✨"
+                    : gallery.stage === "both"
+                    ? "Proofing & Delivery Active 🌟✨"
+                    : "Active Proofing Phase 🌟"}
                 </span>
+              )}
+
+              {gallery.maxSelections && (
+                <Badge variant="outline" className="text-xs gap-1 font-mono">
+                  Quota: Max {gallery.maxSelections} Photos
+                </Badge>
               )}
 
               {isProtected ? (
@@ -209,13 +229,22 @@ export function GalleryDetailView({
           </div>
 
           {/* Quick Stats Block */}
-          <div className="grid grid-cols-3 sm:flex items-center gap-2 sm:gap-4 bg-muted/40 p-3 sm:p-4 rounded-xl border border-border/50 shrink-0">
+          <div className="grid grid-cols-4 sm:flex items-center gap-2 sm:gap-4 bg-muted/40 p-3 sm:p-4 rounded-xl border border-border/50 shrink-0">
             <div className="text-center px-1 sm:px-2">
               <span className="text-[10px] uppercase font-semibold tracking-wider text-muted-foreground block">
-                Photos
+                Proof Set
               </span>
               <span className="text-2xl sm:text-3xl font-bold text-foreground tabular-nums font-oswald">
-                {initialPhotos.length}
+                {initialPhotos.filter(p => (p.section ?? "proofing") === "proofing").length}
+              </span>
+            </div>
+            <div className="hidden sm:block h-8 w-px bg-border/60" />
+            <div className="text-center px-1 sm:px-2">
+              <span className="text-[10px] uppercase font-semibold tracking-wider text-amber-500 block">
+                Final Set
+              </span>
+              <span className="text-2xl sm:text-3xl font-bold text-foreground tabular-nums font-oswald">
+                {initialPhotos.filter(p => p.section === "final").length}
               </span>
             </div>
             <div className="hidden sm:block h-8 w-px bg-border/60" />
@@ -229,8 +258,8 @@ export function GalleryDetailView({
             </div>
             <div className="hidden sm:block h-8 w-px bg-border/60" />
             <div className="text-center px-1 sm:px-2">
-              <span className="text-[10px] uppercase font-semibold tracking-wider text-amber-500 block flex items-center justify-center gap-1">
-                <Sparkles className="h-3 w-3" /> Proofs
+              <span className="text-[10px] uppercase font-semibold tracking-wider text-emerald-500 block flex items-center justify-center gap-1">
+                <Sparkles className="h-3 w-3" /> Selections
               </span>
               <span className="text-2xl sm:text-3xl font-bold text-foreground tabular-nums font-oswald">
                 {initialSelections.length}
@@ -437,6 +466,40 @@ export function GalleryDetailView({
                   required
                   className="w-full px-3.5 py-2.5 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
                 />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Collection Workflow Phase
+                </label>
+                <select
+                  name="stage"
+                  defaultValue={gallery.stage ?? "proofing"}
+                  className="w-full px-3.5 py-2.5 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all"
+                >
+                  <option value="proofing">🌟 Stage 1: Proofing & Selection (Clients star & request edits)</option>
+                  <option value="delivered">✨ Stage 2: Final Delivery (Clients view retouched masters, use lightbox tools, download)</option>
+                  <option value="both">🌟✨ Both Active (Client can switch between Proofing and Final Delivery)</option>
+                </select>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Controls what the client sees when opening the gallery.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  Client Selection Quota (Optional)
+                </label>
+                <input
+                  name="maxSelections"
+                  type="number"
+                  defaultValue={gallery.maxSelections ?? ""}
+                  placeholder="e.g. 40 (number of included photos in package)"
+                  className="w-full px-3.5 py-2.5 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 transition-all font-mono"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  Displays a live quota counter to the client (e.g. &quot;Selected 25 of 40 included&quot;).
+                </p>
               </div>
 
               <div className="space-y-1.5">

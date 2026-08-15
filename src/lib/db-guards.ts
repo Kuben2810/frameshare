@@ -3,6 +3,7 @@ import { galleries, photos } from "@/db/schema"
 import { eq, and, sql } from "drizzle-orm"
 import { notFound } from "next/navigation"
 import type { InferSelectModel } from "drizzle-orm"
+import { ensureColumnsMigrated } from "@/db/auto-migrate"
 
 export type Gallery = InferSelectModel<typeof galleries>
 export type Photo = InferSelectModel<typeof photos>
@@ -19,6 +20,7 @@ export async function adjustStorageQuota(userId: string, delta: number, executor
 }
 
 export async function requireGalleryOwned(id: string, userId: string): Promise<Gallery> {
+  await ensureColumnsMigrated()
   const gallery = await db.query.galleries.findFirst({
     where: and(eq(galleries.id, id), eq(galleries.userId, userId)),
   })

@@ -28,6 +28,11 @@ export async function createGallery(formData: FormData) {
   const expiresAtRaw = formData.get("expiresAt") as string | null
   const expiresAt = expiresAtRaw && expiresAtRaw.trim() !== "" ? new Date(expiresAtRaw) : null
 
+  const maxSelectionsRaw = formData.get("maxSelections") as string | null
+  const maxSelections = maxSelectionsRaw && !isNaN(Number(maxSelectionsRaw)) && Number(maxSelectionsRaw) > 0 ? Number(maxSelectionsRaw) : null
+
+  const stage = (formData.get("stage") as "proofing" | "delivered" | "both") ?? "proofing"
+
   const id = crypto.randomUUID()
   await db.insert(galleries).values({
     id,
@@ -37,6 +42,8 @@ export async function createGallery(formData: FormData) {
     passwordHash,
     expiresAt,
     downloadMode: (formData.get("downloadMode") as "none" | "lowres" | "full") ?? "none",
+    stage,
+    maxSelections,
   })
 
   redirect(`/dashboard/galleries/${id}`)
@@ -61,14 +68,56 @@ export async function updateGallery(id: string, formData: FormData) {
   const expiresAtRaw = formData.get("expiresAt") as string | null
   const expiresAt = expiresAtRaw && expiresAtRaw.trim() !== "" ? new Date(expiresAtRaw) : null
 
+  const maxSelectionsRaw = formData.get("maxSelections") as string | null
+  const maxSelections = maxSelectionsRaw && !isNaN(Number(maxSelectionsRaw)) && Number(maxSelectionsRaw) > 0 ? Number(maxSelectionsRaw) : null
+
+  const stageRaw = formData.get("stage") as "proofing" | "delivered" | "both" | null
+  const stage = stageRaw ?? gallery.stage
+
   await db.update(galleries).set({
     name: (formData.get("name") as string).trim(),
     downloadMode: (formData.get("downloadMode") as "none" | "lowres" | "full"),
     expiresAt,
+    stage,
+    maxSelections,
     ...(passwordHash !== undefined ? { passwordHash } : {}),
   }).where(eq(galleries.id, id))
 
   revalidatePath(`/dashboard/galleries/${id}`)
+  revalidatePath(`/g/${gallery.slug}`)
+}
+
+export async function updateGalleryStage(id: string, stage: "proofing" | "delivered" | "both") {
+  const userId = await requireAuth()
+
+  const gallery = await db.query.galleries.findFirst({
+    where: and(eq(galleries.id, id), eq(galleries.userId, userId)),
+  })
+  if (!gallery) return { error: "Not found" }
+
+  await db.update(galleries).set({ stage }).where(eq(galleries.id, id))
+  revalidatePath(`/dashboard/galleries/${id}`)
+  revalidatePath(`/g/${gallery.slug}`)
+  return { success: true }
+}
+
+export async function movePhotosToSection(galleryId: string, photoIds: string[], targetSection: "proofing" | "final") {
+  const userId = await requireAuth()
+
+  const gallery = await db.query.galleries.findFirst({
+    where: and(eq(galleries.id, galleryId), eq(galleries.userId, userId)),
+  })
+  if (!gallery) return { error: "Not found" }
+
+  if (photoIds.length === 0) return { success: true }
+
+  for (const pid of photoIds) {
+    await db.update(photos).set({ section: targetSection }).where(and(eq(photos.id, pid), eq(photos.galleryId, galleryId), eq(photos.userId, userId)))
+  }
+
+  revalidatePath(`/dashboard/galleries/${galleryId}`)
+  revalidatePath(`/g/${gallery.slug}`)
+  return { success: true }
 }
 
 export async function deleteGallery(id: string) {
