@@ -327,10 +327,20 @@ export function Lightbox({
               title="Photo details">
               <Info className="h-4 w-4 text-white" />
             </button>
-            <button onClick={() => { setCompareMode(m => !m); setComparePos(50) }} data-cursor="link"
-              className={`p-2 rounded-full transition-colors ${compareMode ? "bg-white/25" : "bg-white/10 hover:bg-white/20"}`}
-              title="Before / After compare">
-              <ArrowLeftRight className="h-4 w-4 text-white" />
+            <button
+              onClick={() => { setCompareMode(m => !m); setComparePos(50) }}
+              data-cursor="link"
+              className={`px-3 py-1.5 rounded-full text-xs font-semibold uppercase tracking-wider flex items-center gap-1.5 transition-all ${
+                compareMode
+                  ? "bg-amber-400 text-black shadow-md font-bold"
+                  : clientSection === "final"
+                  ? "bg-amber-500/20 text-amber-300 border border-amber-500/30 hover:bg-amber-500/30"
+                  : "bg-white/10 hover:bg-white/20 text-white"
+              }`}
+              title="Before / After split comparison"
+            >
+              <ArrowLeftRight className="h-3.5 w-3.5" />
+              <span>{compareMode ? "Comparing" : "Compare"}</span>
             </button>
           </div>
 

@@ -196,33 +196,31 @@ export function GalleryView({
             )}
           </a>
 
-          {/* Center Stage Switcher (When multiple sets exist) */}
-          {hasBothSets && (
-            <div className="hidden sm:flex items-center bg-white/10 rounded-full p-1 border border-white/15">
-              <button
-                onClick={() => { setCurrentSection("proofing"); closeLightbox() }}
-                className={`px-3.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${
-                  currentSection === "proofing"
-                    ? "bg-white text-black shadow-sm"
-                    : "text-white/60 hover:text-white"
-                }`}
-                style={display}
-              >
-                🌟 Proofing ({proofingPhotos.length})
-              </button>
-              <button
-                onClick={() => { setCurrentSection("final"); closeLightbox() }}
-                className={`px-3.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all ${
-                  currentSection === "final"
-                    ? "bg-amber-400 text-black shadow-sm font-bold"
-                    : "text-white/60 hover:text-white"
-                }`}
-                style={display}
-              >
-                ✨ Final Delivery ({finalPhotos.length})
-              </button>
-            </div>
-          )}
+          {/* Center Stage Switcher (Always available so client/photographer can toggle sets) */}
+          <div className="hidden sm:flex items-center bg-white/10 rounded-full p-1 border border-white/15">
+            <button
+              onClick={() => { setCurrentSection("proofing"); closeLightbox() }}
+              className={`px-3.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                currentSection === "proofing"
+                  ? "bg-white text-black shadow-sm"
+                  : "text-white/60 hover:text-white"
+              }`}
+              style={display}
+            >
+              🌟 Proofing ({proofingPhotos.length})
+            </button>
+            <button
+              onClick={() => { setCurrentSection("final"); closeLightbox() }}
+              className={`px-3.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all cursor-pointer ${
+                currentSection === "final"
+                  ? "bg-amber-400 text-black shadow-sm font-bold"
+                  : "text-white/60 hover:text-white"
+              }`}
+              style={display}
+            >
+              ✨ Final Delivery ({finalPhotos.length})
+            </button>
+          </div>
 
           {/* Nav */}
           <div className="ashade-nav-block shrink-0">
@@ -245,7 +243,7 @@ export function GalleryView({
                 </li>
 
                 {/* Final Delivery: Direct Download All Button */}
-                {currentSection === "final" && gallery.downloadMode !== "none" && (
+                {currentSection === "final" && finalPhotos.length > 0 && gallery.downloadMode !== "none" && (
                   <li>
                     <a
                       href={`/api/galleries/${gallery.slug}/download?section=final`}
@@ -283,35 +281,79 @@ export function GalleryView({
         </div>
       </header>
 
+      {/* ── Sticky Stage Workflow Subheader Bar ── */}
+      {currentSection === "proofing" ? (
+        <div className="bg-neutral-900/90 border-b border-white/10 px-4 sm:px-8 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs relative z-30">
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-white/80">
+              <strong className="text-white font-semibold">Stage 1: Proofing & Selection</strong> • Star your favorites and leave comments/notes for the editor before retouching.
+            </span>
+          </div>
+          <div className="flex items-center gap-3">
+            {gallery.maxSelections && (
+              <span className="font-mono text-[11px] bg-white/10 border border-white/15 px-2.5 py-0.5 rounded-md text-white">
+                Quota: <strong className="text-emerald-400">{starredIds.size}</strong> / {gallery.maxSelections} Selected
+              </span>
+            )}
+            {starredIds.size > 0 && !submitted && (
+              <button
+                onClick={submitSelection}
+                disabled={submitting}
+                className="px-3 py-1 rounded-lg bg-emerald-400 hover:bg-emerald-300 text-black font-bold text-xs uppercase tracking-wider transition-colors shadow-sm cursor-pointer"
+              >
+                {submitting ? "Submitting…" : `Submit Selections (${starredIds.size})`}
+              </button>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="bg-amber-950/40 border-b border-amber-500/25 px-4 sm:px-8 py-2.5 flex flex-wrap items-center justify-between gap-3 text-xs relative z-30">
+          <div className="flex items-center gap-2">
+            <span className="flex h-2 w-2 rounded-full bg-amber-400" />
+            <span className="text-amber-200/90">
+              <strong className="text-amber-400 font-semibold">Stage 2: Final Delivery Masters</strong> • Master retouched photos. Open any photo for Before/After split comparison, client fine-tuning sliders, and high-res downloads.
+            </span>
+          </div>
+          {finalPhotos.length > 0 && gallery.downloadMode !== "none" && (
+            <a
+              href={`/api/galleries/${gallery.slug}/download?section=final`}
+              className="px-3 py-1 rounded-lg bg-amber-400 hover:bg-amber-300 text-black font-bold text-xs uppercase tracking-wider transition-colors shadow-sm inline-flex items-center gap-1.5"
+              download
+            >
+              <span>Download All Masters (ZIP)</span>
+            </a>
+          )}
+        </div>
+      )}
+
       {/* ── Gallery main scroll area ── */}
       <div className="ashade-gallery-main" style={{ position: "relative", zIndex: 2, minHeight: "100vh", overflowY: "auto" }}>
         <div className="pt-2 pb-12">
 
-          {/* Mobile Phase Switcher (if both sets exist) */}
-          {hasBothSets && (
-            <div className="flex sm:hidden items-center justify-center py-2 px-3 bg-black/60 border-b border-white/10">
-              <div className="flex items-center bg-white/10 rounded-full p-0.5 border border-white/15 w-full max-w-xs">
-                <button
-                  onClick={() => { setCurrentSection("proofing"); closeLightbox() }}
-                  className={`flex-1 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all text-center ${
-                    currentSection === "proofing" ? "bg-white text-black shadow-sm" : "text-white/60"
-                  }`}
-                  style={display}
-                >
-                  🌟 Proofing ({proofingPhotos.length})
-                </button>
-                <button
-                  onClick={() => { setCurrentSection("final"); closeLightbox() }}
-                  className={`flex-1 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all text-center ${
-                    currentSection === "final" ? "bg-amber-400 text-black shadow-sm" : "text-white/60"
-                  }`}
-                  style={display}
-                >
-                  ✨ Final ({finalPhotos.length})
-                </button>
-              </div>
+          {/* Mobile Phase Switcher */}
+          <div className="flex sm:hidden items-center justify-center py-2 px-3 bg-black/60 border-b border-white/10">
+            <div className="flex items-center bg-white/10 rounded-full p-0.5 border border-white/15 w-full max-w-xs">
+              <button
+                onClick={() => { setCurrentSection("proofing"); closeLightbox() }}
+                className={`flex-1 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all text-center ${
+                  currentSection === "proofing" ? "bg-white text-black shadow-sm" : "text-white/60"
+                }`}
+                style={display}
+              >
+                🌟 Proofing ({proofingPhotos.length})
+              </button>
+              <button
+                onClick={() => { setCurrentSection("final"); closeLightbox() }}
+                className={`flex-1 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wider transition-all text-center ${
+                  currentSection === "final" ? "bg-amber-400 text-black shadow-sm" : "text-white/60"
+                }`}
+                style={display}
+              >
+                ✨ Final ({finalPhotos.length})
+              </button>
             </div>
-          )}
+          </div>
 
           {/* Controls bar */}
           <div className="flex items-center justify-between py-2 px-3 sm:px-8 md:px-12 mb-2 bg-black/40 border-b border-white/5 backdrop-blur-xs">
@@ -343,13 +385,6 @@ export function GalleryView({
                   ))}
                 </div>
               )}
-
-              {/* Selection quota badge in proofing */}
-              {currentSection === "proofing" && gallery.maxSelections && (
-                <div className="hidden sm:flex items-center text-[10px] font-mono text-white/60 bg-white/5 px-2.5 py-1 rounded-md border border-white/10">
-                  <span>Selected: <strong className="text-white">{starredIds.size}</strong> / {gallery.maxSelections}</span>
-                </div>
-              )}
             </div>
 
             {/* Animation presets */}
@@ -364,8 +399,33 @@ export function GalleryView({
             </div>
           </div>
 
+          {/* ── Empty State Handling for Sets ── */}
+          {activePhotos.length === 0 && (
+            <div className="py-24 px-6 text-center max-w-lg mx-auto space-y-4">
+              <div className="h-16 w-16 mx-auto rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400">
+                <Star className="h-8 w-8" />
+              </div>
+              <h3 className="text-2xl font-bold font-oswald uppercase text-white tracking-wider">
+                {currentSection === "final" ? "Retouching In Progress" : "No Proofing Photos Yet"}
+              </h3>
+              <p className="text-sm text-white/60 leading-relaxed">
+                {currentSection === "final"
+                  ? "The editor is currently finalizing your selected photos. Once retouched masters are uploaded to this collection, your Before/After split slider, fine-tuning tools, and high-res downloads will appear right here!"
+                  : "Photos have not yet been uploaded to the proofing set for this collection."}
+              </p>
+              {currentSection === "final" && proofingPhotos.length > 0 && (
+                <button
+                  onClick={() => setCurrentSection("proofing")}
+                  className="px-5 py-2.5 rounded-xl bg-white text-black text-xs font-bold uppercase tracking-wider hover:bg-white/90 transition-all shadow-lg cursor-pointer"
+                >
+                  ← Return to Proofing Set ({proofingPhotos.length})
+                </button>
+              )}
+            </div>
+          )}
+
           {/* ── MASONRY ── */}
-          {layout === "masonry" && (
+          {activePhotos.length > 0 && layout === "masonry" && (
             <div ref={gridRef} className="masonry-grid px-2" data-anim={entryAnim} style={{ columns: masonryCols }}>
               {activePhotos.map((photo, idx) => {
                 const starred = starredIds.has(photo.id)
@@ -381,7 +441,7 @@ export function GalleryView({
           )}
 
           {/* ── RIBBON ── */}
-          {layout === "ribbon" && (
+          {activePhotos.length > 0 && layout === "ribbon" && (
             <Ribbon photos={activePhotos} openLightbox={openLightbox} />
           )}
 
