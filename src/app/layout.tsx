@@ -22,8 +22,13 @@ const oswald = Oswald({
 })
 
 export const metadata: Metadata = {
-  title: "Frameshare",
-  description: "Photo gallery sharing and client proofing for photographers.",
+  title: "Frameshare | Photography Studio Platform",
+  description: "Luxury photo gallery sharing and client proofing platform for professional photographers.",
+  icons: {
+    icon: "/favicon.png",
+    shortcut: "/favicon.png",
+    apple: "/icon.png",
+  },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

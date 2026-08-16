@@ -1,0 +1,42 @@
+<svg width="2400" height="700" viewBox="0 0 600 175" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- Icon Container on Left -->
+    <g transform="translate(15, 12.5)">
+      <!-- Camera Body Silhouette -->
+      <path d="M42 26H56L58 31H92L94 26H108C116.837 26 124 33.1634 124 42V108C124 116.837 116.837 124 108 124H42C33.1634 124 26 116.837 26 108V42C26 33.1634 33.1634 26 42 26Z" stroke="#17171B" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+      
+      <!-- Focus Brackets Left -->
+      <path d="M38 52H46V44" stroke="#17171B" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+      <path d="M38 98H46V106" stroke="#17171B" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+
+      <!-- Focus Brackets Right -->
+      <path d="M112 52H104V44" stroke="#17171B" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+      <path d="M112 98H104V106" stroke="#17171B" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+
+      <!-- Interlocking Dual-Frame Loops -->
+      <path d="M44 58H72C84 58 90 68 90 75C90 82 84 92 72 92H44C36 92 34 84 34 75C34 66 36 58 44 58Z" stroke="#17171B" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/>
+      <path d="M106 58H78C66 58 60 68 60 75C60 82 66 92 78 92H106C114 92 116 84 116 75C116 66 114 58 106 58Z" stroke="#E5C158" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
+
+      <!-- Central Gold Aperture Ring & Blades -->
+      <circle cx="75" cy="75" r="23" stroke="#E5C158" stroke-width="5"/>
+      
+      <!-- 6 Interlocking Aperture Blades -->
+      <path d="M75 52 L87 67" stroke="#E5C158" stroke-width="3" stroke-linecap="round"/>
+      <path d="M95 63 L87 83" stroke="#E5C158" stroke-width="3" stroke-linecap="round"/>
+      <path d="M95 87 L75 87" stroke="#E5C158" stroke-width="3" stroke-linecap="round"/>
+      <path d="M75 98 L63 83" stroke="#E5C158" stroke-width="3" stroke-linecap="round"/>
+      <path d="M55 87 L63 67" stroke="#E5C158" stroke-width="3" stroke-linecap="round"/>
+      <path d="M55 63 L75 63" stroke="#E5C158" stroke-width="3" stroke-linecap="round"/>
+
+      <!-- Inner Aperture Hexagonal Focal Core -->
+      <circle cx="75" cy="75" r="4.5" fill="#E5C158"/>
+    </g>
+
+    <!-- Typography Wordmark on Right -->
+    <g transform="translate(185, 30)">
+      <!-- Main Brand Name (FRAMESHARE) -->
+      <text x="0" y="62" font-family="Oswald, sans-serif" font-weight="700" font-size="56" letter-spacing="8" fill="#0A0A0B" text-transform="uppercase">FRAMESHARE</text>
+      
+      <!-- Subtitle Tagline -->
+      <text x="3" y="94" font-family="'Courier New', monospace" font-weight="600" font-size="14" letter-spacing="7" fill="#E5C158" text-transform="uppercase">PHOTOGRAPHY STUDIO PLATFORM</text>
+    </g>
+  </svg>

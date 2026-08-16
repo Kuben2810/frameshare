@@ -1,0 +1,30 @@
+<svg width="1024" height="1024" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <!-- Camera Body Silhouette & Shutter Bump -->
+    <path d="M42 22H52L54 26H66L68 22H78C84.6274 22 90 27.3726 90 34V86C90 92.6274 84.6274 98 78 98H42C35.3726 98 30 92.6274 30 86V34C30 27.3726 35.3726 22 42 22Z" stroke="#17171B" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+    
+    <!-- Left Focus Brackets -->
+    <path d="M38 42H44V36" stroke="#17171B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+    <path d="M38 78H44V84" stroke="#17171B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+
+    <!-- Right Focus Brackets -->
+    <path d="M82 42H76V36" stroke="#17171B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+    <path d="M82 78H76V84" stroke="#17171B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.8"/>
+
+    <!-- Interlocking Dual-Frame Loops -->
+    <path d="M42 46H58C68 46 72 54 72 60C72 66 68 74 58 74H42C36 74 34 68 34 60C34 52 36 46 42 46Z" stroke="#17171B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/>
+    <path d="M78 46H62C52 46 48 54 48 60C48 66 52 74 62 74H78C84 74 86 68 86 60C86 52 84 46 78 46Z" stroke="#E5C158" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
+
+    <!-- Central Gold Aperture Ring & Blades -->
+    <circle cx="60" cy="60" r="17" stroke="#E5C158" stroke-width="4"/>
+    
+    <!-- 6 Interlocking Aperture Blades -->
+    <path d="M60 43 L69 54" stroke="#E5C158" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M75 51 L69 66" stroke="#E5C158" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M75 69 L60 69" stroke="#E5C158" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M60 77 L51 66" stroke="#E5C158" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M45 69 L51 54" stroke="#E5C158" stroke-width="2.2" stroke-linecap="round"/>
+    <path d="M45 51 L60 51" stroke="#E5C158" stroke-width="2.2" stroke-linecap="round"/>
+
+    <!-- Inner Aperture Hexagonal Focal Core -->
+    <circle cx="60" cy="60" r="3.5" fill="#E5C158"/>
+  </svg>
