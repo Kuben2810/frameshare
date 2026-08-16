@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { motion } from "framer-motion"
+import { motion, AnimatePresence } from "framer-motion"
 import {
   Download,
   Sparkles,
@@ -14,10 +14,16 @@ import {
   ChevronDown,
   Heart,
   SlidersHorizontal,
+  Zap,
+  ShieldCheck,
+  HardDrive,
+  Layers,
+  Flame,
 } from "lucide-react"
 import { ScrollExpandMedia } from "@/components/ui/scroll-expansion-hero"
 import { FrameshareLogo } from "@/components/frameshare-logo"
 import { AnimatedLaunchButton } from "@/components/ui/animated-launch-button"
+import { SpotlightCard } from "@/components/ui/spotlight-card"
 
 interface MarketingLandingProps {
   userSession?: {
@@ -171,102 +177,193 @@ export function MarketingLanding({ userSession }: MarketingLandingProps) {
             </div>
           </div>
 
-          {/* ── Feature Highlights Grid ── */}
+          {/* ── Feature Highlights Grid (21st.dev Spotlight & Staggered Motion) ── */}
           <div id="features" className="space-y-12 pt-8 scroll-mt-28">
             <div className="text-center space-y-3">
-              <span className="text-xs font-bold uppercase tracking-[0.25em] text-white/50 font-mono">
-                Architected for Excellence
-              </span>
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-[10px] font-mono font-bold uppercase tracking-widest text-amber-400">
+                <Zap className="h-3 w-3 animate-bounce" />
+                <span>Engineered for Darkroom Speed</span>
+              </div>
               <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold font-oswald uppercase tracking-wide text-white">
                 Everything You Need to Impress Clients
               </h2>
+              <p className="text-sm sm:text-base text-white/60 max-w-2xl mx-auto font-light">
+                Every micro-interaction is tuned for maximum luxury, high performance, and effortless client selections.
+              </p>
             </div>
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {/* Card 1 */}
-              <div className="rounded-2xl bg-neutral-900/80 border border-white/10 p-6 sm:p-8 space-y-4 hover:border-white/25 transition-all">
-                <div className="h-12 w-12 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-white">
-                  <Download className="h-6 w-6" />
-                </div>
-                <h3 className="text-xl font-bold font-oswald uppercase tracking-wider text-white">
-                  Streaming ZIP Bulk Downloads
-                </h3>
-                <p className="text-sm text-white/60 leading-relaxed">
-                  No zip compilation lag or memory limits. Clients can download 500+ photos in a single high-speed stream directly from cloud storage.
-                </p>
-              </div>
+            <motion.div
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, margin: "-60px" }}
+              variants={{
+                hidden: { opacity: 0 },
+                visible: {
+                  opacity: 1,
+                  transition: { staggerChildren: 0.1 },
+                },
+              }}
+              className="grid md:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {/* Card 1: Streaming ZIP */}
+              <motion.div
+                variants={{
+                  hidden: { opacity: 0, y: 24 },
+                  visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+                }}
+              >
+                <SpotlightCard className="h-full space-y-4 hover:-translate-y-1.5 transition-transform duration-300">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="h-12 w-12 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center text-white group-hover:scale-110 group-hover:bg-amber-500/15 group-hover:border-amber-400/40 group-hover:text-amber-400 transition-all duration-300">
+                      <Download className="h-5 w-5" />
+                    </div>
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 group-hover:border-amber-400/30 group-hover:text-amber-300 transition-colors">
+                      Zero Lag
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-bold font-oswald uppercase tracking-wider text-white group-hover:text-amber-100 transition-colors">
+                    Streaming ZIP Bulk Downloads
+                  </h3>
+                  <p className="text-sm text-white/60 leading-relaxed font-light">
+                    No server memory bottlenecks or ZIP build delays. Clients download 500+ full-resolution photos in a single direct-stream cloud archive.
+                  </p>
+                </SpotlightCard>
+              </motion.div>
 
-              {/* Card 2 */}
-              <div className="rounded-2xl bg-neutral-900/80 border border-white/10 p-6 sm:p-8 space-y-4 hover:border-white/25 transition-all">
-                <div className="h-12 w-12 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-white">
-                  <Smartphone className="h-6 w-6" />
-                </div>
-                <h3 className="text-xl font-bold font-oswald uppercase tracking-wider text-white">
-                  Mobile Touch Gestures
-                </h3>
-                <p className="text-sm text-white/60 leading-relaxed">
-                  Native swipe navigation in the lightbox. Swipe left/right to browse, swipe down to dismiss, and double-tap to zoom into high-res details.
-                </p>
-              </div>
+              {/* Card 2: Mobile Touch Gestures */}
+              <motion.div
+                variants={{
+                  hidden: { opacity: 0, y: 24 },
+                  visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+                }}
+              >
+                <SpotlightCard className="h-full space-y-4 hover:-translate-y-1.5 transition-transform duration-300">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="h-12 w-12 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center text-white group-hover:scale-110 group-hover:bg-amber-500/15 group-hover:border-amber-400/40 group-hover:text-amber-400 transition-all duration-300">
+                      <Smartphone className="h-5 w-5" />
+                    </div>
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 group-hover:border-amber-400/30 group-hover:text-amber-300 transition-colors">
+                      60 FPS
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-bold font-oswald uppercase tracking-wider text-white group-hover:text-amber-100 transition-colors">
+                    Mobile Touch Gestures
+                  </h3>
+                  <p className="text-sm text-white/60 leading-relaxed font-light">
+                    Native swipe navigation in the lightbox. Swipe left/right to browse, swipe down to dismiss, and double-tap to zoom into high-res details.
+                  </p>
+                </SpotlightCard>
+              </motion.div>
 
-              {/* Card 3 */}
-              <div className="rounded-2xl bg-neutral-900/80 border border-white/10 p-6 sm:p-8 space-y-4 hover:border-white/25 transition-all">
-                <div className="h-12 w-12 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-white">
-                  <Mail className="h-6 w-6" />
-                </div>
-                <h3 className="text-xl font-bold font-oswald uppercase tracking-wider text-white">
-                  Instant Email Alerts
-                </h3>
-                <p className="text-sm text-white/60 leading-relaxed">
-                  The second your client finalizes their starred proofing selection, you receive a formatted darkroom notification with one-click studio access.
-                </p>
-              </div>
+              {/* Card 3: Instant Email Alerts */}
+              <motion.div
+                variants={{
+                  hidden: { opacity: 0, y: 24 },
+                  visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+                }}
+              >
+                <SpotlightCard className="h-full space-y-4 hover:-translate-y-1.5 transition-transform duration-300">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="h-12 w-12 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center text-white group-hover:scale-110 group-hover:bg-amber-500/15 group-hover:border-amber-400/40 group-hover:text-amber-400 transition-all duration-300">
+                      <Mail className="h-5 w-5" />
+                    </div>
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 group-hover:border-amber-400/30 group-hover:text-amber-300 transition-colors">
+                      Real-Time
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-bold font-oswald uppercase tracking-wider text-white group-hover:text-amber-100 transition-colors">
+                    Instant Darkroom Alerts
+                  </h3>
+                  <p className="text-sm text-white/60 leading-relaxed font-light">
+                    The second your client finalizes their starred proofing selection, you receive a formatted darkroom notification with one-click studio access.
+                  </p>
+                </SpotlightCard>
+              </motion.div>
 
-              {/* Card 4 */}
-              <div className="rounded-2xl bg-neutral-900/80 border border-white/10 p-6 sm:p-8 space-y-4 hover:border-white/25 transition-all">
-                <div className="h-12 w-12 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-white">
-                  <Heart className="h-6 w-6" />
-                </div>
-                <h3 className="text-xl font-bold font-oswald uppercase tracking-wider text-white">
-                  Zero-Friction Starring
-                </h3>
-                <p className="text-sm text-white/60 leading-relaxed">
-                  Clients don&apos;t need to register an account or remember passwords. Starring is instantly saved to their device session with multi-device support.
-                </p>
-              </div>
+              {/* Card 4: Zero-Friction Starring */}
+              <motion.div
+                variants={{
+                  hidden: { opacity: 0, y: 24 },
+                  visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+                }}
+              >
+                <SpotlightCard className="h-full space-y-4 hover:-translate-y-1.5 transition-transform duration-300">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="h-12 w-12 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center text-white group-hover:scale-110 group-hover:bg-amber-500/15 group-hover:border-amber-400/40 group-hover:text-amber-400 transition-all duration-300">
+                      <Heart className="h-5 w-5" />
+                    </div>
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 group-hover:border-amber-400/30 group-hover:text-amber-300 transition-colors">
+                      Zero Sign-Up
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-bold font-oswald uppercase tracking-wider text-white group-hover:text-amber-100 transition-colors">
+                    Zero-Friction Starring
+                  </h3>
+                  <p className="text-sm text-white/60 leading-relaxed font-light">
+                    Clients never need to create accounts or remember passwords. Starring and commenting are automatically saved to their active session.
+                  </p>
+                </SpotlightCard>
+              </motion.div>
 
-              {/* Card 5 */}
-              <div className="rounded-2xl bg-neutral-900/80 border border-white/10 p-6 sm:p-8 space-y-4 hover:border-white/25 transition-all">
-                <div className="h-12 w-12 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-white">
-                  <Lock className="h-6 w-6" />
-                </div>
-                <h3 className="text-xl font-bold font-oswald uppercase tracking-wider text-white">
-                  Secure Password Gating
-                </h3>
-                <p className="text-sm text-white/60 leading-relaxed">
-                  Protect private wedding or boudoir galleries with encrypted password gates, custom slug handles, and automatic gallery expiration timers.
-                </p>
-              </div>
+              {/* Card 5: Secure Password Gating */}
+              <motion.div
+                variants={{
+                  hidden: { opacity: 0, y: 24 },
+                  visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+                }}
+              >
+                <SpotlightCard className="h-full space-y-4 hover:-translate-y-1.5 transition-transform duration-300">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="h-12 w-12 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center text-white group-hover:scale-110 group-hover:bg-amber-500/15 group-hover:border-amber-400/40 group-hover:text-amber-400 transition-all duration-300">
+                      <Lock className="h-5 w-5" />
+                    </div>
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 group-hover:border-amber-400/30 group-hover:text-amber-300 transition-colors">
+                      AES-256
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-bold font-oswald uppercase tracking-wider text-white group-hover:text-amber-100 transition-colors">
+                    Secure Password Gating
+                  </h3>
+                  <p className="text-sm text-white/60 leading-relaxed font-light">
+                    Protect private wedding or boudoir galleries with encrypted password gates, custom slug handles, and automatic gallery expiration timers.
+                  </p>
+                </SpotlightCard>
+              </motion.div>
 
-              {/* Card 6 */}
-              <div className="rounded-2xl bg-neutral-900/80 border border-white/10 p-6 sm:p-8 space-y-4 hover:border-white/25 transition-all">
-                <div className="h-12 w-12 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-white">
-                  <SlidersHorizontal className="h-6 w-6" />
-                </div>
-                <h3 className="text-xl font-bold font-oswald uppercase tracking-wider text-white">
-                  Editorial Lightbox Tools
-                </h3>
-                <p className="text-sm text-white/60 leading-relaxed">
-                  Built-in film presets, before/after compare slider, crop export tool, and per-photo client comment threads right inside the viewer.
-                </p>
-              </div>
-            </div>
+              {/* Card 6: Editorial Lightbox Tools */}
+              <motion.div
+                variants={{
+                  hidden: { opacity: 0, y: 24 },
+                  visible: { opacity: 1, y: 0, transition: { duration: 0.5 } },
+                }}
+              >
+                <SpotlightCard className="h-full space-y-4 hover:-translate-y-1.5 transition-transform duration-300">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="h-12 w-12 rounded-2xl bg-white/10 border border-white/15 flex items-center justify-center text-white group-hover:scale-110 group-hover:bg-amber-500/15 group-hover:border-amber-400/40 group-hover:text-amber-400 transition-all duration-300">
+                      <SlidersHorizontal className="h-5 w-5" />
+                    </div>
+                    <span className="text-[10px] font-mono font-bold uppercase tracking-wider px-2.5 py-1 rounded-full bg-white/5 border border-white/10 text-white/60 group-hover:border-amber-400/30 group-hover:text-amber-300 transition-colors">
+                      Darkroom Pro
+                    </span>
+                  </div>
+                  <h3 className="text-xl font-bold font-oswald uppercase tracking-wider text-white group-hover:text-amber-100 transition-colors">
+                    Editorial Lightbox Tools
+                  </h3>
+                  <p className="text-sm text-white/60 leading-relaxed font-light">
+                    Built-in analog film presets, before/after compare slider, crop export tool, and per-photo client comment threads right inside the viewer.
+                  </p>
+                </SpotlightCard>
+              </motion.div>
+            </motion.div>
           </div>
 
-          {/* ── Workflow Diagram ── */}
-          <div id="workflow" className="rounded-3xl bg-neutral-950 border border-white/15 p-8 sm:p-12 space-y-12 scroll-mt-28">
-            <div className="text-center space-y-2">
-              <span className="text-xs font-bold uppercase tracking-[0.25em] text-white/50 font-mono">
+          {/* ── Workflow Diagram (Animated Connecting Laser Timeline) ── */}
+          <div id="workflow" className="rounded-3xl bg-neutral-950 border border-white/15 p-8 sm:p-12 space-y-12 scroll-mt-28 relative overflow-hidden shadow-2xl">
+            {/* Ambient Background Glow */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+
+            <div className="text-center space-y-2 relative z-10">
+              <span className="text-xs font-bold uppercase tracking-[0.25em] text-amber-400 font-mono">
                 Simple 3-Step Process
               </span>
               <h2 className="text-3xl sm:text-4xl font-bold font-oswald uppercase tracking-wide text-white">
@@ -274,40 +371,64 @@ export function MarketingLanding({ userSession }: MarketingLandingProps) {
               </h2>
             </div>
 
-            <div className="grid md:grid-cols-3 gap-8 relative">
-              <div className="space-y-4 text-center sm:text-left">
-                <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-white text-black font-bold font-mono text-sm">
+            <div className="grid md:grid-cols-3 gap-8 relative z-10">
+              {/* Connecting Laser Beam on Desktop */}
+              <div className="hidden md:block absolute top-7 left-[18%] right-[18%] h-[2px] bg-gradient-to-r from-amber-500/20 via-amber-400 to-amber-500/20 shadow-[0_0_12px_rgba(245,158,11,0.5)] pointer-events-none" />
+
+              {/* Step 1 */}
+              <motion.div
+                whileHover={{ y: -6 }}
+                transition={{ duration: 0.25 }}
+                className="space-y-4 text-center sm:text-left bg-white/5 border border-white/10 p-6 rounded-2xl backdrop-blur-sm group hover:border-amber-400/40 hover:bg-white/[0.07] transition-all duration-300"
+              >
+                <div className="relative inline-flex items-center justify-center h-12 w-12 rounded-full bg-neutral-900 border-2 border-amber-400 text-amber-300 font-bold font-mono text-base shadow-[0_0_15px_rgba(245,158,11,0.3)] group-hover:scale-110 group-hover:bg-amber-400 group-hover:text-black transition-all duration-300">
                   01
                 </div>
-                <h4 className="text-xl font-bold font-oswald uppercase text-white">Upload in Seconds</h4>
-                <p className="text-sm text-white/60 leading-relaxed">
+                <h4 className="text-xl font-bold font-oswald uppercase text-white group-hover:text-amber-300 transition-colors">
+                  Upload in Seconds
+                </h4>
+                <p className="text-sm text-white/60 leading-relaxed font-light">
                   Drag and drop full-resolution photos or watermarked sets. High-speed multi-threaded Sharp processing handles thumbnail generation in real time.
                 </p>
-              </div>
+              </motion.div>
 
-              <div className="space-y-4 text-center sm:text-left">
-                <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-white text-black font-bold font-mono text-sm">
+              {/* Step 2 */}
+              <motion.div
+                whileHover={{ y: -6 }}
+                transition={{ duration: 0.25 }}
+                className="space-y-4 text-center sm:text-left bg-white/5 border border-white/10 p-6 rounded-2xl backdrop-blur-sm group hover:border-amber-400/40 hover:bg-white/[0.07] transition-all duration-300"
+              >
+                <div className="relative inline-flex items-center justify-center h-12 w-12 rounded-full bg-neutral-900 border-2 border-amber-400 text-amber-300 font-bold font-mono text-base shadow-[0_0_15px_rgba(245,158,11,0.3)] group-hover:scale-110 group-hover:bg-amber-400 group-hover:text-black transition-all duration-300">
                   02
                 </div>
-                <h4 className="text-xl font-bold font-oswald uppercase text-white">Share Custom Link</h4>
-                <p className="text-sm text-white/60 leading-relaxed">
+                <h4 className="text-xl font-bold font-oswald uppercase text-white group-hover:text-amber-300 transition-colors">
+                  Share Custom Link
+                </h4>
+                <p className="text-sm text-white/60 leading-relaxed font-light">
                   Send your vanity URL (e.g. <code>frameshare.app/g/smith-wedding</code>). Clients browse in stunning masonry or horizontal ribbon layouts on any screen.
                 </p>
-              </div>
+              </motion.div>
 
-              <div className="space-y-4 text-center sm:text-left">
-                <div className="inline-flex items-center justify-center h-10 w-10 rounded-full bg-white text-black font-bold font-mono text-sm">
+              {/* Step 3 */}
+              <motion.div
+                whileHover={{ y: -6 }}
+                transition={{ duration: 0.25 }}
+                className="space-y-4 text-center sm:text-left bg-white/5 border border-white/10 p-6 rounded-2xl backdrop-blur-sm group hover:border-amber-400/40 hover:bg-white/[0.07] transition-all duration-300"
+              >
+                <div className="relative inline-flex items-center justify-center h-12 w-12 rounded-full bg-neutral-900 border-2 border-amber-400 text-amber-300 font-bold font-mono text-base shadow-[0_0_15px_rgba(245,158,11,0.3)] group-hover:scale-110 group-hover:bg-amber-400 group-hover:text-black transition-all duration-300">
                   03
                 </div>
-                <h4 className="text-xl font-bold font-oswald uppercase text-white">Receive Curated Proofs</h4>
-                <p className="text-sm text-white/60 leading-relaxed">
+                <h4 className="text-xl font-bold font-oswald uppercase text-white group-hover:text-amber-300 transition-colors">
+                  Receive Curated Proofs
+                </h4>
+                <p className="text-sm text-white/60 leading-relaxed font-light">
                   Review submitted selections in your studio dashboard, download client-starred ZIP archives, or export Lightroom-ready selection filenames.
                 </p>
-              </div>
+              </motion.div>
             </div>
           </div>
 
-          {/* ── Cloud Economics & Zero Markup ── */}
+          {/* ── Cloud Economics & Zero Markup (21st.dev Border Beam & Comparison) ── */}
           <div id="economics" className="space-y-8 scroll-mt-28">
             <div className="text-center space-y-3">
               <span className="text-xs font-bold uppercase tracking-[0.25em] text-emerald-400 font-mono">
@@ -316,60 +437,90 @@ export function MarketingLanding({ userSession }: MarketingLandingProps) {
               <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold font-oswald uppercase tracking-wide text-white">
                 Stop Overpaying for Cloud Storage
               </h2>
-              <p className="text-sm sm:text-base text-white/60 max-w-2xl mx-auto">
+              <p className="text-sm sm:text-base text-white/60 max-w-2xl mx-auto font-light">
                 Traditional gallery platforms charge 10x-20x storage markups and restrict your downloads. Frameshare connects directly to S3 / Cloudflare R2.
               </p>
             </div>
 
-            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-              <div className="rounded-2xl bg-neutral-900/50 border border-white/10 p-6 sm:p-8 space-y-6">
-                <div className="space-y-2">
-                  <span className="text-xs uppercase font-mono tracking-widest text-red-400">Legacy Platforms</span>
-                  <h3 className="text-2xl font-bold font-oswald uppercase text-white">Pixieset / Pic-Time</h3>
+            <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto items-stretch">
+              {/* Legacy Platforms */}
+              <div className="rounded-3xl bg-neutral-950/80 border border-white/10 p-6 sm:p-8 space-y-6 flex flex-col justify-between">
+                <div className="space-y-4">
+                  <div className="space-y-1">
+                    <span className="text-xs uppercase font-mono tracking-widest text-red-400 font-bold">Legacy Platforms</span>
+                    <h3 className="text-2xl font-bold font-oswald uppercase text-white/80">Pixieset / Pic-Time</h3>
+                  </div>
+                  <ul className="space-y-3.5 text-sm text-white/70">
+                    <li className="flex items-start gap-2.5">
+                      <span className="text-red-400 font-bold text-base leading-none">✕</span>
+                      <span>$30 – $50/month recurring subscription fees</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <span className="text-red-400 font-bold text-base leading-none">✕</span>
+                      <span>Expensive per-GB tier penalties as catalog grows</span>
+                    </li>
+                    <li className="flex items-start gap-2.5">
+                      <span className="text-red-400 font-bold text-base leading-none">✕</span>
+                      <span>Your photo library is locked inside a proprietary walled garden</span>
+                    </li>
+                  </ul>
                 </div>
-                <ul className="space-y-3 text-sm text-white/70">
-                  <li className="flex items-start gap-2">
-                    <span className="text-red-400">✕</span>
-                    <span>$30 – $50/month subscription fees</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-red-400">✕</span>
-                    <span>Expensive per-GB storage tiers</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-red-400">✕</span>
-                    <span>Storage tied to a locked proprietary platform</span>
-                  </li>
-                </ul>
+                <div className="pt-4 border-t border-white/10 text-xs font-mono text-white/40">
+                  Cost over 3 years: <span className="text-red-400 font-bold">$1,200 – $1,800+</span>
+                </div>
               </div>
 
-              <div className="rounded-2xl bg-gradient-to-b from-white/10 to-white/5 border border-white/25 p-6 sm:p-8 space-y-6 shadow-2xl relative overflow-hidden">
-                <div className="absolute top-4 right-4 bg-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase px-2.5 py-1 rounded-full border border-emerald-500/30 font-mono">
-                  Recommended
+              {/* The Frameshare Way (with 21st.dev Rotating Border Beam) */}
+              <div className="relative p-[1.5px] rounded-3xl overflow-hidden group shadow-2xl">
+                {/* Rotating Conic Border Beam */}
+                <div
+                  className="absolute inset-[-100%] animate-[spin_5s_linear_infinite]"
+                  style={{
+                    background:
+                      "conic-gradient(from 0deg, transparent 0deg, transparent 60deg, #10B981 120deg, #34D399 180deg, #10B981 240deg, transparent 300deg, transparent 360deg)",
+                  }}
+                />
+
+                {/* Inner Card Core */}
+                <div className="relative h-full rounded-3xl bg-neutral-900 p-6 sm:p-8 space-y-6 flex flex-col justify-between">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <span className="text-xs uppercase font-mono tracking-widest text-emerald-400 font-bold">The Frameshare Way</span>
+                        <h3 className="text-2xl font-bold font-oswald uppercase text-white">Direct S3 / Cloudflare R2</h3>
+                      </div>
+                      <div className="inline-flex items-center gap-1.5 bg-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase px-3 py-1 rounded-full border border-emerald-500/40 font-mono shadow-[0_0_10px_rgba(16,185,129,0.3)]">
+                        <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-ping" />
+                        <span>Recommended</span>
+                      </div>
+                    </div>
+
+                    <ul className="space-y-3.5 text-sm text-white font-medium">
+                      <li className="flex items-start gap-2.5">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                        <span><strong>10 GB Free Storage</strong> on Cloudflare R2 forever</span>
+                      </li>
+                      <li className="flex items-start gap-2.5">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                        <span><strong>$0 Egress Bandwidth</strong> — unlimited client downloads</span>
+                      </li>
+                      <li className="flex items-start gap-2.5">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
+                        <span><strong>You Own Your Data</strong> directly in your own cloud bucket</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <div className="pt-4 border-t border-emerald-500/20 text-xs font-mono text-emerald-400/90 flex items-center justify-between">
+                    <span>Average Savings:</span>
+                    <span className="font-bold text-emerald-400 text-sm">$360 – $600 / year</span>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <span className="text-xs uppercase font-mono tracking-widest text-emerald-400">The Frameshare Way</span>
-                  <h3 className="text-2xl font-bold font-oswald uppercase text-white">Direct S3 / Cloudflare R2</h3>
-                </div>
-                <ul className="space-y-3 text-sm text-white">
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-                    <span><strong>10 GB Free Storage</strong> on Cloudflare R2 forever</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-                    <span><strong>$0 Egress Bandwidth</strong> — unlimited client downloads</span>
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <CheckCircle2 className="h-4 w-4 text-emerald-400 shrink-0 mt-0.5" />
-                    <span><strong>You Own Your Data</strong> directly in your own cloud bucket</span>
-                  </li>
-                </ul>
               </div>
             </div>
           </div>
 
-          {/* ── FAQ Section ── */}
+          {/* ── FAQ Section (Smooth Animated Accordion) ── */}
           <div id="faq" className="space-y-8 max-w-3xl mx-auto scroll-mt-28">
             <div className="text-center space-y-2">
               <span className="text-xs font-bold uppercase tracking-[0.25em] text-white/50 font-mono">
@@ -380,32 +531,53 @@ export function MarketingLanding({ userSession }: MarketingLandingProps) {
               </h2>
             </div>
 
-            <div className="space-y-3">
-              {faqs.map((faq, idx) => (
-                <div
-                  key={idx}
-                  className="rounded-xl border border-white/10 bg-neutral-950/70 overflow-hidden transition-colors"
-                >
-                  <button
-                    onClick={() => setActiveFaq(activeFaq === idx ? null : idx)}
-                    className="w-full px-6 py-4.5 flex items-center justify-between text-left font-semibold text-sm sm:text-base hover:text-white text-white/90 cursor-pointer"
+            <div className="space-y-3.5">
+              {faqs.map((faq, idx) => {
+                const isOpen = activeFaq === idx
+                return (
+                  <motion.div
+                    key={idx}
+                    initial={false}
+                    className={`rounded-2xl border transition-all duration-300 overflow-hidden ${
+                      isOpen
+                        ? "border-amber-400/40 bg-neutral-900/90 shadow-[0_0_20px_rgba(245,158,11,0.1)]"
+                        : "border-white/10 bg-neutral-950/70 hover:border-white/20"
+                    }`}
                   >
-                    <span>{faq.q}</span>
-                    <ChevronDown
-                      className={`h-4 w-4 shrink-0 text-white/50 transition-transform duration-200 ${
-                        activeFaq === idx ? "rotate-180 text-white" : ""
-                      }`}
-                    />
-                  </button>
-                  {activeFaq === idx && (
-                    <div className="px-6 pb-5 text-sm text-white/60 leading-relaxed border-t border-white/5 pt-3">
-                      {faq.a}
-                    </div>
-                  )}
-                </div>
-              ))}
+                    <button
+                      onClick={() => setActiveFaq(isOpen ? null : idx)}
+                      className="w-full px-6 py-5 flex items-center justify-between text-left font-semibold text-sm sm:text-base text-white/90 hover:text-white cursor-pointer"
+                    >
+                      <span className="pr-4">{faq.q}</span>
+                      <ChevronDown
+                        className={`h-4 w-4 shrink-0 text-white/50 transition-transform duration-300 ease-out ${
+                          isOpen ? "rotate-180 text-amber-400" : ""
+                        }`}
+                      />
+                    </button>
+
+                    <AnimatePresence initial={false}>
+                      {isOpen && (
+                        <motion.div
+                          key="content"
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: "auto", opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.28, ease: "easeOut" }}
+                          className="overflow-hidden"
+                        >
+                          <div className="px-6 pb-5 text-sm text-white/70 leading-relaxed border-t border-white/5 pt-3.5 font-light">
+                            {faq.a}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                )
+              })}
             </div>
           </div>
+
 
           {/* ── Bottom Call to Action Banner ── */}
           <div className="rounded-3xl bg-neutral-900 border border-white/15 text-white p-8 sm:p-14 text-center space-y-6 shadow-2xl relative overflow-hidden">
