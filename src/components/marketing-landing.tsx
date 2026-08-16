@@ -17,6 +17,7 @@ import {
 } from "lucide-react"
 import { ScrollExpandMedia } from "@/components/ui/scroll-expansion-hero"
 import { FrameshareLogo } from "@/components/frameshare-logo"
+import { AnimatedLaunchButton } from "@/components/ui/animated-launch-button"
 
 interface MarketingLandingProps {
   userSession?: {
@@ -110,13 +111,9 @@ export function MarketingLanding({ userSession }: MarketingLandingProps) {
           {/* CTAs */}
           <div className="flex items-center gap-3">
             {userSession ? (
-              <Link
-                href="/dashboard"
-                className="px-4 py-2.5 rounded-xl bg-white text-black text-xs font-bold uppercase tracking-wider hover:bg-white/90 transition-all shadow-lg flex items-center gap-1.5"
-              >
-                <span>Studio Dashboard</span>
-                <ArrowRight className="h-3.5 w-3.5" />
-              </Link>
+              <AnimatedLaunchButton href="/dashboard" size="sm" variant="primary">
+                Studio Dashboard
+              </AnimatedLaunchButton>
             ) : (
               <>
                 <Link
@@ -125,13 +122,9 @@ export function MarketingLanding({ userSession }: MarketingLandingProps) {
                 >
                   Sign In
                 </Link>
-                <Link
-                  href="/register"
-                  className="px-4 py-2.5 rounded-xl bg-white text-black text-xs font-bold uppercase tracking-wider hover:bg-white/90 transition-all shadow-lg flex items-center gap-1.5"
-                >
-                  <span>Get Started</span>
-                  <ArrowRight className="h-3.5 w-3.5" />
-                </Link>
+                <AnimatedLaunchButton href="/register" size="sm" variant="primary">
+                  Launch Studio
+                </AnimatedLaunchButton>
               </>
             )}
           </div>
@@ -166,16 +159,12 @@ export function MarketingLanding({ userSession }: MarketingLandingProps) {
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-              <Link
-                href="/register"
-                className="w-full sm:w-auto px-8 py-3.5 rounded-xl bg-white text-black font-bold text-sm uppercase tracking-wider hover:bg-white/90 transition-all shadow-2xl flex items-center justify-center gap-2"
-              >
-                <span>Launch Your Studio Free</span>
-                <ArrowRight className="h-4 w-4" />
-              </Link>
+              <AnimatedLaunchButton href="/register" size="lg" variant="primary">
+                Launch Your Studio Free
+              </AnimatedLaunchButton>
               <button
                 onClick={() => scrollToSection("features")}
-                className="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/20 font-semibold text-sm uppercase tracking-wider transition-all text-center cursor-pointer"
+                className="w-full sm:w-auto px-7 py-4 rounded-2xl bg-white/10 hover:bg-white/15 text-white border border-white/20 font-bold text-sm uppercase tracking-wider transition-all text-center cursor-pointer font-oswald shadow-lg hover:border-white/40 active:scale-[0.98]"
               >
                 Explore Features
               </button>
@@ -419,21 +408,21 @@ export function MarketingLanding({ userSession }: MarketingLandingProps) {
           </div>
 
           {/* ── Bottom Call to Action Banner ── */}
-          <div className="rounded-3xl bg-white text-black p-8 sm:p-14 text-center space-y-6 shadow-2xl">
-            <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold font-oswald uppercase tracking-tight">
-              Ready to Upgrade Your Photography Delivery?
-            </h2>
-            <p className="text-base sm:text-lg text-neutral-700 max-w-xl mx-auto font-medium">
-              Create client collections, deliver high-res photo albums, and streamline selections in minutes.
-            </p>
-            <div className="pt-2">
-              <Link
-                href="/register"
-                className="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-black text-white font-bold text-sm uppercase tracking-wider hover:bg-neutral-800 transition-all shadow-xl"
-              >
-                <span>Launch Your Studio Now</span>
-                <ArrowRight className="h-4 w-4" />
-              </Link>
+          <div className="rounded-3xl bg-neutral-900 border border-white/15 text-white p-8 sm:p-14 text-center space-y-6 shadow-2xl relative overflow-hidden">
+            {/* Ambient gold spotlight */}
+            <div className="absolute inset-0 bg-gradient-to-b from-amber-500/10 via-transparent to-transparent pointer-events-none" />
+            <div className="relative z-10 space-y-4">
+              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold font-oswald uppercase tracking-tight text-white">
+                Ready to Upgrade Your Photography Delivery?
+              </h2>
+              <p className="text-base sm:text-lg text-white/70 max-w-xl mx-auto font-light">
+                Create client collections, deliver high-res photo albums, and streamline selections in minutes.
+              </p>
+              <div className="pt-4 flex justify-center">
+                <AnimatedLaunchButton href="/register" size="lg" variant="primary">
+                  Launch Your Studio Now
+                </AnimatedLaunchButton>
+              </div>
             </div>
           </div>
 
