@@ -1,42 +1,42 @@
 <svg width="2400" height="700" viewBox="0 0 600 175" fill="none" xmlns="http://www.w3.org/2000/svg">
     <!-- Icon Container on Left -->
-    <g transform="translate(15, 12.5)">
-      <!-- Camera Body Silhouette -->
-      <path d="M42 26H56L58 31H92L94 26H108C116.837 26 124 33.1634 124 42V108C124 116.837 116.837 124 108 124H42C33.1634 124 26 116.837 26 108V42C26 33.1634 33.1634 26 42 26Z" stroke="#17171B" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+    <g transform="translate(20, 28) scale(1.65)">
+      <!-- Camera Body Silhouette & Shutter Bump -->
+      <path d="M18 10H34L36 5H64L66 10H82C89.7279 10 96 16.2721 96 24V54C96 61.7279 89.7279 68 82 68H18C10.2721 68 4 61.7279 4 54V24C4 16.2721 10.2721 10 18 10Z" stroke="#17171B" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
       
       <!-- Focus Brackets Left -->
-      <path d="M38 52H46V44" stroke="#17171B" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
-      <path d="M38 98H46V106" stroke="#17171B" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+      <path d="M12 28H19V20" stroke="#17171B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M12 48H19V56" stroke="#17171B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 
       <!-- Focus Brackets Right -->
-      <path d="M112 52H104V44" stroke="#17171B" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
-      <path d="M112 98H104V106" stroke="#17171B" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
+      <path d="M88 28H81V20" stroke="#17171B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M88 48H81V56" stroke="#17171B" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
 
       <!-- Interlocking Dual-Frame Loops -->
-      <path d="M44 58H72C84 58 90 68 90 75C90 82 84 92 72 92H44C36 92 34 84 34 75C34 66 36 58 44 58Z" stroke="#17171B" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.4"/>
-      <path d="M106 58H78C66 58 60 68 60 75C60 82 66 92 78 92H106C114 92 116 84 116 75C116 66 114 58 106 58Z" stroke="#E5C158" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
+      <path d="M18 24H48C58 24 63 31 63 39C63 47 58 54 48 54H18C10 54 8 47 8 39C8 31 10 24 18 24Z" stroke="#17171B" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.3"/>
+      <path d="M82 24H52C42 24 37 31 37 39C37 47 42 54 52 54H82C90 54 92 47 92 39C92 31 90 24 82 24Z" stroke="#F59E0B" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" opacity="0.6"/>
 
       <!-- Central Gold Aperture Ring & Blades -->
-      <circle cx="75" cy="75" r="23" stroke="#E5C158" stroke-width="5"/>
+      <circle cx="50" cy="39" r="16" stroke="#F59E0B" stroke-width="4.2"/>
       
       <!-- 6 Interlocking Aperture Blades -->
-      <path d="M75 52 L87 67" stroke="#E5C158" stroke-width="3" stroke-linecap="round"/>
-      <path d="M95 63 L87 83" stroke="#E5C158" stroke-width="3" stroke-linecap="round"/>
-      <path d="M95 87 L75 87" stroke="#E5C158" stroke-width="3" stroke-linecap="round"/>
-      <path d="M75 98 L63 83" stroke="#E5C158" stroke-width="3" stroke-linecap="round"/>
-      <path d="M55 87 L63 67" stroke="#E5C158" stroke-width="3" stroke-linecap="round"/>
-      <path d="M55 63 L75 63" stroke="#E5C158" stroke-width="3" stroke-linecap="round"/>
+      <path d="M50 23 L59 34" stroke="#FBBF24" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M65 31 L59 46" stroke="#FBBF24" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M65 47 L50 47" stroke="#FBBF24" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M50 55 L41 46" stroke="#FBBF24" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M35 47 L41 34" stroke="#FBBF24" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M35 31 L50 31" stroke="#FBBF24" stroke-width="2.6" stroke-linecap="round"/>
 
-      <!-- Inner Aperture Hexagonal Focal Core -->
-      <circle cx="75" cy="75" r="4.5" fill="#E5C158"/>
+      <!-- Inner Aperture Focal Core -->
+      <circle cx="50" cy="39" r="3.2" fill="#F59E0B"/>
     </g>
 
     <!-- Typography Wordmark on Right -->
-    <g transform="translate(185, 30)">
+    <g transform="translate(205, 26)">
       <!-- Main Brand Name (FRAMESHARE) -->
-      <text x="0" y="62" font-family="Oswald, sans-serif" font-weight="700" font-size="56" letter-spacing="8" fill="#0A0A0B" text-transform="uppercase">FRAMESHARE</text>
+      <text x="0" y="66" font-family="Oswald, sans-serif" font-weight="700" font-size="64" letter-spacing="8" fill="#0A0A0B">FRAMESHARE</text>
       
       <!-- Subtitle Tagline -->
-      <text x="3" y="94" font-family="'Courier New', monospace" font-weight="600" font-size="14" letter-spacing="7" fill="#E5C158" text-transform="uppercase">PHOTOGRAPHY STUDIO PLATFORM</text>
+      <text x="4" y="98" font-family="'Courier New', monospace" font-weight="700" font-size="14" letter-spacing="6" fill="#F59E0B">STUDIO PLATFORM</text>
     </g>
   </svg>

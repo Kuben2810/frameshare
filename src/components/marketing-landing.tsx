@@ -76,7 +76,7 @@ export function MarketingLanding({ userSession }: MarketingLandingProps) {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-4">
           {/* Bespoke Frameshare Logo */}
           <Link href="/" className="group flex items-center">
-            <FrameshareLogo iconSize={36} textSize="md" />
+            <FrameshareLogo iconHeight={36} textSize="md" />
           </Link>
 
           {/* Desktop Nav Links (Interactive Anchor Jumpers) */}
@@ -440,7 +440,7 @@ export function MarketingLanding({ userSession }: MarketingLandingProps) {
           {/* ── Footer ── */}
           <footer className="pt-12 pb-8 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-white/40 font-mono">
             <div className="flex items-center gap-3">
-              <FrameshareLogo iconSize={24} textSize="sm" />
+              <FrameshareLogo iconHeight={26} textSize="sm" />
             </div>
             <div className="flex items-center gap-6">
               <Link href="/login" className="hover:text-white transition-colors">Studio Login</Link>

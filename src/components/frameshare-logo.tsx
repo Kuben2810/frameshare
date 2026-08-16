@@ -2,101 +2,108 @@ import React from "react"
 
 interface FrameshareLogoProps {
   className?: string
-  iconSize?: number
+  iconHeight?: number
   showText?: boolean
   textSize?: "sm" | "md" | "lg"
 }
 
 export function FrameshareLogo({
   className = "",
-  iconSize = 34,
+  iconHeight = 32,
   showText = true,
   textSize = "md",
 }: FrameshareLogoProps) {
   const fontSizes = {
-    sm: "text-base tracking-[0.14em]",
-    md: "text-lg tracking-[0.18em]",
-    lg: "text-2xl tracking-[0.2em]",
+    sm: "text-base tracking-[0.15em]",
+    md: "text-lg sm:text-xl tracking-[0.18em]",
+    lg: "text-2xl sm:text-3xl tracking-[0.2em]",
   }
 
   const subFontSizes = {
-    sm: "text-[8px] tracking-[0.25em]",
-    md: "text-[9px] tracking-[0.3em]",
-    lg: "text-[10px] tracking-[0.35em]",
+    sm: "text-[9px] tracking-[0.25em]",
+    md: "text-[10px] sm:text-[11px] tracking-[0.3em]",
+    lg: "text-[12px] tracking-[0.35em]",
   }
 
+  // Camera aspect ratio is 100:68
+  const iconWidth = Math.round((iconHeight * 100) / 68)
+
   return (
-    <div className={`inline-flex items-center gap-3 select-none ${className}`}>
-      {/* ── Frameshare Concept 1 Icon Mark ── */}
+    <div className={`inline-flex items-center gap-3.5 select-none ${className}`}>
+      {/* ── Bold Standalone Concept 1 Camera Aperture Mark ── */}
       <div
-        className="relative shrink-0 flex items-center justify-center rounded-xl bg-neutral-900/90 dark:bg-neutral-950 border border-white/10 text-foreground shadow-md overflow-hidden group-hover:scale-105 transition-transform duration-300"
-        style={{ width: iconSize, height: iconSize }}
+        className="relative shrink-0 flex items-center justify-center group-hover:scale-105 transition-transform duration-300 drop-shadow-sm"
+        style={{ width: iconWidth, height: iconHeight }}
       >
         <svg
-          viewBox="0 0 120 120"
+          viewBox="0 0 100 68"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="w-full h-full p-1"
+          className="w-full h-full overflow-visible"
         >
-          {/* Camera Body Silhouette & Shutter Bump */}
+          {/* Main Camera Body Silhouette with Top Shutter Bump */}
           <path
-            d="M42 22H52L54 26H66L68 22H78C84.6274 22 90 27.3726 90 34V86C90 92.6274 84.6274 98 78 98H42C35.3726 98 30 92.6274 30 86V34C30 27.3726 35.3726 22 42 22Z"
+            d="M18 10H34L36 5H64L66 10H82C89.7279 10 96 16.2721 96 24V54C96 61.7279 89.7279 68 82 68H18C10.2721 68 4 61.7279 4 54V24C4 16.2721 10.2721 10 18 10Z"
             stroke="currentColor"
             strokeWidth="5"
             strokeLinecap="round"
             strokeLinejoin="round"
+            className="text-foreground"
           />
 
-          {/* Left Focus Brackets */}
-          <path d="M38 42H44V36" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.8" />
-          <path d="M38 78H44V84" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.8" />
+          {/* Left Focus Bracket Tick Marks */}
+          <path d="M12 28H19V20" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground" />
+          <path d="M12 48H19V56" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground" />
 
-          {/* Right Focus Brackets */}
-          <path d="M82 42H76V36" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.8" />
-          <path d="M82 78H76V84" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.8" />
+          {/* Right Focus Bracket Tick Marks */}
+          <path d="M88 28H81V20" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground" />
+          <path d="M88 48H81V56" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round" className="text-foreground" />
 
-          {/* Interlocking Dual-Frame Loops */}
+          {/* Interlocking Dual-Frame Loops ("Frame" + "Share") */}
           <path
-            d="M42 46H58C68 46 72 54 72 60C72 66 68 74 58 74H42C36 74 34 68 34 60C34 52 36 46 42 46Z"
+            d="M18 24H48C58 24 63 31 63 39C63 47 58 54 48 54H18C10 54 8 47 8 39C8 31 10 24 18 24Z"
             stroke="currentColor"
-            strokeWidth="3.5"
+            strokeWidth="3"
             strokeLinecap="round"
             strokeLinejoin="round"
-            opacity="0.35"
+            opacity="0.3"
+            className="text-foreground"
           />
           <path
-            d="M78 46H62C52 46 48 54 48 60C48 66 52 74 62 74H78C84 74 86 68 86 60C86 52 84 46 78 46Z"
-            stroke="#E5C158"
-            strokeWidth="3.5"
+            d="M82 24H52C42 24 37 31 37 39C37 47 42 54 52 54H82C90 54 92 47 92 39C92 31 90 24 82 24Z"
+            stroke="#F59E0B"
+            strokeWidth="3"
             strokeLinecap="round"
             strokeLinejoin="round"
-            opacity="0.6"
+            opacity="0.55"
           />
 
-          {/* Central Gold Aperture Ring & Shutter Blades */}
-          <circle cx="60" cy="60" r="17" stroke="#E5C158" strokeWidth="4.5" />
-          <path d="M60 43 L69 54" stroke="#E5C158" strokeWidth="2.5" strokeLinecap="round" />
-          <path d="M75 51 L69 66" stroke="#E5C158" strokeWidth="2.5" strokeLinecap="round" />
-          <path d="M75 69 L60 69" stroke="#E5C158" strokeWidth="2.5" strokeLinecap="round" />
-          <path d="M60 77 L51 66" stroke="#E5C158" strokeWidth="2.5" strokeLinecap="round" />
-          <path d="M45 69 L51 54" stroke="#E5C158" strokeWidth="2.5" strokeLinecap="round" />
-          <path d="M45 51 L60 51" stroke="#E5C158" strokeWidth="2.5" strokeLinecap="round" />
+          {/* Central Champagne Gold Aperture Ring */}
+          <circle cx="50" cy="39" r="16" stroke="#F59E0B" strokeWidth="4.5" />
 
-          {/* Center Focal Core */}
-          <circle cx="60" cy="60" r="3.5" fill="#E5C158" />
+          {/* 6 Interlocking Aperture Shutter Blades */}
+          <path d="M50 23 L59 34" stroke="#FBBF24" strokeWidth="2.8" strokeLinecap="round" />
+          <path d="M65 31 L59 46" stroke="#FBBF24" strokeWidth="2.8" strokeLinecap="round" />
+          <path d="M65 47 L50 47" stroke="#FBBF24" strokeWidth="2.8" strokeLinecap="round" />
+          <path d="M50 55 L41 46" stroke="#FBBF24" strokeWidth="2.8" strokeLinecap="round" />
+          <path d="M35 47 L41 34" stroke="#FBBF24" strokeWidth="2.8" strokeLinecap="round" />
+          <path d="M35 31 L50 31" stroke="#FBBF24" strokeWidth="2.8" strokeLinecap="round" />
+
+          {/* Central Gold Focal Point */}
+          <circle cx="50" cy="39" r="3.5" fill="#F59E0B" />
         </svg>
       </div>
 
-      {/* ── Wordmark ── */}
+      {/* ── High-Contrast Wordmark ── */}
       {showText && (
-        <div className="flex flex-col text-left">
+        <div className="flex flex-col text-left justify-center">
           <span
-            className={`font-bold uppercase text-foreground font-oswald leading-none ${fontSizes[textSize]}`}
+            className={`font-bold uppercase text-foreground font-oswald leading-none tracking-wider ${fontSizes[textSize]}`}
           >
             Frameshare
           </span>
           <span
-            className={`font-semibold uppercase text-amber-500/90 dark:text-amber-400/90 font-mono mt-0.5 leading-none ${subFontSizes[textSize]}`}
+            className={`font-bold uppercase text-amber-500 dark:text-amber-400 font-mono mt-1 leading-none ${subFontSizes[textSize]}`}
           >
             Studio Platform
           </span>

@@ -33,7 +33,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           {/* Brand Logo & Studio Nav */}
           <div className="flex items-center gap-6 md:gap-8">
             <Link href="/dashboard" className="group">
-              <FrameshareLogo iconSize={28} textSize="sm" />
+              <FrameshareLogo iconHeight={30} textSize="sm" />
             </Link>
 
             <nav className="hidden sm:flex items-center gap-1">
