@@ -10,8 +10,11 @@ import { revalidatePath } from "next/cache"
 import { cookies } from "next/headers"
 import { requireAuth } from "@/lib/require-auth"
 import { deleteKey, downloadBuffer, uploadBuffer } from "@/lib/s3"
+import { s3Keys } from "@/lib/s3-keys"
 import { adjustStorageQuota } from "@/lib/db-guards"
 import { ensureColumnsMigrated } from "@/db/auto-migrate"
+import { PhotoEditRecipe } from "@/lib/ai-photo-analyzer"
+import { renderEditedPhotoBuffer } from "@/lib/render-edited-photo"
 import sharp from "sharp"
 
 function randomSlug() {
@@ -292,3 +295,183 @@ export async function rotatePhoto(photoId: string, angle: 90 | 180 | 270 = 90) {
   revalidatePath(`/dashboard/galleries/${photo.galleryId}`)
   return { success: true }
 }
+
+export async function savePhotoEditAction(
+  galleryId: string,
+  photoId: string,
+  recipe: PhotoEditRecipe,
+  saveAsFinal = false
+) {
+  const userId = await requireAuth()
+  await ensureColumnsMigrated()
+
+  const photo = await db.query.photos.findFirst({
+    where: and(eq(photos.id, photoId), eq(photos.userId, userId)),
+  })
+  if (!photo) return { error: "Photo not found" }
+
+  const serializedRecipe = JSON.stringify(recipe)
+
+  // 1. Update editRecipe on source proofing photo
+  await db
+    .update(photos)
+    .set({ editRecipe: serializedRecipe })
+    .where(eq(photos.id, photoId))
+
+  // 2. If saveAsFinal requested, render high-res master and publish to "final" section
+  if (saveAsFinal) {
+    try {
+      const originalBuffer = await downloadBuffer(photo.originalKey)
+      if (originalBuffer) {
+        const rendered = await renderEditedPhotoBuffer(originalBuffer, photo.filename, recipe)
+
+        const finalPhotoId = `final-${photo.id}`
+        const finalMasterKey = s3Keys(finalPhotoId).finalMaster()
+        const finalDisplayKey = s3Keys(finalPhotoId).finalDisplay()
+        const finalThumbKey = s3Keys(finalPhotoId).thumb()
+
+        await Promise.all([
+          uploadBuffer(finalMasterKey, rendered.masterJpeg, "image/jpeg"),
+          uploadBuffer(finalDisplayKey, rendered.displayWebp, "image/webp"),
+          uploadBuffer(finalThumbKey, rendered.thumbWebp, "image/webp"),
+        ])
+
+        // Upsert final photo record in database
+        const existingFinal = await db.query.photos.findFirst({
+          where: and(eq(photos.sourcePhotoId, photoId), eq(photos.section, "final")),
+        })
+
+        if (existingFinal) {
+          await db
+            .update(photos)
+            .set({
+              originalKey: finalMasterKey,
+              displayKey: finalDisplayKey,
+              thumbKey: finalThumbKey,
+              width: rendered.width,
+              height: rendered.height,
+              fileSizeBytes: rendered.masterJpeg.length,
+              editRecipe: serializedRecipe,
+              status: "ready",
+            })
+            .where(eq(photos.id, existingFinal.id))
+        } else {
+          await db.insert(photos).values({
+            id: finalPhotoId,
+            galleryId: photo.galleryId,
+            userId,
+            section: "final",
+            sourcePhotoId: photoId,
+            originalKey: finalMasterKey,
+            displayKey: finalDisplayKey,
+            thumbKey: finalThumbKey,
+            filename: `final-${photo.filename.replace(/\.[^/.]+$/, "")}.jpg`,
+            mimeType: "image/jpeg",
+            fileSizeBytes: rendered.masterJpeg.length,
+            width: rendered.width,
+            height: rendered.height,
+            editRecipe: serializedRecipe,
+            status: "ready",
+            sortOrder: photo.sortOrder,
+          })
+        }
+      }
+    } catch (renderErr) {
+      console.error("Error rendering final photo:", renderErr)
+      return { error: "Failed to render high-res final photo" }
+    }
+  }
+
+  revalidatePath(`/dashboard/galleries/${galleryId}`)
+  revalidatePath(`/dashboard/galleries/${galleryId}/editor`)
+  return { success: true }
+}
+
+export async function batchSavePhotoEditsAction(
+  galleryId: string,
+  photoIds: string[],
+  recipe: PhotoEditRecipe,
+  saveAsFinal = false
+) {
+  const userId = await requireAuth()
+  await ensureColumnsMigrated()
+
+  const serializedRecipe = JSON.stringify(recipe)
+
+  for (const photoId of photoIds) {
+    const photo = await db.query.photos.findFirst({
+      where: and(eq(photos.id, photoId), eq(photos.userId, userId)),
+    })
+    if (!photo) continue
+
+    await db
+      .update(photos)
+      .set({ editRecipe: serializedRecipe })
+      .where(eq(photos.id, photoId))
+
+    if (saveAsFinal) {
+      try {
+        const originalBuffer = await downloadBuffer(photo.originalKey)
+        if (originalBuffer) {
+          const rendered = await renderEditedPhotoBuffer(originalBuffer, photo.filename, recipe)
+          const finalPhotoId = `final-${photo.id}`
+          const finalMasterKey = s3Keys(finalPhotoId).finalMaster()
+          const finalDisplayKey = s3Keys(finalPhotoId).finalDisplay()
+          const finalThumbKey = s3Keys(finalPhotoId).thumb()
+
+          await Promise.all([
+            uploadBuffer(finalMasterKey, rendered.masterJpeg, "image/jpeg"),
+            uploadBuffer(finalDisplayKey, rendered.displayWebp, "image/webp"),
+            uploadBuffer(finalThumbKey, rendered.thumbWebp, "image/webp"),
+          ])
+
+          const existingFinal = await db.query.photos.findFirst({
+            where: and(eq(photos.sourcePhotoId, photoId), eq(photos.section, "final")),
+          })
+
+          if (existingFinal) {
+            await db
+              .update(photos)
+              .set({
+                originalKey: finalMasterKey,
+                displayKey: finalDisplayKey,
+                thumbKey: finalThumbKey,
+                width: rendered.width,
+                height: rendered.height,
+                fileSizeBytes: rendered.masterJpeg.length,
+                editRecipe: serializedRecipe,
+                status: "ready",
+              })
+              .where(eq(photos.id, existingFinal.id))
+          } else {
+            await db.insert(photos).values({
+              id: finalPhotoId,
+              galleryId: photo.galleryId,
+              userId,
+              section: "final",
+              sourcePhotoId: photoId,
+              originalKey: finalMasterKey,
+              displayKey: finalDisplayKey,
+              thumbKey: finalThumbKey,
+              filename: `final-${photo.filename.replace(/\.[^/.]+$/, "")}.jpg`,
+              mimeType: "image/jpeg",
+              fileSizeBytes: rendered.masterJpeg.length,
+              width: rendered.width,
+              height: rendered.height,
+              editRecipe: serializedRecipe,
+              status: "ready",
+              sortOrder: photo.sortOrder,
+            })
+          }
+        }
+      } catch (err) {
+        console.error(`Batch render failed for photo ${photoId}:`, err)
+      }
+    }
+  }
+
+  revalidatePath(`/dashboard/galleries/${galleryId}`)
+  revalidatePath(`/dashboard/galleries/${galleryId}/editor`)
+  return { success: true, count: photoIds.length, error: undefined as string | undefined }
+}
+

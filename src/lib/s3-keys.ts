@@ -3,4 +3,6 @@ export const s3Keys = (photoId: string) => ({
   thumb: () => `photos/${photoId}/thumb.webp`,
   display: () => `photos/${photoId}/display.webp`,
   watermarked: () => `photos/${photoId}/watermarked.jpg`,
+  finalDisplay: () => `photos/${photoId}/final-display.webp`,
+  finalMaster: () => `photos/${photoId}/final-master.jpg`,
 })

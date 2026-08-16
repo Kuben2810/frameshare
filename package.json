@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3001",
+    "dev": "next dev -p 3005",
     "build": "next build",
     "start": "next start",
     "clean": "node -e \"['.next', 'tsconfig.tsbuildinfo', 'node_modules/.cache'].forEach(p => { try { fs.rmSync(p, { recursive: true, force: true }); } catch {} })\"",
