@@ -107,15 +107,15 @@ export async function processPhoto(photoId: string): Promise<void> {
   const masterW = masterMeta.width ?? 1200
   const masterH = masterMeta.height ?? 800
 
-  // Step 2: Derive crisp grid thumbnail (1200px Lanczos3 WebP) from masterBase
+  // Step 2: Derive crisp grid thumbnail (700px Lanczos3 WebP) from masterBase
   const thumb = await sharp(masterBase)
-    .resize(1200, 1200, {
+    .resize(700, 700, {
       fit: "inside",
       withoutEnlargement: true,
       kernel: sharp.kernel.lanczos3,
     })
     .sharpen({ sigma: 0.75, m1: 0.5, m2: 1.5 })
-    .webp({ quality: 90, effort: 4 })
+    .webp({ quality: 82, effort: 4 })
     .toBuffer()
 
   // Step 3: Derive display variant from masterBase
