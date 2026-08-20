@@ -1,6 +1,6 @@
 import { db } from "@/db"
 import { galleries, photos } from "@/db/schema"
-import { eq, and, asc } from "drizzle-orm"
+import { eq, and, asc, or } from "drizzle-orm"
 import { cookies } from "next/headers"
 import { auth } from "@/auth"
 
@@ -11,7 +11,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const { searchParams } = new URL(req.url)
   const offset = Math.max(0, parseInt(searchParams.get("offset") ?? "0", 10))
 
-  const gallery = await db.query.galleries.findFirst({ where: eq(galleries.slug, slug) })
+  const decodedSlug = decodeURIComponent(slug).trim()
+  const gallery = await db.query.galleries.findFirst({
+    where: or(eq(galleries.slug, decodedSlug), eq(galleries.id, decodedSlug)),
+  })
   if (!gallery) return Response.json({ error: "Not found" }, { status: 404 })
 
   const session = await auth()

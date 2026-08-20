@@ -7,6 +7,18 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "**" },
     ],
   },
+  async rewrites() {
+    return [
+      {
+        source: "/gallery/:slug*",
+        destination: "/g/:slug*",
+      },
+      {
+        source: "/galleries/:slug*",
+        destination: "/g/:slug*",
+      },
+    ];
+  },
 };
 
 export default nextConfig;

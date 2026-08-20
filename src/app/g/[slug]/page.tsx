@@ -1,6 +1,6 @@
 import { db } from "@/db"
 import { galleries, photos, stars, comments } from "@/db/schema"
-import { eq, and, asc, inArray } from "drizzle-orm"
+import { eq, and, asc, inArray, or } from "drizzle-orm"
 import { notFound } from "next/navigation"
 import { cookies } from "next/headers"
 import { auth } from "@/auth"
@@ -17,7 +17,14 @@ export default async function GallerySharePage({
 
   await ensureColumnsMigrated()
 
-  const gallery = await db.query.galleries.findFirst({ where: eq(galleries.slug, slug) })
+  const decodedSlug = decodeURIComponent(slug).trim()
+
+  const gallery = await db.query.galleries.findFirst({
+    where: or(
+      eq(galleries.slug, decodedSlug),
+      eq(galleries.id, decodedSlug)
+    ),
+  })
   if (!gallery) notFound()
 
   const session = await auth()
@@ -73,7 +80,7 @@ export default async function GallerySharePage({
       photos={galleryPhotos}
       initialStars={galleryStars}
       initialComments={allComments}
-      gallerySlug={slug}
+      gallerySlug={gallery.slug}
       hasMore={hasMore}
     />
   )

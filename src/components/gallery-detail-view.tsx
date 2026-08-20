@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import {
   ArrowLeft,
@@ -54,8 +54,15 @@ export function GalleryDetailView({
   const [copiedLink, setCopiedLink] = useState(false)
   const [copiedFilenamesId, setCopiedFilenamesId] = useState<string | null>(null)
   const [isSavingSettings, setIsSavingSettings] = useState(false)
+  const [clientOrigin, setClientOrigin] = useState(baseUrl)
 
-  const shareUrl = `${baseUrl}/g/${gallery.slug}`
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location?.origin) {
+      setClientOrigin(window.location.origin)
+    }
+  }, [])
+
+  const shareUrl = `${clientOrigin || baseUrl}/g/${gallery.slug}`
   const isExpired = gallery.expiresAt ? new Date(gallery.expiresAt) < new Date() : false
   const isProtected = Boolean(gallery.passwordHash)
 
@@ -160,7 +167,7 @@ export function GalleryDetailView({
             <span>AI Photo Studio</span>
           </Link>
           <Link
-            href={shareUrl}
+            href={`/g/${gallery.slug}`}
             target="_blank"
             className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5 rounded-xl shadow-xs text-xs flex-1 sm:flex-none justify-center")}
           >

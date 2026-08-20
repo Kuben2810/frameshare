@@ -80,8 +80,23 @@ export async function updateGallery(id: string, formData: FormData) {
   const stageRaw = formData.get("stage") as "proofing" | "delivered" | "both" | null
   const stage = stageRaw ?? gallery.stage
 
+  const rawSlug = (formData.get("slug") as string | null)?.trim()
+  let newSlug = gallery.slug
+  if (rawSlug && rawSlug !== gallery.slug) {
+    const cleanSlug = rawSlug.toLowerCase().replace(/[^a-z0-9_-]/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "")
+    if (cleanSlug) {
+      const existing = await db.query.galleries.findFirst({
+        where: eq(galleries.slug, cleanSlug),
+      })
+      if (!existing || existing.id === id) {
+        newSlug = cleanSlug
+      }
+    }
+  }
+
   await db.update(galleries).set({
     name: (formData.get("name") as string).trim(),
+    slug: newSlug,
     downloadMode: (formData.get("downloadMode") as "none" | "lowres" | "full"),
     expiresAt,
     stage,
@@ -90,7 +105,11 @@ export async function updateGallery(id: string, formData: FormData) {
   }).where(eq(galleries.id, id))
 
   revalidatePath(`/dashboard/galleries/${id}`)
+  revalidatePath(`/dashboard/galleries/${id}/settings`)
   revalidatePath(`/g/${gallery.slug}`)
+  if (newSlug !== gallery.slug) {
+    revalidatePath(`/g/${newSlug}`)
+  }
 }
 
 export async function updateGalleryStage(id: string, stage: "proofing" | "delivered" | "both") {

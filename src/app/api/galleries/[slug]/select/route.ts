@@ -1,6 +1,6 @@
 import { db } from "@/db"
 import { selections, selectionPhotos, galleries, stars } from "@/db/schema"
-import { eq, and } from "drizzle-orm"
+import { eq, and, or } from "drizzle-orm"
 import { sendSelectionNotificationEmail } from "@/lib/email"
 import { users } from "@/db/schema"
 import { getBaseUrl } from "@/lib/utils"
@@ -10,7 +10,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ slug: s
   const { clientId } = await req.json()
   if (!clientId) return Response.json({ error: "clientId required" }, { status: 400 })
 
-  const gallery = await db.query.galleries.findFirst({ where: eq(galleries.slug, slug) })
+  const decodedSlug = decodeURIComponent(slug).trim()
+  const gallery = await db.query.galleries.findFirst({
+    where: or(eq(galleries.slug, decodedSlug), eq(galleries.id, decodedSlug)),
+  })
   if (!gallery) return Response.json({ error: "Not found" }, { status: 404 })
 
   // Snapshot starred photo IDs for this client

@@ -97,7 +97,8 @@ export function DashboardClientView({
   async function handleCopy(gallery: DashboardGallery, e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
-    const url = `${baseUrl}/g/${gallery.slug}`
+    const origin = typeof window !== "undefined" && window.location?.origin ? window.location.origin : baseUrl
+    const url = `${origin}/g/${gallery.slug}`
     await navigator.clipboard.writeText(url)
     setCopiedId(gallery.id)
     toast.success("Proofing link copied to clipboard")
@@ -423,7 +424,7 @@ export function DashboardClientView({
                       )}
                     </button>
                     <Link
-                      href={`${baseUrl}/g/${gallery.slug}`}
+                      href={`/g/${gallery.slug}`}
                       target="_blank"
                       className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                       title="Open client preview"
@@ -519,7 +520,7 @@ export function DashboardClientView({
                       {copiedId === gallery.id ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
                     </button>
                     <Link
-                      href={`${baseUrl}/g/${gallery.slug}`}
+                      href={`/g/${gallery.slug}`}
                       target="_blank"
                       className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                       title="Client preview"

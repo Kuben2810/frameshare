@@ -1,6 +1,6 @@
 import { db } from "@/db"
 import { galleries, photos, stars } from "@/db/schema"
-import { eq, and, asc, inArray } from "drizzle-orm"
+import { eq, and, asc, inArray, or } from "drizzle-orm"
 import { cookies } from "next/headers"
 import { auth } from "@/auth"
 // @ts-expect-error archiver uses export = format
@@ -19,7 +19,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const section = searchParams.get("section") as "proofing" | "final" | null
   const clientId = searchParams.get("clientId")
 
-  const gallery = await db.query.galleries.findFirst({ where: eq(galleries.slug, slug) })
+  const decodedSlug = decodeURIComponent(slug).trim()
+  const gallery = await db.query.galleries.findFirst({
+    where: or(eq(galleries.slug, decodedSlug), eq(galleries.id, decodedSlug)),
+  })
   if (!gallery) return new Response("Gallery not found", { status: 404 })
 
   const session = await auth()
