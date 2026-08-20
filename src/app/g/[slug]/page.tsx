@@ -47,10 +47,14 @@ export default async function GallerySharePage({
     }
   }
 
-  const galleryPhotos = await db.query.photos.findMany({
+  const PAGE = 60
+  const galleryPhotosRaw = await db.query.photos.findMany({
     where: and(eq(photos.galleryId, gallery.id), eq(photos.status, "ready")),
     orderBy: [asc(photos.sortOrder), asc(photos.createdAt)],
+    limit: PAGE + 1,
   })
+  const hasMore = galleryPhotosRaw.length > PAGE
+  const galleryPhotos = galleryPhotosRaw.slice(0, PAGE)
 
   const galleryStars = await db.query.stars.findMany({
     where: eq(stars.galleryId, gallery.id),
@@ -69,6 +73,8 @@ export default async function GallerySharePage({
       photos={galleryPhotos}
       initialStars={galleryStars}
       initialComments={allComments}
+      gallerySlug={slug}
+      hasMore={hasMore}
     />
   )
 }
