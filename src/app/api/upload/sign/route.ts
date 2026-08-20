@@ -5,6 +5,7 @@ import { eq, and } from "drizzle-orm"
 import { validatePhoto } from "@/lib/photo-constraints"
 import { s3Keys } from "@/lib/s3-keys"
 import { adjustStorageQuota } from "@/lib/db-guards"
+import { presignUpload } from "@/lib/s3"
 
 const STORAGE_LIMIT = Number(process.env.STORAGE_LIMIT_BYTES) || 10_737_418_240
 
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
     })
   })
 
-  const url = `/api/upload/put?key=${encodeURIComponent(originalKey)}&photoId=${photoId}`
+  const url = await presignUpload(originalKey, mimeType)
 
   return Response.json({ url, photoId })
 }

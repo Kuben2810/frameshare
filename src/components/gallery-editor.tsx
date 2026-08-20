@@ -186,7 +186,7 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
             }
             xhr.onerror = () => {
               currentXhrRef.current = null
-              reject(new Error("Network connection dropped during S3 upload"))
+              reject(new Error("Network connection dropped or S3/R2 CORS blocked during direct upload"))
             }
             xhr.onabort = () => {
               currentXhrRef.current = null

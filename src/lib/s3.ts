@@ -36,10 +36,10 @@ export async function deleteKey(key: string): Promise<void> {
   await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }))
 }
 
-export async function presignUpload(key: string, mimeType: string, sizeBytes: number): Promise<string> {
+export async function presignUpload(key: string, mimeType: string): Promise<string> {
   return getSignedUrl(
     s3,
-    new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: mimeType, ContentLength: sizeBytes }),
+    new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: mimeType }),
     { expiresIn: 3600 },
   )
 }
