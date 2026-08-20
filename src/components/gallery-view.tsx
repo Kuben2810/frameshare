@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useRef, useMemo, useCallback } from "react"
+import { decode as decodeBlurhash } from "blurhash"
 import { Star, MessageSquare, Send, X, User, MessageCircle } from "lucide-react"
 import type { InferSelectModel } from "drizzle-orm"
 import type { galleries, photos, stars, comments } from "@/db/schema"
@@ -26,6 +27,27 @@ function imgUrl(key: string | null | undefined, isPublic?: boolean) {
   if (!key) return null
   if (isPublic) return `https://pub-7283a338165f4023ac9db7f7d76f1504.r2.dev/${key}`
   return `/api/s3/${key}`
+}
+
+function BlurHashPlaceholder({ hash }: { hash: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    try {
+      const pixels = decodeBlurhash(hash, 32, 32)
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return
+      const img = ctx.createImageData(32, 32)
+      img.data.set(pixels)
+      ctx.putImageData(img, 0, 0)
+    } catch { /* non-fatal */ }
+  }, [hash])
+  return (
+    <canvas ref={canvasRef} width={32} height={32}
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", imageRendering: "pixelated", zIndex: 0 }}
+    />
+  )
 }
 
 const display = { fontFamily: "var(--font-oswald, 'Oswald', sans-serif)" }
@@ -191,6 +213,7 @@ export function GalleryView({
 
     return (
       <>
+        {photo.blurHash && <BlurHashPlaceholder hash={photo.blurHash} />}
         {imageSrc ? (
           <WebGLDistortion
             src={imageSrc}

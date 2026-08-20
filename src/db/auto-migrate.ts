@@ -11,6 +11,7 @@ export async function ensureColumnsMigrated(): Promise<void> {
           ALTER TABLE "galleries" ADD COLUMN IF NOT EXISTS "stage" text NOT NULL DEFAULT 'proofing';
           ALTER TABLE "galleries" ADD COLUMN IF NOT EXISTS "max_selections" integer;
           ALTER TABLE "photos" ADD COLUMN IF NOT EXISTS "section" text NOT NULL DEFAULT 'proofing';
+          ALTER TABLE "photos" ADD COLUMN IF NOT EXISTS "blur_hash" text;
           ALTER TABLE "photos" ADD COLUMN IF NOT EXISTS "edit_recipe" text;
           ALTER TABLE "photos" ADD COLUMN IF NOT EXISTS "source_photo_id" text;
         `)

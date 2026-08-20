@@ -79,6 +79,7 @@ export const photos = pgTable("photos", {
   height:         integer("height"),
   sortOrder:      integer("sort_order").notNull().default(0),
   status:         text("status", { enum: ["pending", "ready", "error"] }).notNull().default("pending"),
+  blurHash:       text("blur_hash"),
   editRecipe:     text("edit_recipe"),
   sourcePhotoId:  text("source_photo_id"),
   createdAt:      timestamp("created_at").defaultNow().notNull(),

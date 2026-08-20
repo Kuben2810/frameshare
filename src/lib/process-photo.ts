@@ -6,6 +6,7 @@ import { s3Keys } from "@/lib/s3-keys"
 import { getDecodableImageBuffer, extractRawOrientation } from "@/lib/raw-decoder"
 import { adjustStorageQuota } from "@/lib/db-guards"
 import sharp from "sharp"
+import { encode as blurhashEncode } from "blurhash"
 
 // Configure Sharp for low-memory environments (prevents container OOM kills on 24MP+ RAW files)
 sharp.cache(false)
@@ -118,6 +119,13 @@ export async function processPhoto(photoId: string): Promise<void> {
     .webp({ quality: 82, effort: 4 })
     .toBuffer()
 
+  // Compute blur hash from a tiny 32px version of the thumb for LQIP placeholders
+  let blurHash: string | undefined
+  try {
+    const tiny = await sharp(thumb).resize(32, 32, { fit: "inside" }).raw().toBuffer({ resolveWithObject: true })
+    blurHash = blurhashEncode(new Uint8ClampedArray(tiny.data), tiny.info.width, tiny.info.height, 4, 3)
+  } catch { /* non-fatal */ }
+
   // Step 3: Derive display variant from masterBase
   let display: Buffer
   if (isProofing) {
@@ -187,6 +195,7 @@ export async function processPhoto(photoId: string): Promise<void> {
       thumbKey,
       displayKey,
       watermarkedKey,
+      blurHash,
       width: masterW,
       height: masterH,
       fileSizeBytes: finalFileSizeBytes,
