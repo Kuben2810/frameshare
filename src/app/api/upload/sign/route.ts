@@ -2,9 +2,6 @@ import { auth } from "@/auth"
 import { db } from "@/db"
 import { photos, users, galleries } from "@/db/schema"
 import { eq, and } from "drizzle-orm"
-import { PutObjectCommand } from "@aws-sdk/client-s3"
-import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
-import { s3, BUCKET } from "@/lib/s3"
 import { validatePhoto } from "@/lib/photo-constraints"
 import { s3Keys } from "@/lib/s3-keys"
 import { adjustStorageQuota } from "@/lib/db-guards"
@@ -59,11 +56,7 @@ export async function POST(req: Request) {
     })
   })
 
-  const url = await getSignedUrl(
-    s3,
-    new PutObjectCommand({ Bucket: BUCKET, Key: originalKey, ContentType: mimeType }),
-    { expiresIn: 900 }
-  )
+  const url = `/api/upload/put?key=${encodeURIComponent(originalKey)}&photoId=${photoId}`
 
   return Response.json({ url, photoId })
 }
