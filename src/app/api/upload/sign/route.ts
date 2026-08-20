@@ -9,7 +9,7 @@ import { validatePhoto } from "@/lib/photo-constraints"
 import { s3Keys } from "@/lib/s3-keys"
 import { adjustStorageQuota } from "@/lib/db-guards"
 
-const STORAGE_LIMIT = Number(process.env.STORAGE_LIMIT_BYTES ?? 10_737_418_240)
+const STORAGE_LIMIT = Number(process.env.STORAGE_LIMIT_BYTES) || 10_737_418_240
 
 export async function POST(req: Request) {
   const session = await auth()
