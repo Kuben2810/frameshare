@@ -22,8 +22,9 @@ type Comment = InferSelectModel<typeof comments>
 type Layout = "masonry" | "ribbon"
 type EntryAnim = "fade-up" | "fade" | "scale"
 
-function imgUrl(key: string | null | undefined) {
+function imgUrl(key: string | null | undefined, isPublic?: boolean) {
   if (!key) return null
+  if (isPublic) return `https://pub-7283a338165f4023ac9db7f7d76f1504.r2.dev/${key}`
   return `/api/s3/${key}`
 }
 
@@ -79,6 +80,8 @@ export function GalleryView({
     observer.observe(sentinel)
     return () => observer.disconnect()
   }, [hasMorePages, loadingMore, fetchMore])
+
+  const isPublicGallery = !gallery.passwordHash && (!gallery.expiresAt || new Date(gallery.expiresAt) > new Date())
 
   // ── Split Photos by Section ────────────────────────────────────────────────
   const proofingPhotos = allPhotos.filter((p) => (p.section ?? "proofing") === "proofing")
@@ -181,8 +184,8 @@ export function GalleryView({
     // In proofing and final, thumbKey is 1200px and displayKey is 2560px QHD.
     // For 2-column or full layouts with wide cards, use displayKey for crystal-clear Retina viewing.
     const imageSrc = (masonryCols === 2 || layout === "ribbon")
-      ? (imgUrl(photo.displayKey) ?? imgUrl(photo.thumbKey))
-      : (imgUrl(photo.thumbKey) ?? imgUrl(photo.displayKey))
+      ? (imgUrl(photo.displayKey, isPublicGallery) ?? imgUrl(photo.thumbKey, isPublicGallery))
+      : (imgUrl(photo.thumbKey, isPublicGallery) ?? imgUrl(photo.displayKey, isPublicGallery))
     const title = photo.filename.replace(/\.[^.]+$/, "")
     const fileType = photo.mimeType.split("/")[1]?.toUpperCase() ?? "IMG"
 
@@ -308,7 +311,7 @@ export function GalleryView({
           <a className="ashade-logo min-w-0 pr-2" href="#" onClick={(e) => e.preventDefault()} data-cursor="link">
             {gallery.logoKey ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={imgUrl(gallery.logoKey)!} alt="" loading="lazy" className="h-7 w-auto object-contain" />
+              <img src={imgUrl(gallery.logoKey, isPublicGallery)!} alt="" loading="lazy" className="h-7 w-auto object-contain" />
             ) : (
               <>
                 <span className="ashade-logo-text truncate max-w-[140px] xs:max-w-[180px] sm:max-w-xs md:max-w-md">
@@ -606,6 +609,7 @@ export function GalleryView({
                 return (
                   <div key={photo.id} data-delay={Math.min(idx * 50, 400)}
                     className={`photo-card group relative cursor-pointer overflow-hidden ${starred ? "ring-2 ring-white ring-inset" : ""}`}
+                    style={{ contentVisibility: "auto", containIntrinsicSize: "0 400px" }}
                     onClick={() => openLightbox(idx)} data-cursor="zoom">
                     {cardInner(photo, false)}
                   </div>
@@ -683,7 +687,7 @@ export function GalleryView({
                 {quickCommentPhoto.thumbKey && (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={imgUrl(quickCommentPhoto.thumbKey)!}
+                    src={imgUrl(quickCommentPhoto.thumbKey, isPublicGallery)!}
                     alt={quickCommentPhoto.filename}
                     loading="lazy"
                     className="h-10 w-10 rounded-lg object-cover shrink-0 border border-white/15"
