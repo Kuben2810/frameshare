@@ -67,7 +67,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ key: st
       }
     }
 
-    return serveS3Object(s3Key, "private, max-age=3600")
+    const isPublic = !gallery.passwordHash && !isExpired
+    const cacheControl = isPublic
+      ? "public, max-age=86400, stale-while-revalidate=604800"
+      : "private, max-age=3600"
+    return serveS3Object(s3Key, cacheControl)
   }
 
   return new Response("Not found", { status: 404 })
