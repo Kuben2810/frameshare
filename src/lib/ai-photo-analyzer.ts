@@ -110,6 +110,8 @@ export async function analyzeImageWithGemini(
   mimeType = "image/jpeg",
   apiKey?: string
 ): Promise<PhotoAIAnalysis | null> {
+  // A caller-provided key is only accepted by the authenticated prototype
+  // route. Server keys never reach the browser.
   const key = apiKey || process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY
   if (!key) return null
 

@@ -5,13 +5,11 @@ import { eq, and, asc, desc } from "drizzle-orm"
 import { redirect } from "next/navigation"
 import { DashboardClientView, DashboardGallery } from "@/components/dashboard-client-view"
 import { getBaseUrl } from "@/lib/utils"
-import { ensureColumnsMigrated } from "@/db/auto-migrate"
 
 export default async function DashboardPage() {
   const session = await auth()
   if (!session?.user?.id) redirect("/login")
 
-  await ensureColumnsMigrated()
 
   const [user, userGalleries] = await Promise.all([
     db.query.users.findFirst({ where: eq(users.id, session.user.id) }),
@@ -39,7 +37,7 @@ export default async function DashboardPage() {
 
   if (!user) redirect("/login")
 
-  const [totalPhotosPerGallery, starsPerGallery] = await Promise.all([
+  const [totalPhotosPerGallery, starsPerGallery, storagePhotos] = await Promise.all([
     Promise.all(
       userGalleries.map((g) =>
         db.query.photos.findMany({
@@ -56,16 +54,21 @@ export default async function DashboardPage() {
         })
       )
     ),
+    db.query.photos.findMany({
+      where: eq(photos.userId, session.user.id),
+      columns: { fileSizeBytes: true },
+    }),
   ])
 
-  // Compute exact storage from active ready photos and auto-sync with user record
-  const readyPhotosTotalBytes = totalPhotosPerGallery.reduce(
-    (sum, pList) => sum + pList.reduce((pSum, p) => pSum + (p.fileSizeBytes || 0), 0),
-    0
+  // Pending/error rows retain a reservation until they are retried or stale
+  // cleanup removes them, so they must be included in the source of truth.
+  const storedPhotosTotalBytes = storagePhotos.reduce(
+    (sum, photo) => sum + (photo.fileSizeBytes || 0),
+    0,
   )
 
-  if (user.storageUsedBytes !== readyPhotosTotalBytes) {
-    await db.update(users).set({ storageUsedBytes: readyPhotosTotalBytes }).where(eq(users.id, user.id))
+  if (user.storageUsedBytes !== storedPhotosTotalBytes) {
+    await db.update(users).set({ storageUsedBytes: storedPhotosTotalBytes }).where(eq(users.id, user.id))
   }
 
   const dashboardGalleries: DashboardGallery[] = userGalleries.map((g, index) => {
@@ -96,7 +99,7 @@ export default async function DashboardPage() {
     }
   })
 
-  const storageUsedBytes = readyPhotosTotalBytes
+  const storageUsedBytes = storedPhotosTotalBytes
   const storageLimitBytes = Number(process.env.STORAGE_LIMIT_BYTES ?? 10_737_418_240)
 
   return (

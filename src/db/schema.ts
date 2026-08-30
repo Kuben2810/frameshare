@@ -4,6 +4,7 @@ import {
   timestamp,
   integer,
   bigint,
+  index,
   uniqueIndex,
   primaryKey,
 } from "drizzle-orm/pg-core"
@@ -78,12 +79,12 @@ export const photos = pgTable("photos", {
   width:          integer("width"),
   height:         integer("height"),
   sortOrder:      integer("sort_order").notNull().default(0),
-  status:         text("status", { enum: ["pending", "ready", "error"] }).notNull().default("pending"),
+  status:         text("status", { enum: ["pending", "processing", "ready", "error", "cleaning"] }).notNull().default("pending"),
   blurHash:       text("blur_hash"),
   editRecipe:     text("edit_recipe"),
   sourcePhotoId:  text("source_photo_id"),
   createdAt:      timestamp("created_at").defaultNow().notNull(),
-})
+}, (t) => [index("photos_gallery_status_sort_idx").on(t.galleryId, t.status, t.sortOrder)])
 
 export const stars = pgTable("stars", {
   id:        text("id").primaryKey(),
@@ -91,7 +92,10 @@ export const stars = pgTable("stars", {
   galleryId: text("gallery_id").notNull().references(() => galleries.id, { onDelete: "cascade" }),
   clientId:  text("client_id").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (t) => [uniqueIndex("stars_photo_client_idx").on(t.photoId, t.clientId)])
+}, (t) => [
+  uniqueIndex("stars_photo_client_idx").on(t.photoId, t.clientId),
+  index("stars_gallery_client_idx").on(t.galleryId, t.clientId),
+])
 
 export const comments = pgTable("comments", {
   id:         text("id").primaryKey(),
@@ -99,12 +103,26 @@ export const comments = pgTable("comments", {
   body:       text("body").notNull(),
   authorName: text("author_name"),
   createdAt:  timestamp("created_at").defaultNow().notNull(),
-})
+}, (t) => [index("comments_photo_created_idx").on(t.photoId, t.createdAt)])
 
 export const selections = pgTable("selections", {
   id:          text("id").primaryKey(),
   galleryId:   text("gallery_id").notNull().references(() => galleries.id, { onDelete: "cascade" }),
+  clientId:    text("client_id").notNull(),
   submittedAt: timestamp("submitted_at").defaultNow().notNull(),
+}, (t) => [uniqueIndex("selections_gallery_client_idx").on(t.galleryId, t.clientId)])
+
+export const selectionRateLimits = pgTable("selection_rate_limits", {
+  galleryId:       text("gallery_id").notNull().references(() => galleries.id, { onDelete: "cascade" }),
+  visitorHash:     text("visitor_hash").notNull(),
+  windowStartedAt: timestamp("window_started_at", { mode: "date" }).notNull(),
+  attempts:        integer("attempts").notNull().default(0),
+}, (t) => [primaryKey({ columns: [t.galleryId, t.visitorHash] })])
+
+export const prototypeAnalysisRateLimits = pgTable("prototype_analysis_rate_limits", {
+  userId:          text("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  windowStartedAt: timestamp("window_started_at", { mode: "date" }).notNull(),
+  attempts:        integer("attempts").notNull().default(0),
 })
 
 export const selectionPhotos = pgTable("selection_photos", {

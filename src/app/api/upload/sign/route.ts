@@ -1,11 +1,12 @@
 import { auth } from "@/auth"
 import { db } from "@/db"
-import { photos, users, galleries } from "@/db/schema"
+import { photos, galleries } from "@/db/schema"
 import { eq, and } from "drizzle-orm"
 import { validatePhoto } from "@/lib/photo-constraints"
 import { s3Keys } from "@/lib/s3-keys"
-import { adjustStorageQuota } from "@/lib/db-guards"
+import { reserveStorageQuota } from "@/lib/db-guards"
 import { presignUpload } from "@/lib/s3"
+import { cleanupStaleUploadsForUser } from "@/lib/upload-cleanup"
 
 const STORAGE_LIMIT = Number(process.env.STORAGE_LIMIT_BYTES) || 10_737_418_240
 
@@ -24,16 +25,9 @@ export async function POST(req: Request) {
   })
   if (!gallery) return Response.json({ error: "Gallery not found" }, { status: 404 })
 
-  // Check quota
-  const user = await db.query.users.findFirst({ where: eq(users.id, session.user.id) })
-  if (!user) return Response.json({ error: "User not found" }, { status: 404 })
-  if (user.storageUsedBytes + fileSize > STORAGE_LIMIT) {
-    const usedMB = (user.storageUsedBytes / (1024 * 1024)).toFixed(1)
-    const limitGB = (STORAGE_LIMIT / (1024 * 1024 * 1024)).toFixed(0)
-    return Response.json({
-      error: `Storage quota exceeded: Used ${usedMB} MB of ${limitGB} GB limit. Upgrade storage or delete unused photos.`,
-    }, { status: 413 })
-  }
+  // Reclaim abandoned reservations before making a new one. Errors remain
+  // retryable for 24 hours before this best-effort cleanup runs.
+  await cleanupStaleUploadsForUser(session.user.id, 24 * 60 * 60 * 1000)
 
   const photoId = crypto.randomUUID()
   const ext = filename.split(".").pop()?.toLowerCase() ?? "jpg"
@@ -41,9 +35,11 @@ export async function POST(req: Request) {
 
   const photoSection = section === "final" ? "final" : "proofing"
 
-  // Reserve quota and insert pending photo atomically
-  await db.transaction(async (tx) => {
-    await adjustStorageQuota(session.user!.id!, fileSize, tx)
+  // Reserve quota and insert pending photo atomically. The reservation is a
+  // conditional database update, so concurrent sign requests cannot exceed it.
+  const reserved = await db.transaction(async (tx) => {
+    const hasCapacity = await reserveStorageQuota(session.user!.id!, fileSize, STORAGE_LIMIT, tx)
+    if (!hasCapacity) return false
     await tx.insert(photos).values({
       id: photoId,
       galleryId,
@@ -55,7 +51,11 @@ export async function POST(req: Request) {
       fileSizeBytes: fileSize,
       status: "pending",
     })
+    return true
   })
+  if (!reserved) {
+    return Response.json({ error: "Storage quota exceeded. Delete unused photos or upgrade storage." }, { status: 413 })
+  }
 
   const url = await presignUpload(originalKey, mimeType)
 

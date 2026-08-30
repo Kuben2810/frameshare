@@ -12,7 +12,6 @@ import { requireAuth } from "@/lib/require-auth"
 import { deleteKey, downloadBuffer, uploadBuffer } from "@/lib/s3"
 import { s3Keys } from "@/lib/s3-keys"
 import { adjustStorageQuota } from "@/lib/db-guards"
-import { ensureColumnsMigrated } from "@/db/auto-migrate"
 import { PhotoEditRecipe } from "@/lib/ai-photo-analyzer"
 import { renderEditedPhotoBuffer } from "@/lib/render-edited-photo"
 import sharp from "sharp"
@@ -23,7 +22,6 @@ function randomSlug() {
 
 export async function createGallery(formData: FormData) {
   const userId = await requireAuth()
-  await ensureColumnsMigrated()
 
   const name = (formData.get("name") as string)?.trim()
   if (!name) return { error: "Name required" }
@@ -322,7 +320,6 @@ export async function savePhotoEditAction(
   saveAsFinal = false
 ) {
   const userId = await requireAuth()
-  await ensureColumnsMigrated()
 
   const photo = await db.query.photos.findFirst({
     where: and(eq(photos.id, photoId), eq(photos.userId, userId)),
@@ -413,7 +410,6 @@ export async function batchSavePhotoEditsAction(
   saveAsFinal = false
 ) {
   const userId = await requireAuth()
-  await ensureColumnsMigrated()
 
   const serializedRecipe = JSON.stringify(recipe)
 

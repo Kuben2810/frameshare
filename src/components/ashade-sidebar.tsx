@@ -1,10 +1,9 @@
 "use client"
 
 import { X, MapPin, Mail, Share2, Globe, AtSign } from "lucide-react"
-import type { InferSelectModel } from "drizzle-orm"
-import type { galleries } from "@/db/schema"
+import type { PublicGallery } from "@/lib/public-gallery"
 
-type Gallery = InferSelectModel<typeof galleries>
+type Gallery = PublicGallery
 
 function imgUrl(key: string | null | undefined) {
   if (!key) return null

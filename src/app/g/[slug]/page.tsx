@@ -6,7 +6,7 @@ import { cookies } from "next/headers"
 import { auth } from "@/auth"
 import { GalleryView } from "@/components/gallery-view"
 import { PasswordGate } from "@/components/password-gate"
-import { ensureColumnsMigrated } from "@/db/auto-migrate"
+import { toPublicGallery, toPublicPhoto } from "@/lib/public-gallery"
 
 export default async function GallerySharePage({
   params,
@@ -15,7 +15,6 @@ export default async function GallerySharePage({
 }) {
   const { slug } = await params
 
-  await ensureColumnsMigrated()
 
   const decodedSlug = decodeURIComponent(slug).trim()
 
@@ -76,8 +75,8 @@ export default async function GallerySharePage({
 
   return (
     <GalleryView
-      gallery={gallery}
-      photos={galleryPhotos}
+      gallery={toPublicGallery(gallery)}
+      photos={galleryPhotos.map(toPublicPhoto)}
       initialStars={galleryStars}
       initialComments={allComments}
       gallerySlug={gallery.slug}

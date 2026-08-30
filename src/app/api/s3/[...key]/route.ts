@@ -21,21 +21,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ key: st
 
   // If the key is a photo (photos/<photoId>/...)
   if (key[0] === "photos") {
-    const photoId = key[1]
-    let photo = photoId
-      ? await db.query.photos.findFirst({ where: eq(photos.id, photoId) })
-      : null
-
-    if (!photo) {
-      photo = await db.query.photos.findFirst({
-        where: or(
-          eq(photos.originalKey, s3Key),
-          eq(photos.thumbKey, s3Key),
-          eq(photos.displayKey, s3Key),
-          eq(photos.watermarkedKey, s3Key)
-        ),
-      })
-    }
+    const photo = await db.query.photos.findFirst({
+      where: or(
+        eq(photos.originalKey, s3Key),
+        eq(photos.thumbKey, s3Key),
+        eq(photos.displayKey, s3Key),
+        eq(photos.watermarkedKey, s3Key),
+      ),
+    })
 
     if (!photo) {
       return new Response("Not found", { status: 404 })
@@ -65,6 +58,14 @@ export async function GET(_req: Request, { params }: { params: Promise<{ key: st
       if (!isUnlocked) {
         return new Response("Forbidden", { status: 403 })
       }
+    }
+
+    // Non-owners may view only the variants intentionally exposed by the
+    // gallery. Original and final-master keys are never browser-accessible;
+    // the gallery download route authorizes and streams them separately.
+    const isDisplayAsset = s3Key === photo.thumbKey || s3Key === photo.displayKey
+    if (!isOwner && (photo.status !== "ready" || !isDisplayAsset)) {
+      return new Response("Forbidden", { status: 403 })
     }
 
     const isPublic = !gallery.passwordHash && !isExpired

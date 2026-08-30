@@ -1,4 +1,4 @@
-import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3"
+import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 
 export const s3 = new S3Client({
@@ -34,6 +34,15 @@ export async function downloadBuffer(key: string): Promise<Buffer> {
 
 export async function deleteKey(key: string): Promise<void> {
   await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }))
+}
+
+export async function getObjectSize(key: string): Promise<number> {
+  const res = await s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }))
+  const contentLength = res.ContentLength
+  if (typeof contentLength !== "number" || !Number.isSafeInteger(contentLength) || contentLength <= 0) {
+    throw new Error("Uploaded object has no valid size")
+  }
+  return contentLength
 }
 
 export async function presignUpload(key: string, mimeType: string): Promise<string> {

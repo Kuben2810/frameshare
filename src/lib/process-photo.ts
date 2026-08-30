@@ -1,7 +1,7 @@
 import { db } from "@/db"
 import { photos, users } from "@/db/schema"
 import { eq } from "drizzle-orm"
-import { uploadBuffer, downloadBuffer, deleteKey } from "@/lib/s3"
+import { uploadBuffer, downloadBuffer } from "@/lib/s3"
 import { s3Keys } from "@/lib/s3-keys"
 import { getDecodableImageBuffer, extractRawOrientation } from "@/lib/raw-decoder"
 import { adjustStorageQuota } from "@/lib/db-guards"
@@ -94,7 +94,8 @@ export async function processPhoto(photoId: string): Promise<void> {
   // Rotator helper: rotates explicitly if RAW IFD orientation exists, or uses Sharp auto-rotate
   const rotateBuffer = (buf: Buffer) => (rotateAngle !== undefined ? sharp(buf).rotate(rotateAngle) : sharp(buf).rotate())
 
-  // Step 1: Decode raw original ONCE and resize to clean 2560px master image
+  // Step 1: Decode the private source master once and derive a 2560px preview.
+  // The source object remains private at originalKey for final rendering.
   const masterBase = await rotateBuffer(original)
     .resize(2560, 2560, {
       fit: "inside",
@@ -167,39 +168,20 @@ export async function processPhoto(photoId: string): Promise<void> {
     uploadBuffer(watermarkedKey, watermarked, "image/jpeg"),
   ])
 
-  let finalOriginalKey = photo.originalKey
-  let finalFileSizeBytes = photo.fileSizeBytes
-
-  // For proofing photos, delete the heavy original raw file from S3 to conserve storage space.
-  // The raw files remain stored in Lightroom on the photographer's local workstation.
-  if (isProofing) {
-    try {
-      if (photo.originalKey && photo.originalKey !== displayKey) {
-        await deleteKey(photo.originalKey)
-      }
-      finalOriginalKey = displayKey
-      const totalWebBytes = thumb.length + display.length + watermarked.length
-      const diffBytes = photo.fileSizeBytes - totalWebBytes
-      if (diffBytes > 0) {
-        await adjustStorageQuota(photo.userId, -diffBytes)
-      }
-      finalFileSizeBytes = totalWebBytes
-    } catch (cleanupErr) {
-      console.warn("Proofing storage optimization notice:", cleanupErr)
-    }
-  }
-
-  await db.update(photos)
-    .set({
-      originalKey: finalOriginalKey,
-      thumbKey,
-      displayKey,
-      watermarkedKey,
-      blurHash,
-      width: masterW,
-      height: masterH,
-      fileSizeBytes: finalFileSizeBytes,
-      status: "ready",
-    })
-    .where(eq(photos.id, photoId))
+  const variantBytes = thumb.length + display.length + watermarked.length
+  await db.transaction(async (tx) => {
+    await adjustStorageQuota(photo.userId, variantBytes, tx)
+    await tx.update(photos)
+      .set({
+        thumbKey,
+        displayKey,
+        watermarkedKey,
+        blurHash,
+        width: masterW,
+        height: masterH,
+        fileSizeBytes: photo.fileSizeBytes + variantBytes,
+        status: "ready",
+      })
+      .where(eq(photos.id, photoId))
+  })
 }

@@ -4,7 +4,6 @@ import { galleries, photos, stars, comments, selections, selectionPhotos } from 
 import { eq, and, inArray } from "drizzle-orm"
 import { notFound, redirect } from "next/navigation"
 import { StudioShell } from "@/components/studio/studio-shell"
-import { ensureColumnsMigrated } from "@/db/auto-migrate"
 
 interface EditorPageProps {
   params: Promise<{ id: string }>
@@ -17,7 +16,6 @@ interface EditorPageProps {
 
 export default async function GalleryEditorPage({ params, searchParams }: EditorPageProps) {
   const userId = await requireAuth()
-  await ensureColumnsMigrated()
 
   const { id: galleryId } = await params
   const { filter, selectionId, photoId } = await searchParams

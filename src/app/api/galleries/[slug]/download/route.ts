@@ -18,6 +18,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const type = searchParams.get("type") || "all"
   const section = searchParams.get("section") as "proofing" | "final" | null
   const clientId = searchParams.get("clientId")
+  const photoId = searchParams.get("photoId")
 
   const decodedSlug = decodeURIComponent(slug).trim()
   const gallery = await db.query.galleries.findFirst({
@@ -46,7 +47,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   }
 
   let selectedPhotoIds: string[] | null = null
-  if (type === "starred" && clientId) {
+  if (photoId) {
+    selectedPhotoIds = [photoId]
+  } else if (type === "starred" && clientId) {
     const starredRows = await db.query.stars.findMany({
       where: and(eq(stars.galleryId, gallery.id), eq(stars.clientId, clientId)),
     })
@@ -70,12 +73,34 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     return new Response("No photos available to download", { status: 404 })
   }
 
+  const isFullDownload = isOwner || gallery.downloadMode === "full"
+
+  if (photoId) {
+    const photo = galleryPhotos[0]
+    const key = isFullDownload ? photo.originalKey : photo.watermarkedKey
+    if (!key) return new Response("Download unavailable", { status: 404 })
+
+    try {
+      const s3Res = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }))
+      if (!s3Res.Body) return new Response("Download unavailable", { status: 404 })
+
+      const filename = photo.filename.replace(/[\\"\r\n]/g, "_")
+      return new Response(s3Res.Body as ReadableStream, {
+        headers: {
+          "Content-Type": s3Res.ContentType ?? "application/octet-stream",
+          "Content-Disposition": `attachment; filename="${filename}"`,
+          "Cache-Control": "no-cache",
+        },
+      })
+    } catch {
+      return new Response("Download unavailable", { status: 404 })
+    }
+  }
+
   const archive = archiver("zip", { zlib: { level: 5 } })
   const passThrough = new PassThrough()
 
   archive.pipe(passThrough)
-
-  const isFullDownload = isOwner || gallery.downloadMode === "full"
 
   // Process and append each photo asynchronously to the stream
   ;(async () => {
@@ -85,7 +110,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
       for (const photo of galleryPhotos) {
         const key = isFullDownload
           ? photo.originalKey
-          : (photo.displayKey || photo.watermarkedKey || photo.originalKey)
+          : (photo.watermarkedKey || photo.displayKey)
         if (!key) continue
 
         let name = photo.filename || `photo-${photo.id}.jpg`

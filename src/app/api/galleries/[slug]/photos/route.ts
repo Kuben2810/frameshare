@@ -3,6 +3,7 @@ import { galleries, photos } from "@/db/schema"
 import { eq, and, asc, or } from "drizzle-orm"
 import { cookies } from "next/headers"
 import { auth } from "@/auth"
+import { toPublicPhoto } from "@/lib/public-gallery"
 
 const LIMIT = 60
 
@@ -38,5 +39,5 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   })
 
   const hasMore = page.length > LIMIT
-  return Response.json({ photos: page.slice(0, LIMIT), hasMore })
+  return Response.json({ photos: page.slice(0, LIMIT).map(toPublicPhoto), hasMore })
 }

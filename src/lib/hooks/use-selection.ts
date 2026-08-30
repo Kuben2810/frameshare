@@ -10,13 +10,17 @@ export function useSelection(slug: string) {
   async function submitSelection() {
     setSubmitting(true)
     const clientId = getClientId()
-    await fetch(`/api/galleries/${slug}/select`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ clientId }),
-    })
-    setSubmitted(true)
-    setSubmitting(false)
+    try {
+      const res = await fetch(`/api/galleries/${slug}/select`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId }),
+      })
+      if (res.ok) setSubmitted(true)
+      return res.ok
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return { submitting, submitted, submitSelection }

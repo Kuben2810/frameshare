@@ -1,7 +1,7 @@
 import { auth } from "@/auth"
 import { db } from "@/db"
 import { photos } from "@/db/schema"
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import { s3, BUCKET } from "@/lib/s3"
 import { PutObjectCommand } from "@aws-sdk/client-s3"
 
@@ -14,8 +14,17 @@ export async function PUT(req: Request) {
   const photoId = searchParams.get("photoId")
   if (!key || !photoId) return Response.json({ error: "Missing key or photoId" }, { status: 400 })
 
-  const photo = await db.query.photos.findFirst({ where: eq(photos.id, photoId) })
-  if (!photo || photo.userId !== session.user.id) return Response.json({ error: "Forbidden" }, { status: 403 })
+  // This endpoint must never act as a general-purpose S3 proxy. A pending
+  // photo can only receive bytes at the object key generated for that photo.
+  const photo = await db.query.photos.findFirst({
+    where: and(
+      eq(photos.id, photoId),
+      eq(photos.userId, session.user.id),
+      eq(photos.originalKey, key),
+      eq(photos.status, "pending"),
+    ),
+  })
+  if (!photo) return Response.json({ error: "Forbidden" }, { status: 403 })
 
   const body = await req.arrayBuffer()
   const mimeType = req.headers.get("content-type") || "application/octet-stream"
