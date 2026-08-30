@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  output: "standalone",
+  // Vercel packages Next.js output itself. Standalone output is only needed by
+  // the Docker deployment and causes Vercel's post-build trace step to fail.
+  output: process.env.VERCEL ? undefined : "standalone",
   turbopack: {
     root: process.cwd(),
   },
