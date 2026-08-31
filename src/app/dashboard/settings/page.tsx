@@ -2,6 +2,11 @@ import { auth } from "@/auth"
 import { redirect } from "next/navigation"
 import { updateAccount, uploadAccountLogo } from "@/app/actions/account"
 import { ensureActiveWorkspace } from "@/lib/workspace"
+import { storageConnections } from "@/db/schema"
+import { db } from "@/db"
+import { and, eq } from "drizzle-orm"
+import { googleDriveConfigured } from "@/lib/google-drive"
+import { GoogleDriveConnectionCard } from "@/components/google-drive-connection-card"
 import { ArrowLeft, User, Palette, Image as ImageIcon, HardDrive, Check, Upload, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { buttonVariants } from "@/components/ui/button"
@@ -12,6 +17,18 @@ export default async function SettingsPage() {
   if (!session?.user?.id) redirect("/login")
 
   const { workspace } = await ensureActiveWorkspace(session.user.id)
+  const googleDriveConnection = await db.query.storageConnections.findFirst({
+    columns: {
+      status: true,
+      label: true,
+      rootReference: true,
+      lastError: true,
+    },
+    where: and(
+      eq(storageConnections.workspaceId, workspace.id),
+      eq(storageConnections.provider, "google_drive"),
+    ),
+  })
 
   const storageUsedMB = (workspace.storageUsedBytes / (1024 * 1024)).toFixed(1)
   const storageLimitGB = (workspace.storageQuotaBytes / (1024 * 1024 * 1024)).toFixed(0)
@@ -182,6 +199,12 @@ export default async function SettingsPage() {
               </p>
             </div>
           </div>
+
+          <GoogleDriveConnectionCard
+            connection={googleDriveConnection ?? null}
+            configured={googleDriveConfigured()}
+            pickerApiKey={process.env.NEXT_PUBLIC_GOOGLE_DRIVE_PICKER_API_KEY?.trim() || null}
+          />
         </div>
       </div>
     </div>

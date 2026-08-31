@@ -26,6 +26,11 @@ R2 bucket. The production health endpoint is live at
   every existing gallery now has an explicit connection assignment.
 - This branch has passed `npx tsc --noEmit`, `npx drizzle-kit check`, and the
   Vercel-mode production build. It has not been merged, deployed, or pushed.
+- The same branch now contains an unmerged Google Drive connection slice:
+  separate storage OAuth, encrypted credentials, owner-only Google Picker
+  folder verification, and a storage-settings UI. It does not yet assign
+  gallery media to Drive; current upload, processing, and delivery remain
+  intentionally managed-storage-only.
 
 ## Deployment notes
 
@@ -271,13 +276,12 @@ new gallery without weakening existing access control.
 
 ## Next implementation slice
 
-Implement Google Drive as the first BYO Storage connection. Before exposing
-that option, create a separate Google OAuth client/consent configuration for
-storage with the minimum `drive.file` scope, configure its redirect URI, and
-provide an encryption key with a rotation procedure for stored refresh tokens.
-Do not reuse the normal sign-in OAuth credentials or tokens. The app-side
-connection flow can then use the `storage_connections` model introduced in
-`0006`, Drive Picker for user-selected folders, and resumable uploads.
+Configure and deploy the separate Google OAuth client/consent screen,
+Google Picker API key, exact callback URLs, and storage credential encryption
+keys documented in [`docs/google-drive-byo-storage.md`](docs/google-drive-byo-storage.md).
+After that, build the Drive media adapter before allowing a workspace to assign
+new galleries to Drive. This must cover resumable upload, processing,
+private delivery, download, deletion, quota reconciliation, and durable jobs.
 
 The supporting workspace/onboarding specification remains in
 [`docs/phase-1-workspace-onboarding.md`](docs/phase-1-workspace-onboarding.md).
