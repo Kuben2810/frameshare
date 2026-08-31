@@ -25,7 +25,10 @@ R2 bucket. The production health endpoint is live at
   entitlement (250 GiB) and an active private Frameshare-managed connection;
   every existing gallery now has an explicit connection assignment.
 - This branch has passed `npx tsc --noEmit`, `npx drizzle-kit check`, and the
-  Vercel-mode production build. It has not been merged, deployed, or pushed.
+  Vercel-mode production build. It is pushed at `0a165e3` and has a healthy
+  Vercel preview at
+  `https://frameshare-git-feature-storage-7a509d-kuben2810-8156s-projects.vercel.app`.
+  It has not been merged or deployed to production.
 - The same branch now contains an unmerged Google Drive storage slice:
   separate storage OAuth, encrypted credentials, owner-only Google Picker
   folder verification, direct resumable original uploads, Drive-backed
@@ -33,6 +36,8 @@ R2 bucket. The production health endpoint is live at
   A verified Drive connection can be the default for future galleries only;
   existing gallery assignments remain immutable. Drive cannot be disconnected
   while a gallery uses it.
+- Google Drive OAuth, Picker, and encryption secrets are not configured in the
+  preview yet, so the live Drive connection flow remains safely unavailable.
 
 ## Deployment notes
 
