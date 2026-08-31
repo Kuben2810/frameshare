@@ -99,7 +99,7 @@ export default async function DashboardPage() {
   })
 
   const storageUsedBytes = storedPhotosTotalBytes
-  const storageLimitBytes = Number(process.env.STORAGE_LIMIT_BYTES ?? 10_737_418_240)
+  const storageLimitBytes = workspace.storageQuotaBytes
 
   return (
     <DashboardClientView

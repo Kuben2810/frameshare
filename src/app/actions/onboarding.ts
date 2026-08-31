@@ -5,6 +5,7 @@ import { galleries, workspaces } from "@/db/schema"
 import { uploadBuffer } from "@/lib/s3"
 import { requireAuth } from "@/lib/require-auth"
 import { ensureActiveWorkspace } from "@/lib/workspace"
+import { getWorkspaceStorageConnection } from "@/lib/storage-connection"
 import { eq } from "drizzle-orm"
 import { redirect } from "next/navigation"
 
@@ -22,6 +23,7 @@ function supportedLogoExtension(file: File) {
 export async function completeOnboarding(_: OnboardingState, formData: FormData): Promise<OnboardingState> {
   const userId = await requireAuth()
   const { workspace } = await ensureActiveWorkspace(userId)
+  const storageConnection = await getWorkspaceStorageConnection(workspace.id)
 
   const workspaceName = String(formData.get("workspaceName") ?? "").trim()
   const galleryName = String(formData.get("galleryName") ?? "").trim()
@@ -57,6 +59,7 @@ export async function completeOnboarding(_: OnboardingState, formData: FormData)
       id: galleryId,
       userId,
       workspaceId: workspace.id,
+      storageConnectionId: storageConnection.id,
       name: galleryName,
       slug: randomSlug(),
       stage: "proofing",

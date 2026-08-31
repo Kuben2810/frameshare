@@ -13,6 +13,7 @@ import { deleteKey, downloadBuffer, uploadBuffer } from "@/lib/s3"
 import { s3Keys } from "@/lib/s3-keys"
 import { adjustStorageQuota, requireGalleryOwned, requirePhotoOwned } from "@/lib/db-guards"
 import { ensureActiveWorkspace } from "@/lib/workspace"
+import { getWorkspaceStorageConnection } from "@/lib/storage-connection"
 import { PhotoEditRecipe } from "@/lib/ai-photo-analyzer"
 import { renderEditedPhotoBuffer } from "@/lib/render-edited-photo"
 import sharp from "sharp"
@@ -24,6 +25,7 @@ function randomSlug() {
 export async function createGallery(formData: FormData) {
   const userId = await requireAuth()
   const { workspace } = await ensureActiveWorkspace(userId)
+  const storageConnection = await getWorkspaceStorageConnection(workspace.id)
 
   const name = (formData.get("name") as string)?.trim()
   if (!name) return { error: "Name required" }
@@ -44,6 +46,7 @@ export async function createGallery(formData: FormData) {
     id,
     userId,
     workspaceId: workspace.id,
+    storageConnectionId: storageConnection.id,
     name,
     slug: randomSlug(),
     logoKey: workspace.logoKey,

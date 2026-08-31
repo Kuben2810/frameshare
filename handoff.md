@@ -19,6 +19,13 @@ R2 bucket. The production health endpoint is live at
 - Vercel production and preview environments already contain database,
   authentication, R2/S3, and email configuration. `RATE_LIMIT_SECRET` and
   `GEMINI_API_KEY` remain optional.
+- The storage-foundation work is on `feature/storage-foundation` only. Its
+  `0006` migration has been applied and verified on the Neon `development`
+  branch, not production. It gives every existing workspace the Studio
+  entitlement (250 GiB) and an active private Frameshare-managed connection;
+  every existing gallery now has an explicit connection assignment.
+- This branch has passed `npx tsc --noEmit`, `npx drizzle-kit check`, and the
+  Vercel-mode production build. It has not been merged, deployed, or pushed.
 
 ## Deployment notes
 
@@ -262,14 +269,15 @@ new gallery without weakening existing access control.
 - 30-day photographer retention and trial-to-paid conversion.
 - Storage connection adoption and related support volume.
 
-## Immediate next decision
+## Next implementation slice
 
-Before implementation, confirm the initial customer as **solo portrait,
-wedding, and event photographers**, then turn Phase 1 into a separately
-scoped design/build task with data-model and screen-level acceptance criteria.
+Implement Google Drive as the first BYO Storage connection. Before exposing
+that option, create a separate Google OAuth client/consent configuration for
+storage with the minimum `drive.file` scope, configure its redirect URI, and
+provide an encryption key with a rotation procedure for stored refresh tokens.
+Do not reuse the normal sign-in OAuth credentials or tokens. The app-side
+connection flow can then use the `storage_connections` model introduced in
+`0006`, Drive Picker for user-selected folders, and resumable uploads.
 
-The resulting Phase 1A specification is in
+The supporting workspace/onboarding specification remains in
 [`docs/phase-1-workspace-onboarding.md`](docs/phase-1-workspace-onboarding.md).
-It deliberately scopes the first implementation to workspace ownership,
-onboarding, branding, and managed-storage quota; billing and external storage
-providers remain later work.

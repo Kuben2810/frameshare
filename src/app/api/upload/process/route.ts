@@ -1,14 +1,13 @@
 import { auth } from "@/auth"
 import { db } from "@/db"
-import { galleries, photos } from "@/db/schema"
+import { galleries, photos, workspaces } from "@/db/schema"
 import { and, eq, inArray } from "drizzle-orm"
 import { processPhoto } from "@/lib/process-photo"
 import { MAX_SIZE_BYTES } from "@/lib/photo-constraints"
 import { getObjectSize } from "@/lib/s3"
 import { reconcileStorageReservation } from "@/lib/db-guards"
 import { discardUploadPhoto } from "@/lib/upload-cleanup"
-
-const STORAGE_LIMIT = Number(process.env.STORAGE_LIMIT_BYTES) || 10_737_418_240
+import { managedStorageConnectionId } from "@/lib/storage-connection"
 
 export async function POST(req: Request) {
   const session = await auth()
@@ -31,13 +30,19 @@ export async function POST(req: Request) {
     .returning()
   if (!photo) return Response.json({ error: "Already processing or processed" }, { status: 409 })
 
-  const gallery = await db.query.galleries.findFirst({
-    where: eq(galleries.id, photo.galleryId),
-    columns: { workspaceId: true },
-  })
+  const [gallery] = await db
+    .select({ workspaceId: galleries.workspaceId, storageQuotaBytes: workspaces.storageQuotaBytes, storageConnectionId: galleries.storageConnectionId })
+    .from(galleries)
+    .innerJoin(workspaces, eq(galleries.workspaceId, workspaces.id))
+    .where(eq(galleries.id, photo.galleryId))
+    .limit(1)
   if (!gallery) {
     await discardUploadPhoto(photo.id, photo.userId, ["processing"])
     return Response.json({ error: "Gallery not found" }, { status: 404 })
+  }
+  if (gallery.storageConnectionId !== managedStorageConnectionId(gallery.workspaceId)) {
+    await discardUploadPhoto(photo.id, photo.userId, ["processing"])
+    return Response.json({ error: "This gallery's storage connection is not ready for processing" }, { status: 409 })
   }
 
   let actualSize: number
@@ -58,7 +63,7 @@ export async function POST(req: Request) {
       gallery.workspaceId,
       photo.fileSizeBytes,
       actualSize,
-      STORAGE_LIMIT,
+      gallery.storageQuotaBytes,
       tx,
     )
     if (!hasCapacity) return false

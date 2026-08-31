@@ -14,8 +14,9 @@ export default async function SettingsPage() {
   const { workspace } = await ensureActiveWorkspace(session.user.id)
 
   const storageUsedMB = (workspace.storageUsedBytes / (1024 * 1024)).toFixed(1)
-  const storageLimitGB = (Number(process.env.STORAGE_LIMIT_BYTES ?? 10_737_418_240) / (1024 * 1024 * 1024)).toFixed(0)
-  const usagePct = Math.min(100, Math.round((workspace.storageUsedBytes / Number(process.env.STORAGE_LIMIT_BYTES ?? 10_737_418_240)) * 100))
+  const storageLimitGB = (workspace.storageQuotaBytes / (1024 * 1024 * 1024)).toFixed(0)
+  const usagePct = Math.min(100, Math.round((workspace.storageUsedBytes / workspace.storageQuotaBytes) * 100))
+  const storagePlanLabel = workspace.storagePlan === "studio" ? "Studio" : workspace.storagePlan === "byo_storage" ? "BYO Storage" : "Trial"
 
   return (
     <div className="h-full overflow-y-auto w-full">
@@ -162,7 +163,7 @@ export default async function SettingsPage() {
                 </div>
                 <div className="text-right space-y-0.5">
                   <span className="font-bold text-foreground text-base">{storageLimitGB} GB</span>
-                  <span className="text-xs text-muted-foreground block">Max quota ({usagePct}% used)</span>
+                  <span className="text-xs text-muted-foreground block">{storagePlanLabel} plan · {usagePct}% used</span>
                 </div>
               </div>
 
@@ -175,6 +176,9 @@ export default async function SettingsPage() {
 
               <p className="text-xs text-muted-foreground">
                 Storage includes original high-resolution camera files, web-display previews, and client watermarked derivatives.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Your current gallery files use Frameshare managed storage. Google Drive connections will be available for new galleries once connected and verified.
               </p>
             </div>
           </div>

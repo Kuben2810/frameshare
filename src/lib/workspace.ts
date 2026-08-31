@@ -1,6 +1,7 @@
 import { db } from "@/db"
-import { galleries, users, workspaceMembers, workspaces } from "@/db/schema"
+import { galleries, storageConnections, users, workspaceMembers, workspaces } from "@/db/schema"
 import { and, asc, eq } from "drizzle-orm"
+import { managedStorageConnection } from "@/lib/storage-connection"
 
 export type WorkspaceRole = "owner" | "editor" | "viewer"
 
@@ -58,6 +59,8 @@ export async function ensureActiveWorkspace(userId: string): Promise<ActiveWorks
       userId: user.id,
       role: "owner",
     }).onConflictDoNothing()
+
+    await tx.insert(storageConnections).values(managedStorageConnection(user.id)).onConflictDoNothing()
   })
 
   const provisioned = await findActiveWorkspace(userId)

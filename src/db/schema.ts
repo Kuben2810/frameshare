@@ -29,12 +29,31 @@ export const workspaces = pgTable("workspaces", {
   slug:                 text("slug").notNull().unique(),
   logoKey:              text("logo_key"),
   accentColor:          text("accent_color"),
-  storageProvider:      text("storage_provider", { enum: ["managed"] }).notNull().default("managed"),
+  storageProvider:      text("storage_provider", { enum: ["managed", "google_drive", "s3"] }).notNull().default("managed"),
+  storagePlan:          text("storage_plan", { enum: ["trial", "studio", "byo_storage"] }).notNull().default("trial"),
+  storageQuotaBytes:    bigint("storage_quota_bytes", { mode: "number" }).notNull().default(5_368_709_120),
   storageUsedBytes:     bigint("storage_used_bytes", { mode: "number" }).notNull().default(0),
   onboardingCompletedAt: timestamp("onboarding_completed_at", { mode: "date" }),
   createdAt:            timestamp("created_at").defaultNow().notNull(),
   updatedAt:            timestamp("updated_at").defaultNow().notNull(),
 })
+
+export const storageConnections = pgTable("storage_connections", {
+  id:                   text("id").primaryKey(),
+  workspaceId:          text("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  provider:             text("provider", { enum: ["managed", "google_drive", "s3"] }).notNull(),
+  label:                text("label").notNull(),
+  status:               text("status", { enum: ["active", "needs_connection", "error", "disconnected"] }).notNull().default("needs_connection"),
+  rootReference:        text("root_reference"),
+  credentialsCiphertext: text("credentials_ciphertext"),
+  lastCheckedAt:        timestamp("last_checked_at", { mode: "date" }),
+  lastError:            text("last_error"),
+  createdAt:            timestamp("created_at").defaultNow().notNull(),
+  updatedAt:            timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("storage_connections_workspace_provider_idx").on(t.workspaceId, t.provider),
+  index("storage_connections_workspace_status_idx").on(t.workspaceId, t.status),
+])
 
 export const workspaceMembers = pgTable("workspace_members", {
   workspaceId: text("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
@@ -76,6 +95,7 @@ export const galleries = pgTable("galleries", {
   id:            text("id").primaryKey(),
   userId:        text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   workspaceId:   text("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  storageConnectionId: text("storage_connection_id").notNull().references(() => storageConnections.id),
   name:          text("name").notNull(),
   slug:          text("slug").notNull().unique(),
   passwordHash:  text("password_hash"),
