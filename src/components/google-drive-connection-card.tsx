@@ -74,10 +74,12 @@ export function GoogleDriveConnectionCard({
   connection,
   configured,
   pickerApiKey,
+  isWorkspaceDefault,
 }: {
   connection: DriveConnection
   configured: boolean
   pickerApiKey: string | null
+  isWorkspaceDefault: boolean
 }) {
   const [busy, setBusy] = useState(false)
 
@@ -132,11 +134,26 @@ export function GoogleDriveConnectionCard({
     setBusy(true)
     try {
       const response = await fetch("/api/storage/google-drive/disconnect", { method: "POST" })
-      if (!response.ok) throw new Error("Google Drive could not be disconnected")
+      const body = await response.json().catch(() => ({})) as { error?: string }
+      if (!response.ok) throw new Error(body.error ?? "Google Drive could not be disconnected")
       toast.success("Google Drive disconnected")
       window.location.reload()
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Google Drive could not be disconnected")
+      setBusy(false)
+    }
+  }
+
+  async function makeDefault() {
+    setBusy(true)
+    try {
+      const response = await fetch("/api/storage/google-drive/make-default", { method: "POST" })
+      const body = await response.json().catch(() => ({})) as { error?: string }
+      if (!response.ok) throw new Error(body.error ?? "Google Drive could not be selected")
+      toast.success("Google Drive will store new galleries")
+      window.location.reload()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Google Drive could not be selected")
       setBusy(false)
     }
   }
@@ -162,7 +179,9 @@ export function GoogleDriveConnectionCard({
             </p>
             <p className="mt-1 text-xs leading-5 text-muted-foreground">
               {isActive
-                ? "Folder verified. Frameshare has access only to files and folders you select with Google Picker."
+                ? isWorkspaceDefault
+                  ? "New galleries use this verified Drive folder. Existing galleries keep their original storage assignment."
+                  : "Folder verified. Frameshare has access only to files and folders you select with Google Picker."
                 : hasAuthorizedAccount
                   ? "Your Drive account is authorized. Select the dedicated folder where Frameshare may add gallery files."
                   : "Frameshare uses Google’s narrow Drive permission and never reuses your sign-in connection."}
@@ -178,12 +197,22 @@ export function GoogleDriveConnectionCard({
       ) : isActive ? (
         <div className="space-y-3">
           <p className="text-xs leading-5 text-muted-foreground">
-            The connection is ready. Existing galleries remain on Frameshare managed storage; assigning new gallery media to Drive is the next media-adapter release.
+            {isWorkspaceDefault
+              ? "Existing galleries remain where they are. New galleries will use Drive while Frameshare continues to handle private gallery delivery."
+              : "Make Drive the default only when you want future galleries to keep their originals and generated variants in this folder."}
           </p>
-          <button type="button" onClick={disconnect} disabled={busy} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "rounded-xl gap-1.5")}>
-            {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Unplug className="size-3.5" />}
-            Disconnect Drive
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {!isWorkspaceDefault && (
+              <button type="button" onClick={makeDefault} disabled={busy} className={cn(buttonVariants({ size: "sm" }), "rounded-xl gap-1.5")}>
+                {busy ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCircle2 className="size-3.5" />}
+                Use Drive for New Galleries
+              </button>
+            )}
+            <button type="button" onClick={disconnect} disabled={busy} className={cn(buttonVariants({ variant: "outline", size: "sm" }), "rounded-xl gap-1.5")}>
+              {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Unplug className="size-3.5" />}
+              Disconnect Drive
+            </button>
+          </div>
         </div>
       ) : hasAuthorizedAccount ? (
         <button type="button" onClick={chooseFolder} disabled={busy} className={cn(buttonVariants({ size: "sm" }), "rounded-xl gap-1.5")}>

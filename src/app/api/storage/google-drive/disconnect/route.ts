@@ -1,6 +1,6 @@
 import { auth } from "@/auth"
 import { db } from "@/db"
-import { storageConnections } from "@/db/schema"
+import { galleries, storageConnections, workspaces } from "@/db/schema"
 import { ensureActiveWorkspace } from "@/lib/workspace"
 import { googleDriveConnectionId } from "@/lib/google-drive"
 import { eq } from "drizzle-orm"
@@ -13,13 +13,24 @@ export async function POST() {
   const { workspace, role } = await ensureActiveWorkspace(session.user.id)
   if (role !== "owner") return Response.json({ error: "Only the workspace owner can manage storage" }, { status: 403 })
 
-  await db.update(storageConnections).set({
-    status: "disconnected",
-    rootReference: null,
-    credentialsCiphertext: null,
-    lastCheckedAt: null,
-    lastError: null,
-    updatedAt: new Date(),
-  }).where(eq(storageConnections.id, googleDriveConnectionId(workspace.id)))
+  const assignedGallery = await db.query.galleries.findFirst({
+    where: eq(galleries.storageConnectionId, googleDriveConnectionId(workspace.id)),
+    columns: { id: true },
+  })
+  if (assignedGallery) {
+    return Response.json({ error: "Move or delete galleries using Google Drive before disconnecting it" }, { status: 409 })
+  }
+
+  await db.transaction(async (tx) => {
+    await tx.update(workspaces).set({ storageProvider: "managed", updatedAt: new Date() }).where(eq(workspaces.id, workspace.id))
+    await tx.update(storageConnections).set({
+      status: "disconnected",
+      rootReference: null,
+      credentialsCiphertext: null,
+      lastCheckedAt: null,
+      lastError: null,
+      updatedAt: new Date(),
+    }).where(eq(storageConnections.id, googleDriveConnectionId(workspace.id)))
+  })
   return Response.json({ ok: true })
 }

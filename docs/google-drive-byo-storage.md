@@ -17,9 +17,17 @@ connection and keeps storage refresh tokens outside Auth.js' `accounts` table.
 - Verifies that the selected folder is active and lets Frameshare add files
   before marking the connection active.
 
-An active connection does not change any existing gallery. Gallery media still
-uses Frameshare-managed storage until the Drive media adapter supports the
-complete upload, processing, delivery, download, and deletion lifecycle.
+An active connection does not change any existing gallery. A workspace owner
+can make the verified connection the default for **future** galleries; their
+originals and generated variants then stay in the selected Drive folder. The
+existing private Frameshare asset and download routes authorize each request
+before reading the corresponding Drive file.
+
+Original uploads start a Google Drive resumable session and go directly from
+the photographer's browser to Google. Generated previews, watermarked files,
+edits, downloads, and deletion use the same gallery's immutable storage
+connection. Frameshare refuses to disconnect Drive while a gallery is assigned
+to it, preventing an orphaned gallery.
 
 ## Google Cloud configuration
 
@@ -68,11 +76,11 @@ encrypts persisted credentials and must be a base64-encoded 32-byte value.
 - Never write authorization codes, access tokens, refresh tokens, credentials
   ciphertext, or Picker tokens to logs, analytics, client props, or error URLs.
 
-## Before enabling Drive gallery storage
+## Operational limitation
 
-The Drive media adapter must keep every gallery's storage assignment immutable
-and implement resumable Drive uploads, Drive-backed originals and derivatives,
-private client delivery, source deletion, quota reconciliation, and retryable
-jobs. Do not switch `workspaces.storage_provider` to `google_drive` before that
-adapter is complete; upload endpoints intentionally reject non-managed gallery
-assignments today.
+Photo processing still runs from the upload request, as it does for
+Frameshare-managed storage. Before production Drive rollout, move processing,
+ZIP generation, cleanup, and retry handling to the durable job system described
+in `handoff.md`. A failed or abandoned Drive resumable session must be retried
+or cancelled by the photographer; Google expires unused session URLs after a
+week.

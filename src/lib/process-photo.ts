@@ -1,8 +1,8 @@
 import { db } from "@/db"
 import { galleries, photos, workspaces } from "@/db/schema"
 import { eq } from "drizzle-orm"
-import { uploadBuffer, downloadBuffer } from "@/lib/s3"
 import { s3Keys } from "@/lib/s3-keys"
+import { downloadMediaBuffer, getGalleryStorageConnection, uploadMediaBuffer } from "@/lib/media-storage"
 import { getDecodableImageBuffer, extractRawOrientation } from "@/lib/raw-decoder"
 import { adjustStorageQuota } from "@/lib/db-guards"
 import sharp from "sharp"
@@ -74,10 +74,11 @@ export async function processPhoto(photoId: string): Promise<void> {
 
   const gallery = await db.query.galleries.findFirst({ where: eq(galleries.id, photo.galleryId) })
   if (!gallery) throw new Error(`Gallery for photo ${photoId} not found`)
+  const storageConnection = await getGalleryStorageConnection(gallery.id)
   const workspace = await db.query.workspaces.findFirst({ where: eq(workspaces.id, gallery.workspaceId) })
   const photographerName = workspace?.name ?? "Frameshare"
 
-  const rawOriginal = await downloadBuffer(photo.originalKey)
+  const rawOriginal = await downloadMediaBuffer(storageConnection, photo.originalKey)
   // Convert or extract decodable image buffer for RAW (CR2, NEF, ARW, DNG) or standard images
   const original = await getDecodableImageBuffer(rawOriginal, photo.filename)
 
@@ -160,14 +161,12 @@ export async function processPhoto(photoId: string): Promise<void> {
     .jpeg({ quality: 88, mozjpeg: true })
     .toBuffer()
 
-  const thumbKey       = keys.thumb()
-  const displayKey     = keys.display()
-  const watermarkedKey = keys.watermarked()
-
-  await Promise.all([
-    uploadBuffer(thumbKey, thumb, "image/webp"),
-    uploadBuffer(displayKey, display, "image/webp"),
-    uploadBuffer(watermarkedKey, watermarked, "image/jpeg"),
+  const storageName = (managedKey: string, driveName: string) =>
+    storageConnection.provider === "managed" ? managedKey : driveName
+  const [thumbKey, displayKey, watermarkedKey] = await Promise.all([
+    uploadMediaBuffer(storageConnection, storageName(keys.thumb(), `Frameshare-${photo.id}-thumb.webp`), thumb, "image/webp"),
+    uploadMediaBuffer(storageConnection, storageName(keys.display(), `Frameshare-${photo.id}-display.webp`), display, "image/webp"),
+    uploadMediaBuffer(storageConnection, storageName(keys.watermarked(), `Frameshare-${photo.id}-watermarked.jpg`), watermarked, "image/jpeg"),
   ])
 
   const variantBytes = thumb.length + display.length + watermarked.length

@@ -6,6 +6,7 @@ import { eq, or } from "drizzle-orm"
 import { auth } from "@/auth"
 import { cookies } from "next/headers"
 import { requireGalleryWorkspaceAccess } from "@/lib/workspace"
+import { getGalleryStorageConnection, streamMediaObject } from "@/lib/media-storage"
 
 export async function GET(_req: Request, { params }: { params: Promise<{ key: string[] }> }) {
   const { key } = await params
@@ -20,8 +21,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ key: st
     return serveS3Object(s3Key, "public, max-age=31536000, immutable")
   }
 
-  // If the key is a photo (photos/<photoId>/...)
-  if (key[0] === "photos") {
+  // Photo keys are opaque locators. Managed media uses photos/<id>/..., while
+  // Drive media uses drive/<file-id>; both stay behind this authorization gate.
+  if (key[0] === "photos" || key[0] === "drive") {
     const photo = await db.query.photos.findFirst({
       where: or(
         eq(photos.originalKey, s3Key),
@@ -73,7 +75,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ key: st
     const cacheControl = isPublic
       ? "public, max-age=86400, stale-while-revalidate=604800"
       : "private, max-age=3600"
-    return serveS3Object(s3Key, cacheControl)
+    try {
+      const storageConnection = await getGalleryStorageConnection(gallery.id)
+      const object = await streamMediaObject(storageConnection, s3Key)
+      return new Response(object.body, {
+        headers: {
+          "Content-Type": object.contentType,
+          "Cache-Control": cacheControl,
+        },
+      })
+    } catch {
+      return new Response("Not found", { status: 404 })
+    }
   }
 
   return new Response("Not found", { status: 404 })

@@ -4,16 +4,15 @@ import { galleries, photos, workspaces } from "@/db/schema"
 import { and, eq, inArray } from "drizzle-orm"
 import { processPhoto } from "@/lib/process-photo"
 import { MAX_SIZE_BYTES } from "@/lib/photo-constraints"
-import { getObjectSize } from "@/lib/s3"
 import { reconcileStorageReservation } from "@/lib/db-guards"
 import { discardUploadPhoto } from "@/lib/upload-cleanup"
-import { managedStorageConnectionId } from "@/lib/storage-connection"
+import { driveMediaKey, getGalleryStorageConnection, getMediaObjectSize } from "@/lib/media-storage"
 
 export async function POST(req: Request) {
   const session = await auth()
   if (!session?.user?.id) return Response.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { photoId } = await req.json()
+  const { photoId, driveFileId } = await req.json()
   if (typeof photoId !== "string") return Response.json({ error: "photoId required" }, { status: 400 })
 
   // Claim the upload before inspecting or processing it so concurrent retries
@@ -40,14 +39,21 @@ export async function POST(req: Request) {
     await discardUploadPhoto(photo.id, photo.userId, ["processing"])
     return Response.json({ error: "Gallery not found" }, { status: 404 })
   }
-  if (gallery.storageConnectionId !== managedStorageConnectionId(gallery.workspaceId)) {
-    await discardUploadPhoto(photo.id, photo.userId, ["processing"])
-    return Response.json({ error: "This gallery's storage connection is not ready for processing" }, { status: 409 })
-  }
-
   let actualSize: number
   try {
-    actualSize = await getObjectSize(photo.originalKey)
+    const storageConnection = await getGalleryStorageConnection(photo.galleryId)
+    if (storageConnection.provider === "google_drive") {
+      if (typeof driveFileId !== "string" || !/^[A-Za-z0-9_-]{10,}$/.test(driveFileId)) {
+        throw new Error("Google Drive upload did not return a file ID")
+      }
+      const originalKey = driveMediaKey(driveFileId)
+      await db.update(photos)
+        .set({ originalKey })
+        .where(and(eq(photos.id, photo.id), eq(photos.status, "processing")))
+      actualSize = await getMediaObjectSize(storageConnection, originalKey)
+    } else {
+      actualSize = await getMediaObjectSize(storageConnection, photo.originalKey)
+    }
   } catch {
     await discardUploadPhoto(photo.id, photo.userId, ["processing"])
     return Response.json({ error: "Uploaded file was not found" }, { status: 400 })

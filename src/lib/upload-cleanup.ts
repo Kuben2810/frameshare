@@ -3,7 +3,7 @@ import { and, eq, inArray, lt } from "drizzle-orm"
 import { db } from "@/db"
 import { galleries, photos } from "@/db/schema"
 import { adjustStorageQuota } from "@/lib/db-guards"
-import { deleteKey } from "@/lib/s3"
+import { deleteMediaObject, getGalleryStorageConnection } from "@/lib/media-storage"
 import { s3Keys } from "@/lib/s3-keys"
 
 type Photo = InferSelectModel<typeof photos>
@@ -11,16 +11,17 @@ type CleanableStatus = "pending" | "processing" | "error" | "cleaning"
 
 const CLEANABLE_STATUSES: CleanableStatus[] = ["pending", "processing", "error", "cleaning"]
 
-function uploadKeys(photo: Photo): string[] {
+function uploadKeys(photo: Photo, provider: "managed" | "google_drive" | "s3"): string[] {
   const generated = s3Keys(photo.id)
+  const generatedKeys = provider === "managed"
+    ? [generated.thumb(), generated.display(), generated.watermarked()]
+    : []
   return [...new Set([
     photo.originalKey,
     photo.thumbKey,
     photo.displayKey,
     photo.watermarkedKey,
-    generated.thumb(),
-    generated.display(),
-    generated.watermarked(),
+    ...generatedKeys,
   ].filter((key): key is string => Boolean(key)))]
 }
 
@@ -45,13 +46,11 @@ export async function discardUploadPhoto(
     .returning()
   if (!photo) return false
 
-  const gallery = await db.query.galleries.findFirst({
-    where: eq(galleries.id, photo.galleryId),
-    columns: { workspaceId: true },
-  })
+  const gallery = await db.query.galleries.findFirst({ where: eq(galleries.id, photo.galleryId) })
   if (!gallery) return false
+  const storageConnection = await getGalleryStorageConnection(gallery.id)
 
-  const deletions = await Promise.allSettled(uploadKeys(photo).map((key) => deleteKey(key)))
+  const deletions = await Promise.allSettled(uploadKeys(photo, storageConnection.provider).map((key) => deleteMediaObject(storageConnection, key)))
   if (deletions.some((result) => result.status === "rejected")) return false
 
   await db.transaction(async (tx) => {

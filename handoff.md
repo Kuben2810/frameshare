@@ -26,11 +26,13 @@ R2 bucket. The production health endpoint is live at
   every existing gallery now has an explicit connection assignment.
 - This branch has passed `npx tsc --noEmit`, `npx drizzle-kit check`, and the
   Vercel-mode production build. It has not been merged, deployed, or pushed.
-- The same branch now contains an unmerged Google Drive connection slice:
+- The same branch now contains an unmerged Google Drive storage slice:
   separate storage OAuth, encrypted credentials, owner-only Google Picker
-  folder verification, and a storage-settings UI. It does not yet assign
-  gallery media to Drive; current upload, processing, and delivery remain
-  intentionally managed-storage-only.
+  folder verification, direct resumable original uploads, Drive-backed
+  processing/variants, private delivery/downloads, edits, and cleanup.
+  A verified Drive connection can be the default for future galleries only;
+  existing gallery assignments remain immutable. Drive cannot be disconnected
+  while a gallery uses it.
 
 ## Deployment notes
 

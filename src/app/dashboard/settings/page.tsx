@@ -195,7 +195,9 @@ export default async function SettingsPage() {
                 Storage includes original high-resolution camera files, web-display previews, and client watermarked derivatives.
               </p>
               <p className="text-xs text-muted-foreground">
-                Your current gallery files use Frameshare managed storage. Google Drive connections will be available for new galleries once connected and verified.
+                {workspace.storageProvider === "google_drive"
+                  ? "New galleries use your verified Google Drive folder. Existing galleries remain on the storage connection selected when they were created."
+                  : "Your current gallery files use Frameshare managed storage. Connect and verify Google Drive when you want future galleries to use your own folder."}
               </p>
             </div>
           </div>
@@ -204,6 +206,7 @@ export default async function SettingsPage() {
             connection={googleDriveConnection ?? null}
             configured={googleDriveConfigured()}
             pickerApiKey={process.env.NEXT_PUBLIC_GOOGLE_DRIVE_PICKER_API_KEY?.trim() || null}
+            isWorkspaceDefault={workspace.storageProvider === "google_drive"}
           />
         </div>
       </div>

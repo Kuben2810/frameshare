@@ -164,12 +164,17 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
             setUploading((u) => u.filter((f) => f.name !== file.name))
             continue
           }
-          const { url, photoId } = await res.json()
+          const { url, photoId, uploadProtocol } = await res.json() as {
+            url: string
+            photoId: string
+            uploadProtocol?: "s3" | "google-drive-resumable"
+          }
 
           if (cancelRequestedRef.current) break
 
-          // 2. Direct S3 PUT with cancelable XHR
-          await new Promise<void>((resolve, reject) => {
+          // 2. Direct PUT with cancelable XHR. Google Drive returns its file
+          // metadata after a resumable-session upload; S3/R2 returns no body.
+          const uploadResult = await new Promise<{ driveFileId?: string }>((resolve, reject) => {
             const xhr = new XMLHttpRequest()
             currentXhrRef.current = xhr
 
@@ -182,7 +187,20 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
             }
             xhr.onload = () => {
               currentXhrRef.current = null
-              xhr.status < 300 ? resolve() : reject(new Error(`S3 upload returned HTTP ${xhr.status}`))
+              if (xhr.status >= 300) {
+                reject(new Error(`Upload returned HTTP ${xhr.status}`))
+                return
+              }
+              if (uploadProtocol === "google-drive-resumable") {
+                const response = JSON.parse(xhr.responseText || "{}") as { id?: string }
+                if (!response.id) {
+                  reject(new Error("Google Drive did not confirm the uploaded file"))
+                  return
+                }
+                resolve({ driveFileId: response.id })
+                return
+              }
+              resolve({})
             }
             xhr.onerror = () => {
               currentXhrRef.current = null
@@ -203,7 +221,7 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
           let processRes = await fetch("/api/upload/process", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ photoId }),
+            body: JSON.stringify({ photoId, driveFileId: uploadResult.driveFileId }),
           })
 
           if ((processRes.status === 502 || processRes.status === 503) && !cancelRequestedRef.current) {
@@ -211,7 +229,7 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
             processRes = await fetch("/api/upload/process", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ photoId }),
+              body: JSON.stringify({ photoId, driveFileId: uploadResult.driveFileId }),
             })
           }
 

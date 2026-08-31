@@ -5,10 +5,9 @@ import { cookies } from "next/headers"
 import { auth } from "@/auth"
 // @ts-expect-error archiver uses export = format
 import archiver from "archiver"
-import { PassThrough, Readable } from "stream"
-import { s3, BUCKET } from "@/lib/s3"
-import { GetObjectCommand } from "@aws-sdk/client-s3"
+import { PassThrough } from "stream"
 import { requireGalleryWorkspaceAccess } from "@/lib/workspace"
+import { getGalleryStorageConnection, streamMediaNodeReadable, streamMediaObject } from "@/lib/media-storage"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -75,6 +74,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   }
 
   const isFullDownload = isOwner || gallery.downloadMode === "full"
+  let storageConnection
+  try {
+    storageConnection = await getGalleryStorageConnection(gallery.id)
+  } catch {
+    return new Response("Gallery storage is unavailable", { status: 409 })
+  }
 
   if (photoId) {
     const photo = galleryPhotos[0]
@@ -82,13 +87,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     if (!key) return new Response("Download unavailable", { status: 404 })
 
     try {
-      const s3Res = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }))
-      if (!s3Res.Body) return new Response("Download unavailable", { status: 404 })
+      const object = await streamMediaObject(storageConnection, key)
 
       const filename = photo.filename.replace(/[\\"\r\n]/g, "_")
-      return new Response(s3Res.Body as ReadableStream, {
+      return new Response(object.body, {
         headers: {
-          "Content-Type": s3Res.ContentType ?? "application/octet-stream",
+          "Content-Type": object.contentType,
           "Content-Disposition": `attachment; filename="${filename}"`,
           "Cache-Control": "no-cache",
         },
@@ -124,10 +128,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
         }
 
         try {
-          const s3Res = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }))
-          if (s3Res.Body) {
-            archive.append(s3Res.Body as Readable, { name })
-          }
+          archive.append(await streamMediaNodeReadable(storageConnection, key), { name })
         } catch (err) {
           console.error(`Failed to stream photo ${photo.id} to zip:`, err)
         }

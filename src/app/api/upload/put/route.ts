@@ -4,6 +4,7 @@ import { photos } from "@/db/schema"
 import { and, eq } from "drizzle-orm"
 import { s3, BUCKET } from "@/lib/s3"
 import { PutObjectCommand } from "@aws-sdk/client-s3"
+import { getGalleryStorageConnection } from "@/lib/media-storage"
 
 export async function PUT(req: Request) {
   const session = await auth()
@@ -25,6 +26,11 @@ export async function PUT(req: Request) {
     ),
   })
   if (!photo) return Response.json({ error: "Forbidden" }, { status: 403 })
+
+  const storageConnection = await getGalleryStorageConnection(photo.galleryId)
+  if (storageConnection.provider !== "managed") {
+    return Response.json({ error: "Google Drive uploads must use the verified resumable session" }, { status: 409 })
+  }
 
   const body = await req.arrayBuffer()
   const mimeType = req.headers.get("content-type") || "application/octet-stream"

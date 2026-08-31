@@ -62,18 +62,30 @@ export async function GET(request: NextRequest) {
     const user = await getGoogleDriveUser(tokens.accessToken)
     const label = user.emailAddress ? `Google Drive — ${user.emailAddress}` : "Google Drive"
     const now = new Date()
+    const existingConnection = await db.query.storageConnections.findFirst({
+      where: (connections, { and, eq }) => and(
+        eq(connections.workspaceId, workspace.id),
+        eq(connections.provider, "google_drive"),
+      ),
+    })
+    // Reauthorizing an existing active connection must not move galleries to a
+    // different root folder. Folder changes require an explicit gallery
+    // migration workflow, not another OAuth callback.
+    const retainsFolder = existingConnection?.status === "active" && Boolean(existingConnection.rootReference)
+    const credentialsCiphertext = encryptGoogleDriveCredentials({
+      refreshToken: tokens.refreshToken,
+      accessToken: tokens.accessToken,
+      accessTokenExpiresAt: tokens.expiresAt,
+      email: user.emailAddress,
+    })
     await db.insert(storageConnections).values({
       id: googleDriveConnectionId(workspace.id),
       workspaceId: workspace.id,
       provider: "google_drive",
       label,
-      status: "needs_connection",
-      credentialsCiphertext: encryptGoogleDriveCredentials({
-        refreshToken: tokens.refreshToken,
-        accessToken: tokens.accessToken,
-        accessTokenExpiresAt: tokens.expiresAt,
-        email: user.emailAddress,
-      }),
+      status: retainsFolder ? "active" : "needs_connection",
+      rootReference: retainsFolder ? existingConnection!.rootReference : null,
+      credentialsCiphertext,
       lastCheckedAt: now,
       lastError: null,
       updatedAt: now,
@@ -81,14 +93,9 @@ export async function GET(request: NextRequest) {
       target: [storageConnections.workspaceId, storageConnections.provider],
       set: {
         label,
-        status: "needs_connection",
-        rootReference: null,
-        credentialsCiphertext: encryptGoogleDriveCredentials({
-          refreshToken: tokens.refreshToken,
-          accessToken: tokens.accessToken,
-          accessTokenExpiresAt: tokens.expiresAt,
-          email: user.emailAddress,
-        }),
+        status: retainsFolder ? "active" : "needs_connection",
+        rootReference: retainsFolder ? existingConnection!.rootReference : null,
+        credentialsCiphertext,
         lastCheckedAt: now,
         lastError: null,
         updatedAt: now,

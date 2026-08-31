@@ -5,9 +5,9 @@ import { validatePhoto } from "@/lib/photo-constraints"
 import { s3Keys } from "@/lib/s3-keys"
 import { reserveStorageQuota } from "@/lib/db-guards"
 import { presignUpload } from "@/lib/s3"
-import { cleanupStaleUploadsForUser } from "@/lib/upload-cleanup"
+import { cleanupStaleUploadsForUser, discardUploadPhoto } from "@/lib/upload-cleanup"
 import { requireGalleryWorkspaceAccess } from "@/lib/workspace"
-import { managedStorageConnectionId } from "@/lib/storage-connection"
+import { createGoogleDriveResumableUpload, getGalleryStorageConnection } from "@/lib/media-storage"
 
 export async function POST(req: Request) {
   const session = await auth()
@@ -22,7 +22,10 @@ export async function POST(req: Request) {
   const access = await requireGalleryWorkspaceAccess(galleryId, session.user.id)
   if (!access) return Response.json({ error: "Gallery not found" }, { status: 404 })
   const { gallery, workspace } = access
-  if (gallery.storageConnectionId !== managedStorageConnectionId(gallery.workspaceId)) {
+  let storageConnection
+  try {
+    storageConnection = await getGalleryStorageConnection(gallery.id)
+  } catch {
     return Response.json({ error: "This gallery's storage connection is not ready for uploads" }, { status: 409 })
   }
 
@@ -32,7 +35,9 @@ export async function POST(req: Request) {
 
   const photoId = crypto.randomUUID()
   const ext = filename.split(".").pop()?.toLowerCase() ?? "jpg"
-  const originalKey = s3Keys(photoId).original(ext)
+  const originalKey = storageConnection.provider === "managed"
+    ? s3Keys(photoId).original(ext)
+    : `drive/pending/${photoId}`
 
   const photoSection = section === "final" ? "final" : "proofing"
 
@@ -58,7 +63,25 @@ export async function POST(req: Request) {
     return Response.json({ error: "Storage quota exceeded. Delete unused photos or upgrade storage." }, { status: 413 })
   }
 
-  const url = await presignUpload(originalKey, mimeType)
+  try {
+    if (storageConnection.provider === "managed") {
+      const url = await presignUpload(originalKey, mimeType)
+      return Response.json({ url, photoId, uploadProtocol: "s3" })
+    }
+    if (storageConnection.provider === "google_drive") {
+      const safeFilename = filename.replace(/[\\/\r\n]/g, "_")
+      const url = await createGoogleDriveResumableUpload(
+        storageConnection,
+        `${photoId}-${safeFilename}`,
+        mimeType,
+        fileSize,
+      )
+      return Response.json({ url, photoId, uploadProtocol: "google-drive-resumable" })
+    }
+  } catch {
+    await discardUploadPhoto(photoId, session.user.id, ["pending"])
+    return Response.json({ error: "Storage could not start this upload. Reconnect the storage provider and try again." }, { status: 409 })
+  }
 
-  return Response.json({ url, photoId })
+  return Response.json({ error: "This storage provider is not supported for uploads" }, { status: 409 })
 }

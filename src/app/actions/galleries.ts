@@ -9,8 +9,9 @@ import { redirect } from "next/navigation"
 import { revalidatePath } from "next/cache"
 import { cookies } from "next/headers"
 import { requireAuth } from "@/lib/require-auth"
-import { deleteKey, downloadBuffer, uploadBuffer } from "@/lib/s3"
+import { deleteKey } from "@/lib/s3"
 import { s3Keys } from "@/lib/s3-keys"
+import { deleteMediaObject, downloadMediaBuffer, getGalleryStorageConnection, uploadMediaBuffer } from "@/lib/media-storage"
 import { adjustStorageQuota, requireGalleryOwned, requirePhotoOwned } from "@/lib/db-guards"
 import { ensureActiveWorkspace } from "@/lib/workspace"
 import { getWorkspaceStorageConnection } from "@/lib/storage-connection"
@@ -20,6 +21,68 @@ import sharp from "sharp"
 
 function randomSlug() {
   return crypto.randomUUID().replace(/-/g, "").slice(0, 12)
+}
+
+function generatedMediaName(connectionProvider: "managed" | "google_drive" | "s3", managedKey: string, driveName: string) {
+  return connectionProvider === "managed" ? managedKey : driveName
+}
+
+async function saveFinalRenderedPhoto(
+  photo: typeof photos.$inferSelect,
+  userId: string,
+  serializedRecipe: string,
+  rendered: Awaited<ReturnType<typeof renderEditedPhotoBuffer>>,
+) {
+  const storageConnection = await getGalleryStorageConnection(photo.galleryId)
+  const finalPhotoId = `final-${photo.id}`
+  const managedKeys = s3Keys(finalPhotoId)
+  const suffix = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`
+  const [finalMasterKey, finalDisplayKey, finalThumbKey] = await Promise.all([
+    uploadMediaBuffer(storageConnection, generatedMediaName(storageConnection.provider, managedKeys.finalMaster(), `Frameshare-${finalPhotoId}-${suffix}-master.jpg`), rendered.masterJpeg, "image/jpeg"),
+    uploadMediaBuffer(storageConnection, generatedMediaName(storageConnection.provider, managedKeys.finalDisplay(), `Frameshare-${finalPhotoId}-${suffix}-display.webp`), rendered.displayWebp, "image/webp"),
+    uploadMediaBuffer(storageConnection, generatedMediaName(storageConnection.provider, managedKeys.thumb(), `Frameshare-${finalPhotoId}-${suffix}-thumb.webp`), rendered.thumbWebp, "image/webp"),
+  ])
+
+  const existingFinal = await db.query.photos.findFirst({
+    where: and(eq(photos.sourcePhotoId, photo.id), eq(photos.section, "final")),
+  })
+
+  if (existingFinal) {
+    const replacedKeys = [existingFinal.originalKey, existingFinal.displayKey, existingFinal.thumbKey]
+      .filter((key): key is string => Boolean(key))
+      .filter((key) => ![finalMasterKey, finalDisplayKey, finalThumbKey].includes(key))
+    await db.update(photos).set({
+      originalKey: finalMasterKey,
+      displayKey: finalDisplayKey,
+      thumbKey: finalThumbKey,
+      width: rendered.width,
+      height: rendered.height,
+      fileSizeBytes: rendered.masterJpeg.length,
+      editRecipe: serializedRecipe,
+      status: "ready",
+    }).where(eq(photos.id, existingFinal.id))
+    await Promise.allSettled(replacedKeys.map((key) => deleteMediaObject(storageConnection, key)))
+    return
+  }
+
+  await db.insert(photos).values({
+    id: finalPhotoId,
+    galleryId: photo.galleryId,
+    userId,
+    section: "final",
+    sourcePhotoId: photo.id,
+    originalKey: finalMasterKey,
+    displayKey: finalDisplayKey,
+    thumbKey: finalThumbKey,
+    filename: `final-${photo.filename.replace(/\.[^/.]+$/, "")}.jpg`,
+    mimeType: "image/jpeg",
+    fileSizeBytes: rendered.masterJpeg.length,
+    width: rendered.width,
+    height: rendered.height,
+    editRecipe: serializedRecipe,
+    status: "ready",
+    sortOrder: photo.sortOrder,
+  })
 }
 
 export async function createGallery(formData: FormData) {
@@ -158,25 +221,24 @@ export async function deleteGallery(id: string) {
   // Compute total fileSizeBytes across all photos in the gallery
   const totalBytes = galleryPhotos.reduce((sum, p) => sum + (p.fileSizeBytes || 0), 0)
 
-  // Gather S3 keys to delete
-  const keysToDelete: string[] = []
+  const storageConnection = await getGalleryStorageConnection(gallery.id)
+  const mediaKeys: string[] = []
   if (gallery.logoKey) {
-    keysToDelete.push(gallery.logoKey)
+    await deleteKey(gallery.logoKey).catch(() => undefined)
   }
   for (const p of galleryPhotos) {
-    if (p.originalKey) keysToDelete.push(p.originalKey)
-    if (p.thumbKey) keysToDelete.push(p.thumbKey)
-    if (p.displayKey) keysToDelete.push(p.displayKey)
-    if (p.watermarkedKey) keysToDelete.push(p.watermarkedKey)
+    if (p.originalKey) mediaKeys.push(p.originalKey)
+    if (p.thumbKey) mediaKeys.push(p.thumbKey)
+    if (p.displayKey) mediaKeys.push(p.displayKey)
+    if (p.watermarkedKey) mediaKeys.push(p.watermarkedKey)
   }
 
-  // Delete all S3 keys using deleteKey from @/lib/s3 (with error catching)
   await Promise.allSettled(
-    keysToDelete.map(async (key) => {
+    mediaKeys.map(async (key) => {
       try {
-        await deleteKey(key)
+        await deleteMediaObject(storageConnection, key)
       } catch (err) {
-        console.error(`Failed to delete S3 key ${key}:`, err)
+        console.error(`Failed to delete gallery media ${key}:`, err)
       }
     })
   )
@@ -220,6 +282,7 @@ export async function deletePhoto(photoId: string) {
     columns: { workspaceId: true },
   })
   if (!gallery) return { error: "Gallery not found" }
+  const storageConnection = await getGalleryStorageConnection(photo.galleryId)
 
   const keysToDelete = [
     photo.originalKey,
@@ -231,13 +294,12 @@ export async function deletePhoto(photoId: string) {
   // Delete photo from database
   await db.delete(photos).where(eq(photos.id, photoId))
 
-  // Delete all S3 keys using deleteKey from @/lib/s3 (with error catching)
   await Promise.allSettled(
     keysToDelete.map(async (key) => {
       try {
-        await deleteKey(key)
+        await deleteMediaObject(storageConnection, key)
       } catch (err) {
-        console.error(`Failed to delete S3 key ${key}:`, err)
+        console.error(`Failed to delete photo media ${key}:`, err)
       }
     })
   )
@@ -277,11 +339,12 @@ export async function rotatePhoto(photoId: string, angle: 90 | 180 | 270 = 90) {
   const userId = await requireAuth()
 
   const photo = await requirePhotoOwned(photoId, userId)
+  const storageConnection = await getGalleryStorageConnection(photo.galleryId)
 
   const [thumbBuf, displayBuf, wmBuf] = await Promise.all([
-    photo.thumbKey ? downloadBuffer(photo.thumbKey) : null,
-    photo.displayKey ? downloadBuffer(photo.displayKey) : null,
-    photo.watermarkedKey ? downloadBuffer(photo.watermarkedKey) : null,
+    photo.thumbKey ? downloadMediaBuffer(storageConnection, photo.thumbKey) : null,
+    photo.displayKey ? downloadMediaBuffer(storageConnection, photo.displayKey) : null,
+    photo.watermarkedKey ? downloadMediaBuffer(storageConnection, photo.watermarkedKey) : null,
   ])
 
   const [newThumb, newDisplay, newWm] = await Promise.all([
@@ -290,17 +353,28 @@ export async function rotatePhoto(photoId: string, angle: 90 | 180 | 270 = 90) {
     wmBuf ? sharp(wmBuf).rotate(angle).jpeg({ quality: 88, mozjpeg: true }).toBuffer() : null,
   ])
 
-  await Promise.all([
-    photo.thumbKey && newThumb ? uploadBuffer(photo.thumbKey, newThumb, "image/webp") : null,
-    photo.displayKey && newDisplay ? uploadBuffer(photo.displayKey, newDisplay, "image/webp") : null,
-    photo.watermarkedKey && newWm ? uploadBuffer(photo.watermarkedKey, newWm, "image/jpeg") : null,
+  const suffix = `${Date.now()}-${crypto.randomUUID().slice(0, 8)}`
+  const [thumbKey, displayKey, watermarkedKey] = await Promise.all([
+    photo.thumbKey && newThumb ? uploadMediaBuffer(storageConnection, generatedMediaName(storageConnection.provider, photo.thumbKey, `Frameshare-${photo.id}-${suffix}-thumb.webp`), newThumb, "image/webp") : null,
+    photo.displayKey && newDisplay ? uploadMediaBuffer(storageConnection, generatedMediaName(storageConnection.provider, photo.displayKey, `Frameshare-${photo.id}-${suffix}-display.webp`), newDisplay, "image/webp") : null,
+    photo.watermarkedKey && newWm ? uploadMediaBuffer(storageConnection, generatedMediaName(storageConnection.provider, photo.watermarkedKey, `Frameshare-${photo.id}-${suffix}-watermarked.jpg`), newWm, "image/jpeg") : null,
   ])
+  const replacedKeys = [photo.thumbKey, photo.displayKey, photo.watermarkedKey]
+    .filter((key): key is string => Boolean(key))
+    .filter((key) => ![thumbKey, displayKey, watermarkedKey].includes(key))
+  await Promise.allSettled(replacedKeys.map((key) => deleteMediaObject(storageConnection, key)))
 
   const newW = photo.height ?? photo.width
   const newH = photo.width ?? photo.height
 
   await db.update(photos)
-    .set({ width: newW, height: newH })
+    .set({
+      width: newW,
+      height: newH,
+      ...(thumbKey ? { thumbKey } : {}),
+      ...(displayKey ? { displayKey } : {}),
+      ...(watermarkedKey ? { watermarkedKey } : {}),
+    })
     .where(eq(photos.id, photoId))
 
   revalidatePath(`/dashboard/galleries/${photo.galleryId}`)
@@ -328,60 +402,11 @@ export async function savePhotoEditAction(
   // 2. If saveAsFinal requested, render high-res master and publish to "final" section
   if (saveAsFinal) {
     try {
-      const originalBuffer = await downloadBuffer(photo.originalKey)
+      const storageConnection = await getGalleryStorageConnection(photo.galleryId)
+      const originalBuffer = await downloadMediaBuffer(storageConnection, photo.originalKey)
       if (originalBuffer) {
         const rendered = await renderEditedPhotoBuffer(originalBuffer, photo.filename, recipe)
-
-        const finalPhotoId = `final-${photo.id}`
-        const finalMasterKey = s3Keys(finalPhotoId).finalMaster()
-        const finalDisplayKey = s3Keys(finalPhotoId).finalDisplay()
-        const finalThumbKey = s3Keys(finalPhotoId).thumb()
-
-        await Promise.all([
-          uploadBuffer(finalMasterKey, rendered.masterJpeg, "image/jpeg"),
-          uploadBuffer(finalDisplayKey, rendered.displayWebp, "image/webp"),
-          uploadBuffer(finalThumbKey, rendered.thumbWebp, "image/webp"),
-        ])
-
-        // Upsert final photo record in database
-        const existingFinal = await db.query.photos.findFirst({
-          where: and(eq(photos.sourcePhotoId, photoId), eq(photos.section, "final")),
-        })
-
-        if (existingFinal) {
-          await db
-            .update(photos)
-            .set({
-              originalKey: finalMasterKey,
-              displayKey: finalDisplayKey,
-              thumbKey: finalThumbKey,
-              width: rendered.width,
-              height: rendered.height,
-              fileSizeBytes: rendered.masterJpeg.length,
-              editRecipe: serializedRecipe,
-              status: "ready",
-            })
-            .where(eq(photos.id, existingFinal.id))
-        } else {
-          await db.insert(photos).values({
-            id: finalPhotoId,
-            galleryId: photo.galleryId,
-            userId,
-            section: "final",
-            sourcePhotoId: photoId,
-            originalKey: finalMasterKey,
-            displayKey: finalDisplayKey,
-            thumbKey: finalThumbKey,
-            filename: `final-${photo.filename.replace(/\.[^/.]+$/, "")}.jpg`,
-            mimeType: "image/jpeg",
-            fileSizeBytes: rendered.masterJpeg.length,
-            width: rendered.width,
-            height: rendered.height,
-            editRecipe: serializedRecipe,
-            status: "ready",
-            sortOrder: photo.sortOrder,
-          })
-        }
+        await saveFinalRenderedPhoto(photo, userId, serializedRecipe, rendered)
       }
     } catch (renderErr) {
       console.error("Error rendering final photo:", renderErr)
@@ -422,58 +447,11 @@ export async function batchSavePhotoEditsAction(
 
     if (saveAsFinal) {
       try {
-        const originalBuffer = await downloadBuffer(photo.originalKey)
+        const storageConnection = await getGalleryStorageConnection(photo.galleryId)
+        const originalBuffer = await downloadMediaBuffer(storageConnection, photo.originalKey)
         if (originalBuffer) {
           const rendered = await renderEditedPhotoBuffer(originalBuffer, photo.filename, recipe)
-          const finalPhotoId = `final-${photo.id}`
-          const finalMasterKey = s3Keys(finalPhotoId).finalMaster()
-          const finalDisplayKey = s3Keys(finalPhotoId).finalDisplay()
-          const finalThumbKey = s3Keys(finalPhotoId).thumb()
-
-          await Promise.all([
-            uploadBuffer(finalMasterKey, rendered.masterJpeg, "image/jpeg"),
-            uploadBuffer(finalDisplayKey, rendered.displayWebp, "image/webp"),
-            uploadBuffer(finalThumbKey, rendered.thumbWebp, "image/webp"),
-          ])
-
-          const existingFinal = await db.query.photos.findFirst({
-            where: and(eq(photos.sourcePhotoId, photoId), eq(photos.section, "final")),
-          })
-
-          if (existingFinal) {
-            await db
-              .update(photos)
-              .set({
-                originalKey: finalMasterKey,
-                displayKey: finalDisplayKey,
-                thumbKey: finalThumbKey,
-                width: rendered.width,
-                height: rendered.height,
-                fileSizeBytes: rendered.masterJpeg.length,
-                editRecipe: serializedRecipe,
-                status: "ready",
-              })
-              .where(eq(photos.id, existingFinal.id))
-          } else {
-            await db.insert(photos).values({
-              id: finalPhotoId,
-              galleryId: photo.galleryId,
-              userId,
-              section: "final",
-              sourcePhotoId: photoId,
-              originalKey: finalMasterKey,
-              displayKey: finalDisplayKey,
-              thumbKey: finalThumbKey,
-              filename: `final-${photo.filename.replace(/\.[^/.]+$/, "")}.jpg`,
-              mimeType: "image/jpeg",
-              fileSizeBytes: rendered.masterJpeg.length,
-              width: rendered.width,
-              height: rendered.height,
-              editRecipe: serializedRecipe,
-              status: "ready",
-              sortOrder: photo.sortOrder,
-            })
-          }
+          await saveFinalRenderedPhoto(photo, userId, serializedRecipe, rendered)
         }
       } catch (err) {
         console.error(`Batch render failed for photo ${photoId}:`, err)
