@@ -29,7 +29,9 @@ export async function POST(request: Request) {
       updatedAt: new Date(),
     }).where(eq(storageConnections.id, googleDriveConnectionId(workspace.id)))
     return Response.json({ folder })
-  } catch {
-    return Response.json({ error: "Frameshare could not verify that folder. Reconnect Drive or choose another folder." }, { status: 409 })
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Frameshare could not verify that folder. Reconnect Drive or choose another folder."
+    console.error("Google Drive folder verification failed", error)
+    return Response.json({ error: message }, { status: 409 })
   }
 }
