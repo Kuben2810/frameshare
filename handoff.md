@@ -25,7 +25,7 @@ R2 bucket. The production health endpoint is live at
   entitlement (250 GiB) and an active private Frameshare-managed connection;
   every existing gallery now has an explicit connection assignment.
 - This branch has passed `npx tsc --noEmit`, `npx drizzle-kit check`, and the
-  Vercel-mode production build. It is pushed at `0a165e3` and has a healthy
+  Vercel-mode production build. It is pushed at `aa9daa7` and has a healthy
   Vercel preview at
   `https://frameshare-git-feature-storage-7a509d-kuben2810-8156s-projects.vercel.app`.
   It has not been merged or deployed to production.
@@ -36,8 +36,26 @@ R2 bucket. The production health endpoint is live at
   A verified Drive connection can be the default for future galleries only;
   existing gallery assignments remain immutable. Drive cannot be disconnected
   while a gallery uses it.
-- Google Drive OAuth, Picker, and encryption secrets are not configured in the
-  preview yet, so the live Drive connection flow remains safely unavailable.
+- Google Drive is configured for this branch's Preview environment only. The
+  isolated Google Cloud project is `frameshare-storage`; Google Drive API and
+  Google Picker API are enabled. Its External OAuth app remains in Testing,
+  with `kuben2810@gmail.com` as the sole test user. The web OAuth client,
+  authorised origin, and redirect callback are restricted to the feature
+  preview alias above.
+- Preview-only Vercel variables now include the Drive OAuth client settings,
+  encrypted-credential and OAuth-state keys, and the Picker browser key. The
+  Picker key is restricted to Google Picker API and that preview host. No
+  production Vercel environment variable, production deployment, or Neon
+  production branch was changed.
+- Deployment `dpl_6Lk8L26MV7PDTqmoXbp5iNydZ7re` is READY and is the latest
+  redeployment of the feature-preview alias. Vercel deployment protection
+  prevents unauthenticated external access, so the final interactive OAuth
+  round trip still needs a Vercel-authorised browser session. Keep preview
+  protection enabled; do not make the preview public only for this test.
+- Before a production rollout, create separate production OAuth and Picker
+  credentials, add the real production domain and public legal links to the
+  Google consent screen, decide whether to publish/verify the OAuth app, and
+  add the `drive.file` scope through Google Auth Platform's Data Access page.
 
 ## Deployment notes
 
