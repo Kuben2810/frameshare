@@ -46,15 +46,19 @@ to it, preventing an orphaned gallery.
 
 5. Create a browser API key for Google Picker. Restrict it to the Frameshare
    web origins and to the Google Picker API.
-6. Generate a dedicated encryption key with `openssl rand -base64 32`. Keep it
+6. Copy the Google Cloud **project number** into
+   `NEXT_PUBLIC_GOOGLE_DRIVE_APP_ID`. This is a public Picker app identifier,
+   not an OAuth secret, and is required for `drive.file` folder selection.
+7. Generate a dedicated encryption key with `openssl rand -base64 32`. Keep it
    in the hosting platform's secret store, never in source control.
-7. Set the following in local and Vercel environments:
+8. Set the following in local and Vercel environments:
 
    ```dotenv
    GOOGLE_DRIVE_OAUTH_CLIENT_ID=
    GOOGLE_DRIVE_OAUTH_CLIENT_SECRET=
    GOOGLE_DRIVE_OAUTH_REDIRECT_URI=https://<production-domain>/api/storage/google-drive/callback
    NEXT_PUBLIC_GOOGLE_DRIVE_PICKER_API_KEY=
+   NEXT_PUBLIC_GOOGLE_DRIVE_APP_ID=<google-cloud-project-number>
    STORAGE_CREDENTIALS_KEY=
    STORAGE_OAUTH_STATE_SECRET=
    ```

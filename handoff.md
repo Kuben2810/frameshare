@@ -6,7 +6,7 @@ Frameshare is deployed on Vercel with Neon Postgres and a private Cloudflare
 R2 bucket. The production health endpoint is live at
 `https://frameshare-three.vercel.app/api/health` and returns `{"ok":true}`.
 
-- `master` and `dev` are intentionally identical at commit `95633f5`.
+- `master` and `dev` are intentionally identical at commit `24ecb21`.
 - Production and preview Vercel deployments are ready.
 - Both the production and `development` Neon branches have the Phase 1A
   workspace migration (`0005`) applied. Backfill verification found 2
@@ -25,8 +25,8 @@ R2 bucket. The production health endpoint is live at
   entitlement (250 GiB) and an active private Frameshare-managed connection;
   every existing gallery now has an explicit connection assignment.
 - This branch has passed `npx tsc --noEmit`, `npx drizzle-kit check`, and the
-  Vercel-mode production build. It is pushed at `aa9daa7` and has a healthy
-  Vercel preview at
+  Vercel-mode production build. The current Drive-picker fixes are pushed at
+  `7dcff4b` and have a healthy Vercel preview at
   `https://frameshare-git-feature-storage-7a509d-kuben2810-8156s-projects.vercel.app`.
   It has not been merged or deployed to production.
 - The same branch now contains an unmerged Google Drive storage slice:
@@ -39,19 +39,24 @@ R2 bucket. The production health endpoint is live at
 - Google Drive is configured for this branch's Preview environment only. The
   isolated Google Cloud project is `frameshare-storage`; Google Drive API and
   Google Picker API are enabled. Its External OAuth app remains in Testing,
-  with `kuben2810@gmail.com` as the sole test user. The web OAuth client,
-  authorised origin, and redirect callback are restricted to the feature
-  preview alias above.
+  and its test-user list, web OAuth client, authorised origin, and redirect
+  callback are restricted to the feature preview alias above.
 - Preview-only Vercel variables now include the Drive OAuth client settings,
   encrypted-credential and OAuth-state keys, and the Picker browser key. The
-  Picker key is restricted to Google Picker API and that preview host. No
-  production Vercel environment variable, production deployment, or Neon
-  production branch was changed.
-- Deployment `dpl_6Lk8L26MV7PDTqmoXbp5iNydZ7re` is READY and is the latest
-  redeployment of the feature-preview alias. Vercel deployment protection
-  prevents unauthenticated external access, so the final interactive OAuth
-  round trip still needs a Vercel-authorised browser session. Keep preview
-  protection enabled; do not make the preview public only for this test.
+  Picker key is restricted to Google Picker API and that preview host. It also
+  has `NEXT_PUBLIC_GOOGLE_DRIVE_APP_ID`, set to the Google Cloud project
+  number; this is required by Google Picker when using the narrow `drive.file`
+  scope. No production Vercel environment variable, production deployment, or
+  Neon production branch was changed.
+- Deployment `dpl_J4iN1nbPcBUXnxUrYk6pmDMEkGBf` is READY and backs the feature
+  preview alias. Vercel deployment protection remains enabled.
+- The feature preview now uses the Neon `development` branch rather than the
+  production branch. A dedicated empty Drive test folder was created and
+  selected through Google Picker. After reauthorising, the folder verification
+  and `Use Drive for New Galleries` action both succeeded. The test workspace
+  now defaults only *future* galleries to Drive; its existing gallery remains
+  on Frameshare-managed storage. No gallery media was uploaded during this
+  browser test.
 - Before a production rollout, create separate production OAuth and Picker
   credentials, add the real production domain and public legal links to the
   Google consent screen, decide whether to publish/verify the OAuth app, and
@@ -128,6 +133,9 @@ R2 bucket. The production health endpoint is live at
   existing public gallery returned HTTP 200 after release.
 - The full `npm run lint` remains noisy with pre-existing unrelated findings;
   it was not used as the acceptance gate for the hardening pass.
+- On the current Drive slice, `npm run build` passed after the Picker identity
+  change. The deployed preview was tested through OAuth, folder selection,
+  server-side folder verification, and persisted default-provider selection.
 
 ## Product brief - recommended direction
 
@@ -301,12 +309,19 @@ new gallery without weakening existing access control.
 
 ## Next implementation slice
 
-Configure and deploy the separate Google OAuth client/consent screen,
-Google Picker API key, exact callback URLs, and storage credential encryption
-keys documented in [`docs/google-drive-byo-storage.md`](docs/google-drive-byo-storage.md).
-After that, build the Drive media adapter before allowing a workspace to assign
-new galleries to Drive. This must cover resumable upload, processing,
-private delivery, download, deletion, quota reconciliation, and durable jobs.
+The Google Drive connection, Picker folder binding, and future-gallery default
+are verified in Preview. Before a production rollout, create separate
+production OAuth/Picker credentials, configure the production callback and
+`NEXT_PUBLIC_GOOGLE_DRIVE_APP_ID`, add public legal links, and decide whether
+to publish/verify the OAuth app. The generic Google sign-in OAuth callback is
+separate from this storage OAuth flow and still needs its own production
+configuration.
+
+The next functional test is a controlled, disposable image upload into a new
+preview gallery with Drive selected. Verify resumable original upload,
+processing/variants, private viewing and download, deletion, quota
+reconciliation, and durable-job failure recovery before treating Drive as
+production ready.
 
 The supporting workspace/onboarding specification remains in
 [`docs/phase-1-workspace-onboarding.md`](docs/phase-1-workspace-onboarding.md).
