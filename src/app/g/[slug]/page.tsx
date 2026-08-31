@@ -1,5 +1,5 @@
 import { db } from "@/db"
-import { galleries, photos, stars, comments } from "@/db/schema"
+import { galleries, photos, stars, comments, workspaces } from "@/db/schema"
 import { eq, and, asc, inArray, or } from "drizzle-orm"
 import { notFound } from "next/navigation"
 import { cookies } from "next/headers"
@@ -7,6 +7,7 @@ import { auth } from "@/auth"
 import { GalleryView } from "@/components/gallery-view"
 import { PasswordGate } from "@/components/password-gate"
 import { toPublicGallery, toPublicPhoto } from "@/lib/public-gallery"
+import { requireGalleryWorkspaceAccess } from "@/lib/workspace"
 
 export default async function GallerySharePage({
   params,
@@ -27,7 +28,11 @@ export default async function GallerySharePage({
   if (!gallery) notFound()
 
   const session = await auth()
-  const isOwner = !!(session?.user?.id && session.user.id === gallery.userId)
+  const isOwner = !!(session?.user?.id && await requireGalleryWorkspaceAccess(gallery.id, session.user.id))
+  const workspace = await db.query.workspaces.findFirst({
+    where: eq(workspaces.id, gallery.workspaceId),
+    columns: { logoKey: true, accentColor: true },
+  })
 
   // Check expiry
   if (gallery.expiresAt && new Date(gallery.expiresAt) < new Date()) {
@@ -75,7 +80,11 @@ export default async function GallerySharePage({
 
   return (
     <GalleryView
-      gallery={toPublicGallery(gallery)}
+      gallery={toPublicGallery({
+        ...gallery,
+        logoKey: gallery.logoKey ?? workspace?.logoKey ?? null,
+        accentColor: gallery.accentColor ?? workspace?.accentColor ?? null,
+      })}
       photos={galleryPhotos.map(toPublicPhoto)}
       initialStars={galleryStars}
       initialComments={allComments}

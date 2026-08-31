@@ -1,23 +1,18 @@
 import { auth } from "@/auth"
-import { db } from "@/db"
-import { galleries } from "@/db/schema"
-import { eq, and } from "drizzle-orm"
-import { notFound, redirect } from "next/navigation"
+import { redirect } from "next/navigation"
 import { updateGallery, deleteGallery } from "@/app/actions/galleries"
 import { ArrowLeft, Trash2, SlidersHorizontal, Lock, Calendar, Download } from "lucide-react"
 import Link from "next/link"
 import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { requireGalleryOwned } from "@/lib/db-guards"
 
 export default async function GallerySettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await auth()
   if (!session?.user?.id) redirect("/login")
 
-  const gallery = await db.query.galleries.findFirst({
-    where: and(eq(galleries.id, id), eq(galleries.userId, session.user.id)),
-  })
-  if (!gallery) notFound()
+  const gallery = await requireGalleryOwned(id, session.user.id)
 
   const updateAction = updateGallery.bind(null, id) as unknown as (fd: FormData) => Promise<void>
   const deleteAction = deleteGallery.bind(null, id) as unknown as () => Promise<void>

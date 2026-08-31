@@ -1,12 +1,13 @@
 import { auth } from "@/auth"
 import { db } from "@/db"
 import { photos, galleries } from "@/db/schema"
-import { eq, and } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { validatePhoto } from "@/lib/photo-constraints"
 import { s3Keys } from "@/lib/s3-keys"
 import { reserveStorageQuota } from "@/lib/db-guards"
 import { presignUpload } from "@/lib/s3"
 import { cleanupStaleUploadsForUser } from "@/lib/upload-cleanup"
+import { requireGalleryWorkspaceAccess } from "@/lib/workspace"
 
 const STORAGE_LIMIT = Number(process.env.STORAGE_LIMIT_BYTES) || 10_737_418_240
 
@@ -20,10 +21,9 @@ export async function POST(req: Request) {
   if (!v.ok) return Response.json({ error: v.error }, { status: 400 })
 
   // Verify gallery ownership
-  const gallery = await db.query.galleries.findFirst({
-    where: and(eq(galleries.id, galleryId), eq(galleries.userId, session.user.id)),
-  })
-  if (!gallery) return Response.json({ error: "Gallery not found" }, { status: 404 })
+  const access = await requireGalleryWorkspaceAccess(galleryId, session.user.id)
+  if (!access) return Response.json({ error: "Gallery not found" }, { status: 404 })
+  const { gallery } = access
 
   // Reclaim abandoned reservations before making a new one. Errors remain
   // retryable for 24 hours before this best-effort cleanup runs.
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
   // Reserve quota and insert pending photo atomically. The reservation is a
   // conditional database update, so concurrent sign requests cannot exceed it.
   const reserved = await db.transaction(async (tx) => {
-    const hasCapacity = await reserveStorageQuota(session.user!.id!, fileSize, STORAGE_LIMIT, tx)
+    const hasCapacity = await reserveStorageQuota(gallery.workspaceId, fileSize, STORAGE_LIMIT, tx)
     if (!hasCapacity) return false
     await tx.insert(photos).values({
       id: photoId,

@@ -13,12 +13,14 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle"
 import { FrameshareLogo } from "@/components/frameshare-logo"
 import { Images, Settings, LogOut, ExternalLink, Sparkles } from "lucide-react"
+import { ensureActiveWorkspace } from "@/lib/workspace"
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
-  if (!session?.user) redirect("/login")
+  if (!session?.user?.id) redirect("/login")
+  const { workspace } = await ensureActiveWorkspace(session.user.id)
 
-  const initials = session.user.name
+  const initials = workspace.name
     ?.split(" ")
     .map((n) => n[0])
     .join("")
@@ -68,7 +70,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <DropdownMenu>
               <DropdownMenuTrigger className="rounded-full outline-none focus:ring-2 focus:ring-primary/40 transition-all ml-1">
                 <Avatar className="h-8 w-8 cursor-pointer ring-1 ring-border/80 hover:ring-primary/50 transition-all">
-                  {session.user.image && <AvatarImage src={session.user.image} alt={session.user.name ?? ""} />}
+                  {session.user.image && <AvatarImage src={session.user.image} alt={workspace.name} />}
                   <AvatarFallback className="text-xs bg-primary text-primary-foreground font-semibold">
                     {initials}
                   </AvatarFallback>
@@ -77,7 +79,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
               <DropdownMenuContent align="end" className="w-56 p-1.5 rounded-xl shadow-xl border-border/80">
                 <DropdownMenuLabel className="font-normal px-2 py-1.5">
                   <div className="flex flex-col space-y-0.5">
-                    <p className="text-sm font-semibold text-foreground truncate">{session.user.name}</p>
+                    <p className="text-sm font-semibold text-foreground truncate">{workspace.name}</p>
                     <p className="text-xs text-muted-foreground truncate">{session.user.email}</p>
                   </div>
                 </DropdownMenuLabel>

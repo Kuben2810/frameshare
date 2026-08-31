@@ -1,6 +1,6 @@
 import { auth } from "@/auth"
 import { db } from "@/db"
-import { photos } from "@/db/schema"
+import { galleries, photos } from "@/db/schema"
 import { and, eq, inArray } from "drizzle-orm"
 import { processPhoto } from "@/lib/process-photo"
 import { MAX_SIZE_BYTES } from "@/lib/photo-constraints"
@@ -31,6 +31,15 @@ export async function POST(req: Request) {
     .returning()
   if (!photo) return Response.json({ error: "Already processing or processed" }, { status: 409 })
 
+  const gallery = await db.query.galleries.findFirst({
+    where: eq(galleries.id, photo.galleryId),
+    columns: { workspaceId: true },
+  })
+  if (!gallery) {
+    await discardUploadPhoto(photo.id, photo.userId, ["processing"])
+    return Response.json({ error: "Gallery not found" }, { status: 404 })
+  }
+
   let actualSize: number
   try {
     actualSize = await getObjectSize(photo.originalKey)
@@ -46,7 +55,7 @@ export async function POST(req: Request) {
 
   const reconciled = await db.transaction(async (tx) => {
     const hasCapacity = await reconcileStorageReservation(
-      photo.userId,
+      gallery.workspaceId,
       photo.fileSizeBytes,
       actualSize,
       STORAGE_LIMIT,

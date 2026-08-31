@@ -23,6 +23,29 @@ export const users = pgTable("users", {
   createdAt:        timestamp("created_at").defaultNow().notNull(),
 })
 
+export const workspaces = pgTable("workspaces", {
+  id:                   text("id").primaryKey(),
+  name:                 text("name").notNull(),
+  slug:                 text("slug").notNull().unique(),
+  logoKey:              text("logo_key"),
+  accentColor:          text("accent_color"),
+  storageProvider:      text("storage_provider", { enum: ["managed"] }).notNull().default("managed"),
+  storageUsedBytes:     bigint("storage_used_bytes", { mode: "number" }).notNull().default(0),
+  onboardingCompletedAt: timestamp("onboarding_completed_at", { mode: "date" }),
+  createdAt:            timestamp("created_at").defaultNow().notNull(),
+  updatedAt:            timestamp("updated_at").defaultNow().notNull(),
+})
+
+export const workspaceMembers = pgTable("workspace_members", {
+  workspaceId: text("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  userId:      text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  role:        text("role", { enum: ["owner", "editor", "viewer"] }).notNull().default("owner"),
+  createdAt:   timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  primaryKey({ columns: [t.workspaceId, t.userId] }),
+  index("workspace_members_user_workspace_idx").on(t.userId, t.workspaceId),
+])
+
 export const accounts = pgTable("accounts", {
   userId:            text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
   type:              text("type").notNull(),
@@ -52,6 +75,7 @@ export const verificationTokens = pgTable("verification_tokens", {
 export const galleries = pgTable("galleries", {
   id:            text("id").primaryKey(),
   userId:        text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  workspaceId:   text("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
   name:          text("name").notNull(),
   slug:          text("slug").notNull().unique(),
   passwordHash:  text("password_hash"),
@@ -62,7 +86,7 @@ export const galleries = pgTable("galleries", {
   logoKey:       text("logo_key"),
   accentColor:   text("accent_color"),
   createdAt:     timestamp("created_at").defaultNow().notNull(),
-})
+}, (t) => [index("galleries_workspace_created_idx").on(t.workspaceId, t.createdAt)])
 
 export const photos = pgTable("photos", {
   id:             text("id").primaryKey(),

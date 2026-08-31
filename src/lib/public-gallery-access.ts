@@ -3,6 +3,7 @@ import { db } from "@/db"
 import { galleries } from "@/db/schema"
 import { eq, or } from "drizzle-orm"
 import { cookies } from "next/headers"
+import { requireGalleryWorkspaceAccess } from "@/lib/workspace"
 
 type AccessResult =
   | { gallery: NonNullable<Awaited<ReturnType<typeof db.query.galleries.findFirst>>>; isOwner: boolean }
@@ -26,7 +27,7 @@ export async function authorizePublicGallery(slug: string): Promise<AccessResult
   if (!gallery) return { response: Response.json({ error: "Not found" }, { status: 404 }) }
 
   const session = await auth()
-  const isOwner = session?.user?.id === gallery.userId
+  const isOwner = !!(session?.user?.id && await requireGalleryWorkspaceAccess(gallery.id, session.user.id))
   if (isOwner) return { gallery, isOwner }
 
   if (gallery.expiresAt && gallery.expiresAt < new Date()) {

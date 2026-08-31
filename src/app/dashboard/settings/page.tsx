@@ -1,9 +1,7 @@
 import { auth } from "@/auth"
-import { db } from "@/db"
-import { users, photos } from "@/db/schema"
-import { eq, and } from "drizzle-orm"
 import { redirect } from "next/navigation"
 import { updateAccount, uploadAccountLogo } from "@/app/actions/account"
+import { ensureActiveWorkspace } from "@/lib/workspace"
 import { ArrowLeft, User, Palette, Image as ImageIcon, HardDrive, Check, Upload, Sparkles } from "lucide-react"
 import Link from "next/link"
 import { buttonVariants } from "@/components/ui/button"
@@ -13,19 +11,11 @@ export default async function SettingsPage() {
   const session = await auth()
   if (!session?.user?.id) redirect("/login")
 
-  const [user, userPhotos] = await Promise.all([
-    db.query.users.findFirst({ where: eq(users.id, session.user.id) }),
-    db.query.photos.findMany({
-      where: and(eq(photos.userId, session.user.id), eq(photos.status, "ready")),
-      columns: { fileSizeBytes: true },
-    }),
-  ])
-  if (!user) redirect("/login")
+  const { workspace } = await ensureActiveWorkspace(session.user.id)
 
-  const readyBytes = userPhotos.reduce((sum, p) => sum + (p.fileSizeBytes || 0), 0)
-  const storageUsedMB = (readyBytes / (1024 * 1024)).toFixed(1)
+  const storageUsedMB = (workspace.storageUsedBytes / (1024 * 1024)).toFixed(1)
   const storageLimitGB = (Number(process.env.STORAGE_LIMIT_BYTES ?? 10_737_418_240) / (1024 * 1024 * 1024)).toFixed(0)
-  const usagePct = Math.min(100, Math.round((readyBytes / Number(process.env.STORAGE_LIMIT_BYTES ?? 10_737_418_240)) * 100))
+  const usagePct = Math.min(100, Math.round((workspace.storageUsedBytes / Number(process.env.STORAGE_LIMIT_BYTES ?? 10_737_418_240)) * 100))
 
   return (
     <div className="h-full overflow-y-auto w-full">
@@ -67,7 +57,7 @@ export default async function SettingsPage() {
                 <input
                   id="name"
                   name="name"
-                  defaultValue={user.name ?? ""}
+                  defaultValue={workspace.name}
                   required
                   placeholder="e.g. Elena Vance Photography"
                   className="w-full px-4 py-2.5 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 font-medium"
@@ -80,7 +70,7 @@ export default async function SettingsPage() {
               <div className="space-y-2 pt-2 border-t border-border/50">
                 <label htmlFor="accentColor" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center justify-between">
                   <span>Gallery Accent Color</span>
-                  <span className="text-muted-foreground font-mono text-[11px]">{user.accentColor ?? "#000000"}</span>
+                  <span className="text-muted-foreground font-mono text-[11px]">{workspace.accentColor ?? "#000000"}</span>
                 </label>
 
                 <div className="flex items-center gap-3">
@@ -88,7 +78,7 @@ export default async function SettingsPage() {
                     id="accentColor"
                     name="accentColor"
                     type="color"
-                    defaultValue={user.accentColor ?? "#000000"}
+                    defaultValue={workspace.accentColor ?? "#000000"}
                     className="h-10 w-16 cursor-pointer rounded-xl border border-border bg-background p-1 shadow-xs"
                   />
                   <span className="text-xs text-muted-foreground">
@@ -115,11 +105,11 @@ export default async function SettingsPage() {
               <h3 className="text-base font-bold text-foreground font-oswald uppercase tracking-wide">Studio Brand Logo</h3>
             </div>
 
-            {user.logoKey && (
+            {workspace.logoKey && (
               <div className="flex items-center gap-4 p-4 rounded-xl bg-muted/30 border border-border/40">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={`/api/s3/${user.logoKey}`}
+                  src={`/api/s3/${workspace.logoKey}`}
                   alt="Logo"
                   className="h-12 w-auto max-w-[140px] object-contain rounded-lg bg-black/20 p-2 border border-white/10"
                 />

@@ -1,5 +1,5 @@
 import { db } from "@/db"
-import { photos, users } from "@/db/schema"
+import { galleries, photos, workspaces } from "@/db/schema"
 import { eq } from "drizzle-orm"
 import { uploadBuffer, downloadBuffer } from "@/lib/s3"
 import { s3Keys } from "@/lib/s3-keys"
@@ -72,8 +72,10 @@ export async function processPhoto(photoId: string): Promise<void> {
   const photo = await db.query.photos.findFirst({ where: eq(photos.id, photoId) })
   if (!photo) throw new Error(`Photo ${photoId} not found`)
 
-  const user = await db.query.users.findFirst({ where: eq(users.id, photo.userId) })
-  const photographerName = user?.name ?? "Frameshare"
+  const gallery = await db.query.galleries.findFirst({ where: eq(galleries.id, photo.galleryId) })
+  if (!gallery) throw new Error(`Gallery for photo ${photoId} not found`)
+  const workspace = await db.query.workspaces.findFirst({ where: eq(workspaces.id, gallery.workspaceId) })
+  const photographerName = workspace?.name ?? "Frameshare"
 
   const rawOriginal = await downloadBuffer(photo.originalKey)
   // Convert or extract decodable image buffer for RAW (CR2, NEF, ARW, DNG) or standard images
@@ -170,7 +172,7 @@ export async function processPhoto(photoId: string): Promise<void> {
 
   const variantBytes = thumb.length + display.length + watermarked.length
   await db.transaction(async (tx) => {
-    await adjustStorageQuota(photo.userId, variantBytes, tx)
+    await adjustStorageQuota(gallery.workspaceId, variantBytes, tx)
     await tx.update(photos)
       .set({
         thumbKey,

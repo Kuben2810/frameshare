@@ -36,6 +36,13 @@
       "when": 1788087709457,
       "tag": "0004_lush_daimon_hellstrom",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1788160545511,
+      "tag": "0005_black_dragon_lord",
+      "breakpoints": true
     }
   ]
 }

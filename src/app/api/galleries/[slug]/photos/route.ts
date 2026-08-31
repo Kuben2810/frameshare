@@ -4,6 +4,7 @@ import { eq, and, asc, or } from "drizzle-orm"
 import { cookies } from "next/headers"
 import { auth } from "@/auth"
 import { toPublicPhoto } from "@/lib/public-gallery"
+import { requireGalleryWorkspaceAccess } from "@/lib/workspace"
 
 const LIMIT = 60
 
@@ -19,7 +20,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   if (!gallery) return Response.json({ error: "Not found" }, { status: 404 })
 
   const session = await auth()
-  const isOwner = !!(session?.user?.id && session.user.id === gallery.userId)
+  const isOwner = !!(session?.user?.id && await requireGalleryWorkspaceAccess(gallery.id, session.user.id))
 
   if (gallery.expiresAt && new Date(gallery.expiresAt) < new Date() && !isOwner) {
     return Response.json({ error: "Expired" }, { status: 403 })

@@ -8,6 +8,7 @@ import archiver from "archiver"
 import { PassThrough, Readable } from "stream"
 import { s3, BUCKET } from "@/lib/s3"
 import { GetObjectCommand } from "@aws-sdk/client-s3"
+import { requireGalleryWorkspaceAccess } from "@/lib/workspace"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -27,7 +28,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   if (!gallery) return new Response("Gallery not found", { status: 404 })
 
   const session = await auth()
-  const isOwner = !!(session?.user?.id && session.user.id === gallery.userId)
+  const isOwner = !!(session?.user?.id && await requireGalleryWorkspaceAccess(gallery.id, session.user.id))
 
   // Check expiry
   if (gallery.expiresAt && new Date(gallery.expiresAt) < new Date() && !isOwner) {

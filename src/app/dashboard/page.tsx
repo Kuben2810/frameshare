@@ -1,41 +1,39 @@
 import { auth } from "@/auth"
 import { db } from "@/db"
-import { galleries, photos, selections, users, stars } from "@/db/schema"
+import { galleries, photos, selections, stars, workspaces } from "@/db/schema"
 import { eq, and, asc, desc } from "drizzle-orm"
 import { redirect } from "next/navigation"
 import { DashboardClientView, DashboardGallery } from "@/components/dashboard-client-view"
 import { getBaseUrl } from "@/lib/utils"
+import { ensureActiveWorkspace } from "@/lib/workspace"
 
 export default async function DashboardPage() {
   const session = await auth()
   if (!session?.user?.id) redirect("/login")
 
+  const { workspace } = await ensureActiveWorkspace(session.user.id)
+  if (!workspace.onboardingCompletedAt) redirect("/onboarding")
 
-  const [user, userGalleries] = await Promise.all([
-    db.query.users.findFirst({ where: eq(users.id, session.user.id) }),
-    db.query.galleries.findMany({
-      where: eq(galleries.userId, session.user.id),
-      orderBy: [desc(galleries.createdAt)],
-      with: {
-        photos: {
-          where: eq(photos.status, "ready"),
-          orderBy: [asc(photos.sortOrder), asc(photos.createdAt)],
-          columns: { thumbKey: true },
-          limit: 4,
-        },
-        selections: {
-          columns: { id: true },
-          with: {
-            selectionPhotos: {
-              columns: { photoId: true },
-            },
+  const userGalleries = await db.query.galleries.findMany({
+    where: eq(galleries.workspaceId, workspace.id),
+    orderBy: [desc(galleries.createdAt)],
+    with: {
+      photos: {
+        where: eq(photos.status, "ready"),
+        orderBy: [asc(photos.sortOrder), asc(photos.createdAt)],
+        columns: { thumbKey: true },
+        limit: 4,
+      },
+      selections: {
+        columns: { id: true },
+        with: {
+          selectionPhotos: {
+            columns: { photoId: true },
           },
         },
       },
-    }),
-  ])
-
-  if (!user) redirect("/login")
+    },
+  })
 
   const [totalPhotosPerGallery, starsPerGallery, storagePhotos] = await Promise.all([
     Promise.all(
@@ -54,10 +52,11 @@ export default async function DashboardPage() {
         })
       )
     ),
-    db.query.photos.findMany({
-      where: eq(photos.userId, session.user.id),
-      columns: { fileSizeBytes: true },
-    }),
+    db
+      .select({ fileSizeBytes: photos.fileSizeBytes })
+      .from(photos)
+      .innerJoin(galleries, eq(photos.galleryId, galleries.id))
+      .where(eq(galleries.workspaceId, workspace.id)),
   ])
 
   // Pending/error rows retain a reservation until they are retried or stale
@@ -67,8 +66,8 @@ export default async function DashboardPage() {
     0,
   )
 
-  if (user.storageUsedBytes !== storedPhotosTotalBytes) {
-    await db.update(users).set({ storageUsedBytes: storedPhotosTotalBytes }).where(eq(users.id, user.id))
+  if (workspace.storageUsedBytes !== storedPhotosTotalBytes) {
+    await db.update(workspaces).set({ storageUsedBytes: storedPhotosTotalBytes, updatedAt: new Date() }).where(eq(workspaces.id, workspace.id))
   }
 
   const dashboardGalleries: DashboardGallery[] = userGalleries.map((g, index) => {
@@ -104,7 +103,7 @@ export default async function DashboardPage() {
 
   return (
     <DashboardClientView
-      userName={user?.name ?? session.user.name ?? "Photographer"}
+      userName={workspace.name}
       galleries={dashboardGalleries}
       storageUsedBytes={storageUsedBytes}
       storageLimitBytes={storageLimitBytes}

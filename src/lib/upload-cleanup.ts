@@ -1,7 +1,7 @@
 import type { InferSelectModel } from "drizzle-orm"
 import { and, eq, inArray, lt } from "drizzle-orm"
 import { db } from "@/db"
-import { photos } from "@/db/schema"
+import { galleries, photos } from "@/db/schema"
 import { adjustStorageQuota } from "@/lib/db-guards"
 import { deleteKey } from "@/lib/s3"
 import { s3Keys } from "@/lib/s3-keys"
@@ -45,6 +45,12 @@ export async function discardUploadPhoto(
     .returning()
   if (!photo) return false
 
+  const gallery = await db.query.galleries.findFirst({
+    where: eq(galleries.id, photo.galleryId),
+    columns: { workspaceId: true },
+  })
+  if (!gallery) return false
+
   const deletions = await Promise.allSettled(uploadKeys(photo).map((key) => deleteKey(key)))
   if (deletions.some((result) => result.status === "rejected")) return false
 
@@ -53,7 +59,7 @@ export async function discardUploadPhoto(
       .delete(photos)
       .where(and(eq(photos.id, photo.id), eq(photos.status, "cleaning")))
       .returning({ id: photos.id })
-    if (deleted) await adjustStorageQuota(photo.userId, -photo.fileSizeBytes, tx)
+    if (deleted) await adjustStorageQuota(gallery.workspaceId, -photo.fileSizeBytes, tx)
   })
   return true
 }

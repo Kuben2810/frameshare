@@ -5,6 +5,7 @@ import { photos, galleries } from "@/db/schema"
 import { eq, or } from "drizzle-orm"
 import { auth } from "@/auth"
 import { cookies } from "next/headers"
+import { requireGalleryWorkspaceAccess } from "@/lib/workspace"
 
 export async function GET(_req: Request, { params }: { params: Promise<{ key: string[] }> }) {
   const { key } = await params
@@ -43,7 +44,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ key: st
     }
 
     const session = await auth()
-    const isOwner = !!(session?.user?.id && session.user.id === gallery.userId)
+    const isOwner = !!(session?.user?.id && await requireGalleryWorkspaceAccess(gallery.id, session.user.id))
 
     // Check expiry
     const isExpired = gallery.expiresAt && new Date(gallery.expiresAt) < new Date()

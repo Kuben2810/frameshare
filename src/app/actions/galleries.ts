@@ -1,7 +1,7 @@
 "use server"
 
 import { db } from "@/db"
-import { galleries, photos } from "@/db/schema"
+import { galleries, photos, workspaceMembers } from "@/db/schema"
 import { auth } from "@/auth"
 import { eq, and } from "drizzle-orm"
 import bcrypt from "bcryptjs"
@@ -11,7 +11,8 @@ import { cookies } from "next/headers"
 import { requireAuth } from "@/lib/require-auth"
 import { deleteKey, downloadBuffer, uploadBuffer } from "@/lib/s3"
 import { s3Keys } from "@/lib/s3-keys"
-import { adjustStorageQuota } from "@/lib/db-guards"
+import { adjustStorageQuota, requireGalleryOwned, requirePhotoOwned } from "@/lib/db-guards"
+import { ensureActiveWorkspace } from "@/lib/workspace"
 import { PhotoEditRecipe } from "@/lib/ai-photo-analyzer"
 import { renderEditedPhotoBuffer } from "@/lib/render-edited-photo"
 import sharp from "sharp"
@@ -22,6 +23,7 @@ function randomSlug() {
 
 export async function createGallery(formData: FormData) {
   const userId = await requireAuth()
+  const { workspace } = await ensureActiveWorkspace(userId)
 
   const name = (formData.get("name") as string)?.trim()
   if (!name) return { error: "Name required" }
@@ -41,8 +43,11 @@ export async function createGallery(formData: FormData) {
   await db.insert(galleries).values({
     id,
     userId,
+    workspaceId: workspace.id,
     name,
     slug: randomSlug(),
+    logoKey: workspace.logoKey,
+    accentColor: workspace.accentColor,
     passwordHash,
     expiresAt,
     downloadMode: (formData.get("downloadMode") as "none" | "lowres" | "full") ?? "none",
@@ -53,13 +58,10 @@ export async function createGallery(formData: FormData) {
   redirect(`/dashboard/galleries/${id}`)
 }
 
-export async function updateGallery(id: string, formData: FormData) {
+export async function updateGallery(id: string, formData: FormData): Promise<{ error: string } | void> {
   const userId = await requireAuth()
 
-  const gallery = await db.query.galleries.findFirst({
-    where: and(eq(galleries.id, id), eq(galleries.userId, userId)),
-  })
-  if (!gallery) return { error: "Not found" }
+  const gallery = await requireGalleryOwned(id, userId)
 
   const rawPassword = formData.get("password") as string | null
   const passwordHash =
@@ -110,13 +112,13 @@ export async function updateGallery(id: string, formData: FormData) {
   }
 }
 
-export async function updateGalleryStage(id: string, stage: "proofing" | "delivered" | "both") {
+export async function updateGalleryStage(
+  id: string,
+  stage: "proofing" | "delivered" | "both",
+): Promise<{ success: true } | { error: string }> {
   const userId = await requireAuth()
 
-  const gallery = await db.query.galleries.findFirst({
-    where: and(eq(galleries.id, id), eq(galleries.userId, userId)),
-  })
-  if (!gallery) return { error: "Not found" }
+  const gallery = await requireGalleryOwned(id, userId)
 
   await db.update(galleries).set({ stage }).where(eq(galleries.id, id))
   revalidatePath(`/dashboard/galleries/${id}`)
@@ -127,15 +129,12 @@ export async function updateGalleryStage(id: string, stage: "proofing" | "delive
 export async function movePhotosToSection(galleryId: string, photoIds: string[], targetSection: "proofing" | "final") {
   const userId = await requireAuth()
 
-  const gallery = await db.query.galleries.findFirst({
-    where: and(eq(galleries.id, galleryId), eq(galleries.userId, userId)),
-  })
-  if (!gallery) return { error: "Not found" }
+  const gallery = await requireGalleryOwned(galleryId, userId)
 
   if (photoIds.length === 0) return { success: true }
 
   for (const pid of photoIds) {
-    await db.update(photos).set({ section: targetSection }).where(and(eq(photos.id, pid), eq(photos.galleryId, galleryId), eq(photos.userId, userId)))
+    await db.update(photos).set({ section: targetSection }).where(and(eq(photos.id, pid), eq(photos.galleryId, galleryId)))
   }
 
   revalidatePath(`/dashboard/galleries/${galleryId}`)
@@ -146,10 +145,7 @@ export async function movePhotosToSection(galleryId: string, photoIds: string[],
 export async function deleteGallery(id: string) {
   const userId = await requireAuth()
 
-  const gallery = await db.query.galleries.findFirst({
-    where: and(eq(galleries.id, id), eq(galleries.userId, userId)),
-  })
-  if (!gallery) return { error: "Not found" }
+  const gallery = await requireGalleryOwned(id, userId)
 
   // Fetch all photos belonging to this gallery
   const galleryPhotos = await db.query.photos.findMany({
@@ -183,13 +179,11 @@ export async function deleteGallery(id: string) {
   )
 
   // Delete gallery from database (cascading deletes for photos, stars, comments, selections)
-  await db.delete(galleries).where(
-    and(eq(galleries.id, id), eq(galleries.userId, userId))
-  )
+  await db.delete(galleries).where(eq(galleries.id, id))
 
-  // Decrement user storage
+  // Decrement workspace storage
   if (totalBytes > 0) {
-    await adjustStorageQuota(userId, -totalBytes)
+    await adjustStorageQuota(gallery.workspaceId, -totalBytes)
   }
 
   redirect("/dashboard")
@@ -199,10 +193,7 @@ export async function updatePhotoOrder(galleryId: string, orderedIds: string[]) 
   const session = await auth()
   if (!session?.user?.id) redirect("/login")
 
-  const gallery = await db.query.galleries.findFirst({
-    where: and(eq(galleries.id, galleryId), eq(galleries.userId, session.user.id)),
-  })
-  if (!gallery) return { error: "Not found" }
+  const gallery = await requireGalleryOwned(galleryId, session.user.id)
 
   await db.transaction(async (tx) => {
     for (let i = 0; i < orderedIds.length; i++) {
@@ -219,10 +210,13 @@ export async function deletePhoto(photoId: string) {
   const session = await auth()
   if (!session?.user?.id) redirect("/login")
 
-  const photo = await db.query.photos.findFirst({
-    where: and(eq(photos.id, photoId), eq(photos.userId, session.user.id)),
+  const photo = await requirePhotoOwned(photoId, session.user.id)
+
+  const gallery = await db.query.galleries.findFirst({
+    where: eq(galleries.id, photo.galleryId),
+    columns: { workspaceId: true },
   })
-  if (!photo) return { error: "Not found" }
+  if (!gallery) return { error: "Gallery not found" }
 
   const keysToDelete = [
     photo.originalKey,
@@ -245,8 +239,8 @@ export async function deletePhoto(photoId: string) {
     })
   )
 
-  // Decrement user storage
-  await adjustStorageQuota(session.user.id, -photo.fileSizeBytes)
+  // Decrement workspace storage
+  await adjustStorageQuota(gallery.workspaceId, -photo.fileSizeBytes)
 
   revalidatePath(`/dashboard/galleries/${photo.galleryId}`)
 }
@@ -279,10 +273,7 @@ export async function unlockGallery(galleryId: string, password: string) {
 export async function rotatePhoto(photoId: string, angle: 90 | 180 | 270 = 90) {
   const userId = await requireAuth()
 
-  const photo = await db.query.photos.findFirst({
-    where: and(eq(photos.id, photoId), eq(photos.userId, userId)),
-  })
-  if (!photo) return { error: "Photo not found" }
+  const photo = await requirePhotoOwned(photoId, userId)
 
   const [thumbBuf, displayBuf, wmBuf] = await Promise.all([
     photo.thumbKey ? downloadBuffer(photo.thumbKey) : null,
@@ -321,10 +312,7 @@ export async function savePhotoEditAction(
 ) {
   const userId = await requireAuth()
 
-  const photo = await db.query.photos.findFirst({
-    where: and(eq(photos.id, photoId), eq(photos.userId, userId)),
-  })
-  if (!photo) return { error: "Photo not found" }
+  const photo = await requirePhotoOwned(photoId, userId)
 
   const serializedRecipe = JSON.stringify(recipe)
 
@@ -414,9 +402,14 @@ export async function batchSavePhotoEditsAction(
   const serializedRecipe = JSON.stringify(recipe)
 
   for (const photoId of photoIds) {
-    const photo = await db.query.photos.findFirst({
-      where: and(eq(photos.id, photoId), eq(photos.userId, userId)),
-    })
+    const photo = await db
+      .select({ photo: photos })
+      .from(photos)
+      .innerJoin(galleries, eq(photos.galleryId, galleries.id))
+      .innerJoin(workspaceMembers, eq(galleries.workspaceId, workspaceMembers.workspaceId))
+      .where(and(eq(photos.id, photoId), eq(workspaceMembers.userId, userId)))
+      .limit(1)
+      .then(([result]) => result?.photo)
     if (!photo) continue
 
     await db

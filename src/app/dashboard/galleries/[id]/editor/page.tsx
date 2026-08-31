@@ -1,6 +1,7 @@
 import { requireAuth } from "@/lib/require-auth"
+import { requireGalleryOwned } from "@/lib/db-guards"
 import { db } from "@/db"
-import { galleries, photos, stars, comments, selections, selectionPhotos } from "@/db/schema"
+import { photos, stars, comments, selections, selectionPhotos } from "@/db/schema"
 import { eq, and, inArray } from "drizzle-orm"
 import { notFound, redirect } from "next/navigation"
 import { StudioShell } from "@/components/studio/studio-shell"
@@ -20,11 +21,7 @@ export default async function GalleryEditorPage({ params, searchParams }: Editor
   const { id: galleryId } = await params
   const { filter, selectionId, photoId } = await searchParams
 
-  const gallery = await db.query.galleries.findFirst({
-    where: and(eq(galleries.id, galleryId), eq(galleries.userId, userId)),
-  })
-
-  if (!gallery) notFound()
+  const gallery = await requireGalleryOwned(galleryId, userId)
 
   // Fetch all proofing photos for this gallery
   const galleryPhotos = await db.query.photos.findMany({
