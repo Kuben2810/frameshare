@@ -10,6 +10,7 @@ type GoogleDriveConfig = {
   clientSecret: string
   redirectUri: string
   pickerApiKey: string
+  pickerAppId: string
 }
 
 export type GoogleDriveCredentials = {
@@ -50,7 +51,8 @@ export function googleDriveConfigured() {
     && process.env.GOOGLE_DRIVE_OAUTH_CLIENT_SECRET?.trim()
     && process.env.GOOGLE_DRIVE_OAUTH_REDIRECT_URI?.trim()
     && process.env.STORAGE_CREDENTIALS_KEY?.trim()
-    && process.env.NEXT_PUBLIC_GOOGLE_DRIVE_PICKER_API_KEY?.trim(),
+    && process.env.NEXT_PUBLIC_GOOGLE_DRIVE_PICKER_API_KEY?.trim()
+    && process.env.NEXT_PUBLIC_GOOGLE_DRIVE_APP_ID?.trim(),
   )
   if (!environmentPresent) return false
   try {
@@ -71,6 +73,7 @@ export function getGoogleDriveConfig(): GoogleDriveConfig {
     clientSecret: requiredEnvironment("GOOGLE_DRIVE_OAUTH_CLIENT_SECRET"),
     redirectUri: requiredEnvironment("GOOGLE_DRIVE_OAUTH_REDIRECT_URI"),
     pickerApiKey: requiredEnvironment("NEXT_PUBLIC_GOOGLE_DRIVE_PICKER_API_KEY"),
+    pickerAppId: requiredEnvironment("NEXT_PUBLIC_GOOGLE_DRIVE_APP_ID"),
   }
 }
 

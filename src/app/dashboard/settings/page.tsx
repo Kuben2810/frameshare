@@ -206,6 +206,7 @@ export default async function SettingsPage() {
             connection={googleDriveConnection ?? null}
             configured={googleDriveConfigured()}
             pickerApiKey={process.env.NEXT_PUBLIC_GOOGLE_DRIVE_PICKER_API_KEY?.trim() || null}
+            pickerAppId={process.env.NEXT_PUBLIC_GOOGLE_DRIVE_APP_ID?.trim() || null}
             isWorkspaceDefault={workspace.storageProvider === "google_drive"}
           />
         </div>

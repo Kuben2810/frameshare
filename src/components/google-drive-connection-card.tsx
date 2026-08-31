@@ -19,6 +19,7 @@ type PickerBuilder = {
   addView: (view: unknown) => PickerBuilder
   setOAuthToken: (token: string) => PickerBuilder
   setDeveloperKey: (key: string) => PickerBuilder
+  setAppId: (appId: string) => PickerBuilder
   setCallback: (callback: (data: PickerCallbackData) => void) => PickerBuilder
   build: () => { setVisible: (visible: boolean) => void }
 }
@@ -74,11 +75,13 @@ export function GoogleDriveConnectionCard({
   connection,
   configured,
   pickerApiKey,
+  pickerAppId,
   isWorkspaceDefault,
 }: {
   connection: DriveConnection
   configured: boolean
   pickerApiKey: string | null
+  pickerAppId: string | null
   isWorkspaceDefault: boolean
 }) {
   const [busy, setBusy] = useState(false)
@@ -89,7 +92,7 @@ export function GoogleDriveConnectionCard({
       const tokenResponse = await fetch("/api/storage/google-drive/picker-token", { cache: "no-store" })
       const tokenBody = await tokenResponse.json().catch(() => ({})) as { accessToken?: string; error?: string }
       if (!tokenResponse.ok || !tokenBody.accessToken) throw new Error(tokenBody.error ?? "Google Drive needs to be reconnected")
-      if (!pickerApiKey) throw new Error("Google Drive Picker is not configured")
+      if (!pickerApiKey || !pickerAppId) throw new Error("Google Drive Picker is not configured")
       await loadPicker()
 
       const picker = window.google?.picker
@@ -100,6 +103,7 @@ export function GoogleDriveConnectionCard({
         .addView(view)
         .setOAuthToken(tokenBody.accessToken)
         .setDeveloperKey(pickerApiKey)
+        .setAppId(pickerAppId)
         .setCallback(async (data) => {
           if (data.action !== picker.Action.PICKED) {
             setBusy(false)
