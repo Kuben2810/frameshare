@@ -8,10 +8,10 @@ R2 bucket. The production health endpoint is live at
 
 - `master` and `dev` are intentionally identical at commit `95633f5`.
 - Production and preview Vercel deployments are ready.
-- The production Neon branch has migrations through `0004`; the `development`
-  Neon branch also has the Phase 1A workspace migration (`0005`) applied.
-  Development backfill verification found 2 workspaces, 2 owner memberships,
-  and all 3 existing galleries attached to a workspace.
+- Both the production and `development` Neon branches have the Phase 1A
+  workspace migration (`0005`) applied. Backfill verification found 2
+  workspaces, 2 owner memberships, and all 3 existing galleries attached to
+  a workspace on each branch.
 - The R2 bucket's public `r2.dev` URL is disabled and no custom domain is
   attached. The bucket CORS policy permits only the active Vercel production
   origins and local development (`localhost:3000` and `localhost:3005`) for
@@ -77,7 +77,7 @@ R2 bucket. The production health endpoint is live at
   rate-limit table.
 - `drizzle/0005_black_dragon_lord.sql`: workspace and membership tables,
   workspace gallery ownership, and a safe backfill for existing accounts.
-  Applied to development only; it is not yet applied to production.
+  Applied and verified on both development and production on 2026-08-31.
 
 ## Verification record
 
@@ -87,6 +87,8 @@ R2 bucket. The production health endpoint is live at
   build after the output-tracing fix.
 - For Phase 1A, `npx drizzle-kit check`, `npx tsc --noEmit`, and the Vercel
   production build passed before the development database migration.
+- Production deployment `e664cd3` is READY on Vercel; canonical health and an
+  existing public gallery returned HTTP 200 after release.
 - The full `npm run lint` remains noisy with pre-existing unrelated findings;
   it was not used as the acceptance gate for the hardening pass.
 
