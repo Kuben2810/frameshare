@@ -25,8 +25,9 @@ R2 bucket. The production health endpoint is live at
   entitlement (250 GiB) and an active private Frameshare-managed connection;
   every existing gallery now has an explicit connection assignment.
 - This branch has passed `npx tsc --noEmit`, `npx drizzle-kit check`, and the
-  Vercel-mode production build. The current Drive upload fixes are pushed at
-  `36f4828` and have a healthy Vercel preview at
+  Vercel-mode production build. The Drive upload acceptance test completed at
+  commit `440c4ed` (deploy `dpl_6eCPHi7DufdcN142Dxvi3b4hDkm8`), verified on
+  the preview at
   `https://frameshare-git-feature-storage-7a509d-kuben2810-8156s-projects.vercel.app`.
   It has not been merged or deployed to production.
 - The same branch now contains an unmerged Google Drive storage slice:
@@ -55,16 +56,12 @@ R2 bucket. The production health endpoint is live at
   selected through Google Picker. After reauthorising, the folder verification
   and `Use Drive for New Galleries` action both succeeded. The test workspace
   now defaults only *future* galleries to Drive; its existing gallery remains
-  on Frameshare-managed storage. A disposable Drive-backed gallery was created
-  and the first real browser upload reached Drive's resumable PUT step, where
-  it exposed a missing bearer-token handoff. Commit `06ea635` supplies that
-  short-lived token only after authenticated gallery access and quota
-  reservation; commit `36f4828` immediately releases a pending/error upload's
-  quota reservation if the browser-side upload or processing fails. The final
-  successful-upload/client-view acceptance retry remains outstanding because
-  the local browser harness stopped reliably returning the native file picker
-  to Chrome after the refresh. No preview media was retained as a successful
-  gallery photo.
+  on Frameshare-managed storage. Commit `06ea635` authorised the browser
+  upload; commit `36f4828` releases a failed upload's quota reservation
+  immediately; commit `440c4ed` replaced the direct googleapis.com PUT (blocked
+  by CORS) with a same-origin relay at `/api/upload/drive-relay` that completes
+  the upload server-to-server. The full acceptance test (upload → processing →
+  client view → deletion/quota reconciliation) passed on 2026-09-01.
 - Before a production rollout, create separate production OAuth and Picker
   credentials, add the real production domain and public legal links to the
   Google consent screen, decide whether to publish/verify the OAuth app, and
@@ -145,9 +142,9 @@ R2 bucket. The production health endpoint is live at
 - On the current Drive slice, `npm run build` and `npx tsc --noEmit` passed
   after the browser-upload authorization and cleanup changes. The deployed
   preview was tested through OAuth, folder selection, server-side folder
-  verification, persisted default-provider selection, and the start of a
-  Drive resumable upload. A final successful upload, processing, private
-  client view, and deletion check remains required.
+  verification, persisted default-provider selection, relay upload, Sharp
+  processing, watermark generation, private client view, and
+  deletion/quota-reconciliation. All steps passed on 2026-09-01.
 
 ## Product brief - recommended direction
 
@@ -329,11 +326,11 @@ to publish/verify the OAuth app. The generic Google sign-in OAuth callback is
 separate from this storage OAuth flow and still needs its own production
 configuration.
 
-The next functional test is a controlled, disposable image upload into a new
-preview gallery with Drive selected. Verify resumable original upload,
-processing/variants, private viewing and download, deletion, quota
-reconciliation, and durable-job failure recovery before treating Drive as
-production ready.
+The Drive upload acceptance test is complete. Before treating Drive as
+production ready, verify durable-job failure recovery and then create separate
+production OAuth/Picker credentials, configure the production callback and
+`NEXT_PUBLIC_GOOGLE_DRIVE_APP_ID`, add public legal links, and decide whether
+to publish/verify the OAuth app.
 
 The supporting workspace/onboarding specification remains in
 [`docs/phase-1-workspace-onboarding.md`](docs/phase-1-workspace-onboarding.md).
