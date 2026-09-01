@@ -12,8 +12,10 @@ connection and keeps storage refresh tokens outside Auth.js' `accounts` table.
 - Stores the Drive refresh token and short-lived access token in
   `storage_connections.credentials_ciphertext`, encrypted with AES-256-GCM.
 - Requires a workspace owner for connect, select-folder, and disconnect
-  actions. Refresh tokens never reach the browser; a short-lived access token
-  is returned only to the authenticated owner while opening Google Picker.
+  actions. Refresh tokens never reach the browser. A short-lived access token
+  is returned to the authenticated owner for Google Picker and, only after a
+  gallery-access check plus quota reservation, to an authenticated uploader to
+  complete that gallery's Drive resumable session directly from the browser.
 - Verifies that the selected folder is active and lets Frameshare add files
   before marking the connection active.
 
@@ -24,10 +26,13 @@ existing private Frameshare asset and download routes authorize each request
 before reading the corresponding Drive file.
 
 Original uploads start a Google Drive resumable session and go directly from
-the photographer's browser to Google. Generated previews, watermarked files,
-edits, downloads, and deletion use the same gallery's immutable storage
-connection. Frameshare refuses to disconnect Drive while a gallery is assigned
-to it, preventing an orphaned gallery.
+the photographer's browser to Google. This avoids Vercel Functions' 4.5 MB
+request-body limit while retaining the product's 100 MB photo limit. Generated
+previews, watermarked files, edits, downloads, and deletion use the same
+gallery's immutable storage connection. Frameshare refuses to disconnect Drive
+while a gallery is assigned to it, preventing an orphaned gallery. If a direct
+upload or processing step fails, the browser asks Frameshare to release its
+still-pending quota reservation immediately.
 
 ## Google Cloud configuration
 

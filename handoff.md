@@ -25,8 +25,8 @@ R2 bucket. The production health endpoint is live at
   entitlement (250 GiB) and an active private Frameshare-managed connection;
   every existing gallery now has an explicit connection assignment.
 - This branch has passed `npx tsc --noEmit`, `npx drizzle-kit check`, and the
-  Vercel-mode production build. The current Drive-picker fixes are pushed at
-  `7dcff4b` and have a healthy Vercel preview at
+  Vercel-mode production build. The current Drive upload fixes are pushed at
+  `36f4828` and have a healthy Vercel preview at
   `https://frameshare-git-feature-storage-7a509d-kuben2810-8156s-projects.vercel.app`.
   It has not been merged or deployed to production.
 - The same branch now contains an unmerged Google Drive storage slice:
@@ -48,15 +48,23 @@ R2 bucket. The production health endpoint is live at
   number; this is required by Google Picker when using the narrow `drive.file`
   scope. No production Vercel environment variable, production deployment, or
   Neon production branch was changed.
-- Deployment `dpl_J4iN1nbPcBUXnxUrYk6pmDMEkGBf` is READY and backs the feature
+- Deployment `dpl_7phUs2Zh6gbFtxMHUvEBuhxyJ3Ru` is READY and backs the feature
   preview alias. Vercel deployment protection remains enabled.
 - The feature preview now uses the Neon `development` branch rather than the
   production branch. A dedicated empty Drive test folder was created and
   selected through Google Picker. After reauthorising, the folder verification
   and `Use Drive for New Galleries` action both succeeded. The test workspace
   now defaults only *future* galleries to Drive; its existing gallery remains
-  on Frameshare-managed storage. No gallery media was uploaded during this
-  browser test.
+  on Frameshare-managed storage. A disposable Drive-backed gallery was created
+  and the first real browser upload reached Drive's resumable PUT step, where
+  it exposed a missing bearer-token handoff. Commit `06ea635` supplies that
+  short-lived token only after authenticated gallery access and quota
+  reservation; commit `36f4828` immediately releases a pending/error upload's
+  quota reservation if the browser-side upload or processing fails. The final
+  successful-upload/client-view acceptance retry remains outstanding because
+  the local browser harness stopped reliably returning the native file picker
+  to Chrome after the refresh. No preview media was retained as a successful
+  gallery photo.
 - Before a production rollout, create separate production OAuth and Picker
   credentials, add the real production domain and public legal links to the
   Google consent screen, decide whether to publish/verify the OAuth app, and
@@ -91,7 +99,8 @@ R2 bucket. The production health endpoint is live at
 - Private masters are retained for later final edits.
 - Quota reservation is conditional and transaction-safe under concurrency.
 - Processing verifies uploaded object size, reconciles reservations, keeps
-  failures retryable, and cleans stale incomplete uploads on later attempts.
+  failures retryable, cleans stale incomplete uploads on later attempts, and
+  now releases a failed browser upload's reservation immediately.
 - Existing records whose masters were deleted by the old behavior cannot be
   restored automatically and must be re-uploaded.
 - Runtime schema mutation was removed. Schema changes are tracked by Drizzle.
@@ -133,9 +142,12 @@ R2 bucket. The production health endpoint is live at
   existing public gallery returned HTTP 200 after release.
 - The full `npm run lint` remains noisy with pre-existing unrelated findings;
   it was not used as the acceptance gate for the hardening pass.
-- On the current Drive slice, `npm run build` passed after the Picker identity
-  change. The deployed preview was tested through OAuth, folder selection,
-  server-side folder verification, and persisted default-provider selection.
+- On the current Drive slice, `npm run build` and `npx tsc --noEmit` passed
+  after the browser-upload authorization and cleanup changes. The deployed
+  preview was tested through OAuth, folder selection, server-side folder
+  verification, persisted default-provider selection, and the start of a
+  Drive resumable upload. A final successful upload, processing, private
+  client view, and deletion check remains required.
 
 ## Product brief - recommended direction
 
