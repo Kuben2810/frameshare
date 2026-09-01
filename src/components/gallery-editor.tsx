@@ -166,9 +166,9 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
             continue
           }
           const { url, photoId, uploadProtocol } = await res.json() as {
-            url: string
+            url?: string
             photoId: string
-            uploadProtocol?: "s3" | "google-drive-resumable"
+            uploadProtocol?: "s3" | "drive-relay"
           }
           uploadPhotoId = photoId
 
@@ -193,33 +193,38 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
                 reject(new Error(`Upload returned HTTP ${xhr.status}`))
                 return
               }
-              if (uploadProtocol === "google-drive-resumable") {
-                const response = JSON.parse(xhr.responseText || "{}") as { id?: string }
-                if (!response.id) {
+              if (uploadProtocol === "drive-relay") {
+                const response = JSON.parse(xhr.responseText || "{}") as { driveFileId?: string }
+                if (!response.driveFileId) {
                   reject(new Error("Google Drive did not confirm the uploaded file"))
                   return
                 }
-                resolve({ driveFileId: response.id })
+                resolve({ driveFileId: response.driveFileId })
                 return
               }
               resolve({})
             }
             xhr.onerror = () => {
               currentXhrRef.current = null
-              reject(new Error("Network connection dropped or S3/R2 CORS blocked during direct upload"))
+              reject(new Error("Network connection dropped during upload"))
             }
             xhr.onabort = () => {
               currentXhrRef.current = null
               reject(new Error("aborted"))
             }
-            xhr.open("PUT", url)
-            if (uploadProtocol !== "google-drive-resumable") {
-              // Drive resumable session URLs are self-authenticating via
-              // upload_id; adding Authorization triggers a CORS preflight
-              // that Drive rejects. S3/R2 requires Content-Type.
+            if (uploadProtocol === "drive-relay") {
+              // Post to same-origin relay; the server uploads to Drive to
+              // avoid CORS restrictions on googleapis.com.
+              const formData = new FormData()
+              formData.append("photoId", photoId)
+              formData.append("file", file)
+              xhr.open("POST", "/api/upload/drive-relay")
+              xhr.send(formData)
+            } else {
+              xhr.open("PUT", url!)
               xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream")
+              xhr.send(file)
             }
-            xhr.send(file)
           })
 
           if (cancelRequestedRef.current) break

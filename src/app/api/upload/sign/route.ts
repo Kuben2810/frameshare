@@ -7,7 +7,7 @@ import { reserveStorageQuota } from "@/lib/db-guards"
 import { presignUpload } from "@/lib/s3"
 import { cleanupStaleUploadsForUser, discardUploadPhoto } from "@/lib/upload-cleanup"
 import { requireGalleryWorkspaceAccess } from "@/lib/workspace"
-import { createGoogleDriveResumableUpload, getGalleryStorageConnection } from "@/lib/media-storage"
+import { getGalleryStorageConnection } from "@/lib/media-storage"
 
 export async function POST(req: Request) {
   const session = await auth()
@@ -69,18 +69,9 @@ export async function POST(req: Request) {
       return Response.json({ url, photoId, uploadProtocol: "s3" })
     }
     if (storageConnection.provider === "google_drive") {
-      const safeFilename = filename.replace(/[\\/\r\n]/g, "_")
-      // The browser completes Drive's resumable session directly so files
-      // never pass through a Vercel Function. The session URL is
-      // self-authenticating via its upload_id; no browser-side bearer token
-      // is needed and sending one causes a CORS preflight that Drive rejects.
-      const url = await createGoogleDriveResumableUpload(
-        storageConnection,
-        `${photoId}-${safeFilename}`,
-        mimeType,
-        fileSize,
-      )
-      return Response.json({ url, photoId, uploadProtocol: "google-drive-resumable" }, {
+      // Browser posts to the relay endpoint (same-origin); the relay uploads
+      // to Drive server-to-server, avoiding CORS restrictions on googleapis.com.
+      return Response.json({ photoId, uploadProtocol: "drive-relay" }, {
         headers: { "Cache-Control": "no-store" },
       })
     }
