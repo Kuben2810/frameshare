@@ -14,6 +14,7 @@ import { s3Keys } from "@/lib/s3-keys"
 import { deleteMediaObject, downloadMediaBuffer, getGalleryStorageConnection, uploadMediaBuffer } from "@/lib/media-storage"
 import { adjustStorageQuota, requireGalleryOwned, requirePhotoOwned } from "@/lib/db-guards"
 import { ensureActiveWorkspace } from "@/lib/workspace"
+import { planAllowsGallery, PLANS, type PlanId } from "@/lib/plans"
 import { getWorkspaceStorageConnection } from "@/lib/storage-connection"
 import { PhotoEditRecipe } from "@/lib/ai-photo-analyzer"
 import { renderEditedPhotoBuffer } from "@/lib/render-edited-photo"
@@ -92,6 +93,14 @@ export async function createGallery(formData: FormData) {
 
   const name = (formData.get("name") as string)?.trim()
   if (!name) return { error: "Name required" }
+
+  // Enforce per-plan gallery limit
+  const plan = (workspace.plan ?? "free") as PlanId
+  const galleryCount = await db.$count(galleries, eq(galleries.workspaceId, workspace.id))
+  if (!planAllowsGallery(plan, galleryCount)) {
+    const limit = PLANS[plan].maxGalleries
+    return { error: `Your ${PLANS[plan].label} plan allows ${limit} ${limit === 1 ? "gallery" : "galleries"}. Upgrade to create more.` }
+  }
 
   const rawPassword = formData.get("password") as string | null
   const passwordHash = rawPassword && rawPassword.trim() !== "" ? await bcrypt.hash(rawPassword.trim(), 10) : null

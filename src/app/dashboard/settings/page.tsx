@@ -8,6 +8,8 @@ import { and, eq } from "drizzle-orm"
 import { googleDriveConfigured } from "@/lib/google-drive"
 import { GoogleDriveConnectionCard } from "@/components/google-drive-connection-card"
 import { ArrowLeft, User, Palette, Image as ImageIcon, HardDrive, Check, Upload, Sparkles } from "lucide-react"
+import { BillingSection } from "@/components/billing-section"
+import { getPlan, type PlanId } from "@/lib/plans"
 import Link from "next/link"
 import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
@@ -30,10 +32,11 @@ export default async function SettingsPage() {
     ),
   })
 
-  const storageUsedMB = (workspace.storageUsedBytes / (1024 * 1024)).toFixed(1)
+  const storageUsedMB  = (workspace.storageUsedBytes  / (1024 * 1024)).toFixed(1)
   const storageLimitGB = (workspace.storageQuotaBytes / (1024 * 1024 * 1024)).toFixed(0)
-  const usagePct = Math.min(100, Math.round((workspace.storageUsedBytes / workspace.storageQuotaBytes) * 100))
-  const storagePlanLabel = workspace.storagePlan === "studio" ? "Studio" : workspace.storagePlan === "byo_storage" ? "BYO Storage" : "Trial"
+  const usagePct       = Math.min(100, Math.round((workspace.storageUsedBytes / workspace.storageQuotaBytes) * 100))
+  const currentPlan    = (workspace.plan ?? "free") as PlanId
+  const planDef        = getPlan(currentPlan)
 
   return (
     <div className="h-full overflow-y-auto w-full">
@@ -180,7 +183,7 @@ export default async function SettingsPage() {
                 </div>
                 <div className="text-right space-y-0.5">
                   <span className="font-bold text-foreground text-base">{storageLimitGB} GB</span>
-                  <span className="text-xs text-muted-foreground block">{storagePlanLabel} plan · {usagePct}% used</span>
+                  <span className="text-xs text-muted-foreground block">{planDef.label} plan · {usagePct}% used</span>
                 </div>
               </div>
 
@@ -209,6 +212,11 @@ export default async function SettingsPage() {
             pickerAppId={process.env.NEXT_PUBLIC_GOOGLE_DRIVE_APP_ID?.trim() || null}
             isWorkspaceDefault={workspace.storageProvider === "google_drive"}
           />
+
+          {/* ── Billing ── */}
+          <div className="rounded-2xl bg-card border border-border/80 p-6 md:p-7 shadow-xs">
+            <BillingSection currentPlan={currentPlan} planStatus={workspace.planStatus ?? "active"} />
+          </div>
         </div>
       </div>
     </div>
