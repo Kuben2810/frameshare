@@ -102,6 +102,7 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
       for (const file of accepted) {
         if (cancelRequestedRef.current) break
 
+        let uploadPhotoId: string | undefined
         try {
           // 1. Get presigned upload URL with target section (with retry for transient server restarts)
           let res: Response
@@ -170,6 +171,7 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
             uploadProtocol?: "s3" | "google-drive-resumable"
             uploadAccessToken?: string
           }
+          uploadPhotoId = photoId
 
           if (cancelRequestedRef.current) break
 
@@ -257,6 +259,11 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
               file,
             }])
             toast.error(`Processing error (${file.name}): ${reason}`)
+            await fetch("/api/upload/discard", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ photoId }),
+            }).catch(() => undefined)
             setUploading((u) => u.filter((f) => f.name !== file.name))
             continue
           }
@@ -269,6 +276,13 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
             // Cancelled by user
           } else {
             const reason = err?.message || "Upload network error"
+            if (uploadPhotoId) {
+              await fetch("/api/upload/discard", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ photoId: uploadPhotoId }),
+              }).catch(() => undefined)
+            }
             setFailedUploads(f => [...f.filter(item => item.name !== file.name), {
               id: crypto.randomUUID(),
               name: file.name,
