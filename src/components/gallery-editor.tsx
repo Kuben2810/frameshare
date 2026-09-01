@@ -164,10 +164,11 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
             setUploading((u) => u.filter((f) => f.name !== file.name))
             continue
           }
-          const { url, photoId, uploadProtocol } = await res.json() as {
+          const { url, photoId, uploadProtocol, uploadAccessToken } = await res.json() as {
             url: string
             photoId: string
             uploadProtocol?: "s3" | "google-drive-resumable"
+            uploadAccessToken?: string
           }
 
           if (cancelRequestedRef.current) break
@@ -211,7 +212,19 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
               reject(new Error("aborted"))
             }
             xhr.open("PUT", url)
-            xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream")
+            if (uploadProtocol === "google-drive-resumable") {
+              if (!uploadAccessToken) {
+                reject(new Error("Google Drive upload authorization was not provided"))
+                return
+              }
+              // Google Drive's resumable session is completed from the
+              // browser so uploads retain the 100 MB product limit. Its API
+              // accepts this bearer token cross-origin; the file MIME type
+              // was supplied when the server initiated the session.
+              xhr.setRequestHeader("Authorization", `Bearer ${uploadAccessToken}`)
+            } else {
+              xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream")
+            }
             xhr.send(file)
           })
 
