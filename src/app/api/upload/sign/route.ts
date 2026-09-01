@@ -8,7 +8,6 @@ import { presignUpload } from "@/lib/s3"
 import { cleanupStaleUploadsForUser, discardUploadPhoto } from "@/lib/upload-cleanup"
 import { requireGalleryWorkspaceAccess } from "@/lib/workspace"
 import { createGoogleDriveResumableUpload, getGalleryStorageConnection } from "@/lib/media-storage"
-import { getGoogleDriveAccessToken } from "@/lib/google-drive"
 
 export async function POST(req: Request) {
   const session = await auth()
@@ -71,20 +70,17 @@ export async function POST(req: Request) {
     }
     if (storageConnection.provider === "google_drive") {
       const safeFilename = filename.replace(/[\\/\r\n]/g, "_")
-      const [url, uploadAccessToken] = await Promise.all([
-        createGoogleDriveResumableUpload(
-          storageConnection,
-          `${photoId}-${safeFilename}`,
-          mimeType,
-          fileSize,
-        ),
-        // The browser completes Drive's resumable session directly so files
-        // never pass through a Vercel Function (which has a 4.5 MB payload
-        // limit). The session is still created only after this route has
-        // authenticated the uploader and reserved their gallery quota.
-        getGoogleDriveAccessToken(storageConnection.workspaceId),
-      ])
-      return Response.json({ url, photoId, uploadProtocol: "google-drive-resumable", uploadAccessToken }, {
+      // The browser completes Drive's resumable session directly so files
+      // never pass through a Vercel Function. The session URL is
+      // self-authenticating via its upload_id; no browser-side bearer token
+      // is needed and sending one causes a CORS preflight that Drive rejects.
+      const url = await createGoogleDriveResumableUpload(
+        storageConnection,
+        `${photoId}-${safeFilename}`,
+        mimeType,
+        fileSize,
+      )
+      return Response.json({ url, photoId, uploadProtocol: "google-drive-resumable" }, {
         headers: { "Cache-Control": "no-store" },
       })
     }
