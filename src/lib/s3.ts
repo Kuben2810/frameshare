@@ -1,8 +1,8 @@
-import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3"
+import { S3Client, GetObjectCommand, PutObjectCommand, DeleteObjectCommand, HeadObjectCommand } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 
 export const s3 = new S3Client({
-  region: process.env.S3_REGION ?? "auto",
+  region: process.env.S3_REGION || "auto",
   endpoint: process.env.S3_ENDPOINT,
   credentials: {
     accessKeyId: process.env.S3_ACCESS_KEY_ID!,
@@ -36,10 +36,19 @@ export async function deleteKey(key: string): Promise<void> {
   await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }))
 }
 
-export async function presignUpload(key: string, mimeType: string, sizeBytes: number): Promise<string> {
+export async function getObjectSize(key: string): Promise<number> {
+  const res = await s3.send(new HeadObjectCommand({ Bucket: BUCKET, Key: key }))
+  const contentLength = res.ContentLength
+  if (typeof contentLength !== "number" || !Number.isSafeInteger(contentLength) || contentLength <= 0) {
+    throw new Error("Uploaded object has no valid size")
+  }
+  return contentLength
+}
+
+export async function presignUpload(key: string, mimeType: string): Promise<string> {
   return getSignedUrl(
     s3,
-    new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: mimeType, ContentLength: sizeBytes }),
+    new PutObjectCommand({ Bucket: BUCKET, Key: key, ContentType: mimeType }),
     { expiresIn: 3600 },
   )
 }

@@ -4,6 +4,7 @@ import {
   timestamp,
   integer,
   bigint,
+  index,
   uniqueIndex,
   primaryKey,
 } from "drizzle-orm/pg-core"
@@ -21,6 +22,48 @@ export const users = pgTable("users", {
   storageUsedBytes: bigint("storage_used_bytes", { mode: "number" }).notNull().default(0),
   createdAt:        timestamp("created_at").defaultNow().notNull(),
 })
+
+export const workspaces = pgTable("workspaces", {
+  id:                   text("id").primaryKey(),
+  name:                 text("name").notNull(),
+  slug:                 text("slug").notNull().unique(),
+  logoKey:              text("logo_key"),
+  accentColor:          text("accent_color"),
+  storageProvider:      text("storage_provider", { enum: ["managed", "google_drive", "s3"] }).notNull().default("managed"),
+  storagePlan:          text("storage_plan", { enum: ["trial", "studio", "byo_storage"] }).notNull().default("trial"),
+  storageQuotaBytes:    bigint("storage_quota_bytes", { mode: "number" }).notNull().default(5_368_709_120),
+  storageUsedBytes:     bigint("storage_used_bytes", { mode: "number" }).notNull().default(0),
+  onboardingCompletedAt: timestamp("onboarding_completed_at", { mode: "date" }),
+  createdAt:            timestamp("created_at").defaultNow().notNull(),
+  updatedAt:            timestamp("updated_at").defaultNow().notNull(),
+})
+
+export const storageConnections = pgTable("storage_connections", {
+  id:                   text("id").primaryKey(),
+  workspaceId:          text("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  provider:             text("provider", { enum: ["managed", "google_drive", "s3"] }).notNull(),
+  label:                text("label").notNull(),
+  status:               text("status", { enum: ["active", "needs_connection", "error", "disconnected"] }).notNull().default("needs_connection"),
+  rootReference:        text("root_reference"),
+  credentialsCiphertext: text("credentials_ciphertext"),
+  lastCheckedAt:        timestamp("last_checked_at", { mode: "date" }),
+  lastError:            text("last_error"),
+  createdAt:            timestamp("created_at").defaultNow().notNull(),
+  updatedAt:            timestamp("updated_at").defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex("storage_connections_workspace_provider_idx").on(t.workspaceId, t.provider),
+  index("storage_connections_workspace_status_idx").on(t.workspaceId, t.status),
+])
+
+export const workspaceMembers = pgTable("workspace_members", {
+  workspaceId: text("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  userId:      text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  role:        text("role", { enum: ["owner", "editor", "viewer"] }).notNull().default("owner"),
+  createdAt:   timestamp("created_at").defaultNow().notNull(),
+}, (t) => [
+  primaryKey({ columns: [t.workspaceId, t.userId] }),
+  index("workspace_members_user_workspace_idx").on(t.userId, t.workspaceId),
+])
 
 export const accounts = pgTable("accounts", {
   userId:            text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
@@ -51,6 +94,8 @@ export const verificationTokens = pgTable("verification_tokens", {
 export const galleries = pgTable("galleries", {
   id:            text("id").primaryKey(),
   userId:        text("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+  workspaceId:   text("workspace_id").notNull().references(() => workspaces.id, { onDelete: "cascade" }),
+  storageConnectionId: text("storage_connection_id").notNull().references(() => storageConnections.id),
   name:          text("name").notNull(),
   slug:          text("slug").notNull().unique(),
   passwordHash:  text("password_hash"),
@@ -61,7 +106,7 @@ export const galleries = pgTable("galleries", {
   logoKey:       text("logo_key"),
   accentColor:   text("accent_color"),
   createdAt:     timestamp("created_at").defaultNow().notNull(),
-})
+}, (t) => [index("galleries_workspace_created_idx").on(t.workspaceId, t.createdAt)])
 
 export const photos = pgTable("photos", {
   id:             text("id").primaryKey(),
@@ -78,9 +123,12 @@ export const photos = pgTable("photos", {
   width:          integer("width"),
   height:         integer("height"),
   sortOrder:      integer("sort_order").notNull().default(0),
-  status:         text("status", { enum: ["pending", "ready", "error"] }).notNull().default("pending"),
+  status:         text("status", { enum: ["pending", "processing", "ready", "error", "cleaning"] }).notNull().default("pending"),
+  blurHash:       text("blur_hash"),
+  editRecipe:     text("edit_recipe"),
+  sourcePhotoId:  text("source_photo_id"),
   createdAt:      timestamp("created_at").defaultNow().notNull(),
-})
+}, (t) => [index("photos_gallery_status_sort_idx").on(t.galleryId, t.status, t.sortOrder)])
 
 export const stars = pgTable("stars", {
   id:        text("id").primaryKey(),
@@ -88,7 +136,10 @@ export const stars = pgTable("stars", {
   galleryId: text("gallery_id").notNull().references(() => galleries.id, { onDelete: "cascade" }),
   clientId:  text("client_id").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-}, (t) => [uniqueIndex("stars_photo_client_idx").on(t.photoId, t.clientId)])
+}, (t) => [
+  uniqueIndex("stars_photo_client_idx").on(t.photoId, t.clientId),
+  index("stars_gallery_client_idx").on(t.galleryId, t.clientId),
+])
 
 export const comments = pgTable("comments", {
   id:         text("id").primaryKey(),
@@ -96,12 +147,26 @@ export const comments = pgTable("comments", {
   body:       text("body").notNull(),
   authorName: text("author_name"),
   createdAt:  timestamp("created_at").defaultNow().notNull(),
-})
+}, (t) => [index("comments_photo_created_idx").on(t.photoId, t.createdAt)])
 
 export const selections = pgTable("selections", {
   id:          text("id").primaryKey(),
   galleryId:   text("gallery_id").notNull().references(() => galleries.id, { onDelete: "cascade" }),
+  clientId:    text("client_id").notNull(),
   submittedAt: timestamp("submitted_at").defaultNow().notNull(),
+}, (t) => [uniqueIndex("selections_gallery_client_idx").on(t.galleryId, t.clientId)])
+
+export const selectionRateLimits = pgTable("selection_rate_limits", {
+  galleryId:       text("gallery_id").notNull().references(() => galleries.id, { onDelete: "cascade" }),
+  visitorHash:     text("visitor_hash").notNull(),
+  windowStartedAt: timestamp("window_started_at", { mode: "date" }).notNull(),
+  attempts:        integer("attempts").notNull().default(0),
+}, (t) => [primaryKey({ columns: [t.galleryId, t.visitorHash] })])
+
+export const prototypeAnalysisRateLimits = pgTable("prototype_analysis_rate_limits", {
+  userId:          text("user_id").primaryKey().references(() => users.id, { onDelete: "cascade" }),
+  windowStartedAt: timestamp("window_started_at", { mode: "date" }).notNull(),
+  attempts:        integer("attempts").notNull().default(0),
 })
 
 export const selectionPhotos = pgTable("selection_photos", {

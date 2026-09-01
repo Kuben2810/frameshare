@@ -1,11 +1,10 @@
 "use client"
 
 import { useState, useEffect, useRef, useCallback } from "react"
-import type { InferSelectModel } from "drizzle-orm"
-import type { photos } from "@/db/schema"
+import type { PublicPhoto } from "@/lib/public-gallery"
 import { WebGLDistortion } from "@/components/webgl-distortion"
 
-type Photo = InferSelectModel<typeof photos>
+type Photo = PublicPhoto
 
 function imgUrl(key: string | null | undefined) {
   if (!key) return null

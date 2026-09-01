@@ -7,12 +7,13 @@ import {
   Info, ChevronLeft, ChevronRight, ArrowLeftRight,
 } from "lucide-react"
 import type { InferSelectModel } from "drizzle-orm"
-import type { galleries, photos, comments } from "@/db/schema"
+import type { comments } from "@/db/schema"
+import type { PublicGallery, PublicPhoto } from "@/lib/public-gallery"
 import { FILTERS } from "@/lib/gallery-filters"
 import { LightboxCrop } from "@/components/lightbox-crop"
 
-type Gallery = InferSelectModel<typeof galleries>
-type Photo = InferSelectModel<typeof photos>
+type Gallery = PublicGallery
+type Photo = PublicPhoto
 type Comment = InferSelectModel<typeof comments>
 
 const display = { fontFamily: "var(--font-oswald, 'Oswald', sans-serif)" }
@@ -177,7 +178,7 @@ export function Lightbox({
   async function downloadWithEdits() {
     if (!activePhoto) return
     setShowDownloadMenu(false)
-    const src = imgUrl(activePhoto.displayKey ?? activePhoto.originalKey)!
+    const src = imgUrl(activePhoto.displayKey ?? activePhoto.thumbKey)!
     const img = new Image()
     img.src = src
     await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(new Error("load")) })
@@ -483,7 +484,7 @@ export function Lightbox({
                         Download with edits
                       </button>
                     )}
-                    <a href={imgUrl(gallery.downloadMode === "lowres" ? activePhoto.watermarkedKey : activePhoto.originalKey) ?? "#"}
+                    <a href={`/api/galleries/${encodeURIComponent(gallery.slug)}/download?photoId=${encodeURIComponent(activePhoto.id)}`}
                       download={activePhoto.filename} onClick={() => setShowDownloadMenu(false)} data-cursor="link"
                       className="block px-3 py-2 text-white hover:bg-white/10 rounded-lg transition-colors">
                       {isProofing ? "Download proof" : "Download master original"}
@@ -550,7 +551,7 @@ export function Lightbox({
       >
         {/* Curtain slides */}
         {renderRange.map(({ photo, absIdx }) => {
-          const src = imgUrl(photo.displayKey ?? photo.originalKey)
+          const src = imgUrl(photo.displayKey ?? photo.thumbKey)
           const isActive = absIdx === activeIdx
           return (
             <div key={photo.id}
@@ -580,11 +581,11 @@ export function Lightbox({
 
         {/* Before / After compare mode */}
         {compareMode && (() => {
-          const src = imgUrl(activePhoto.displayKey ?? activePhoto.originalKey)!
+          const src = imgUrl(activePhoto.displayKey ?? activePhoto.thumbKey)!
           const matchingProof = proofingPhotos?.find(
             (p) => p.filename === activePhoto.filename || p.filename.replace(/\.[^.]+$/, "") === activePhoto.filename.replace(/\.[^.]+$/, "")
           )
-          const beforeSrc = matchingProof ? imgUrl(matchingProof.displayKey ?? matchingProof.originalKey)! : src
+          const beforeSrc = matchingProof ? imgUrl(matchingProof.displayKey ?? matchingProof.thumbKey)! : src
 
           return (
             <div ref={compareRef} className="lb-compare-stage"
@@ -698,7 +699,7 @@ export function Lightbox({
         {/* Crop tool (Final Delivery only) */}
         {cropMode && !isProofing && (
           <LightboxCrop
-            imageUrl={imgUrl(activePhoto.displayKey ?? activePhoto.originalKey)!}
+            imageUrl={imgUrl(activePhoto.displayKey ?? activePhoto.thumbKey)!}
             naturalWidth={activePhoto.width ?? 0}
             naturalHeight={activePhoto.height ?? 0}
             filename={activePhoto.filename}

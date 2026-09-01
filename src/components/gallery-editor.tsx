@@ -102,6 +102,7 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
       for (const file of accepted) {
         if (cancelRequestedRef.current) break
 
+        let uploadPhotoId: string | undefined
         try {
           // 1. Get presigned upload URL with target section (with retry for transient server restarts)
           let res: Response
@@ -164,12 +165,18 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
             setUploading((u) => u.filter((f) => f.name !== file.name))
             continue
           }
-          const { url, photoId } = await res.json()
+          const { url, photoId, uploadProtocol } = await res.json() as {
+            url?: string
+            photoId: string
+            uploadProtocol?: "s3" | "drive-relay"
+          }
+          uploadPhotoId = photoId
 
           if (cancelRequestedRef.current) break
 
-          // 2. Direct S3 PUT with cancelable XHR
-          await new Promise<void>((resolve, reject) => {
+          // 2. Direct PUT with cancelable XHR. Google Drive returns its file
+          // metadata after a resumable-session upload; S3/R2 returns no body.
+          const uploadResult = await new Promise<{ driveFileId?: string }>((resolve, reject) => {
             const xhr = new XMLHttpRequest()
             currentXhrRef.current = xhr
 
@@ -182,19 +189,42 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
             }
             xhr.onload = () => {
               currentXhrRef.current = null
-              xhr.status < 300 ? resolve() : reject(new Error(`S3 upload returned HTTP ${xhr.status}`))
+              if (xhr.status >= 300) {
+                reject(new Error(`Upload returned HTTP ${xhr.status}`))
+                return
+              }
+              if (uploadProtocol === "drive-relay") {
+                const response = JSON.parse(xhr.responseText || "{}") as { driveFileId?: string }
+                if (!response.driveFileId) {
+                  reject(new Error("Google Drive did not confirm the uploaded file"))
+                  return
+                }
+                resolve({ driveFileId: response.driveFileId })
+                return
+              }
+              resolve({})
             }
             xhr.onerror = () => {
               currentXhrRef.current = null
-              reject(new Error("Network connection dropped during S3 upload"))
+              reject(new Error("Network connection dropped during upload"))
             }
             xhr.onabort = () => {
               currentXhrRef.current = null
               reject(new Error("aborted"))
             }
-            xhr.open("PUT", url)
-            xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream")
-            xhr.send(file)
+            if (uploadProtocol === "drive-relay") {
+              // Post to same-origin relay; the server uploads to Drive to
+              // avoid CORS restrictions on googleapis.com.
+              const formData = new FormData()
+              formData.append("photoId", photoId)
+              formData.append("file", file)
+              xhr.open("POST", "/api/upload/drive-relay")
+              xhr.send(formData)
+            } else {
+              xhr.open("PUT", url!)
+              xhr.setRequestHeader("Content-Type", file.type || "application/octet-stream")
+              xhr.send(file)
+            }
           })
 
           if (cancelRequestedRef.current) break
@@ -203,7 +233,7 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
           let processRes = await fetch("/api/upload/process", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ photoId }),
+            body: JSON.stringify({ photoId, driveFileId: uploadResult.driveFileId }),
           })
 
           if ((processRes.status === 502 || processRes.status === 503) && !cancelRequestedRef.current) {
@@ -211,7 +241,7 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
             processRes = await fetch("/api/upload/process", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ photoId }),
+              body: JSON.stringify({ photoId, driveFileId: uploadResult.driveFileId }),
             })
           }
 
@@ -226,6 +256,11 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
               file,
             }])
             toast.error(`Processing error (${file.name}): ${reason}`)
+            await fetch("/api/upload/discard", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ photoId }),
+            }).catch(() => undefined)
             setUploading((u) => u.filter((f) => f.name !== file.name))
             continue
           }
@@ -238,6 +273,13 @@ export function GalleryEditor({ gallery, photos: initialPhotos }: { gallery: Gal
             // Cancelled by user
           } else {
             const reason = err?.message || "Upload network error"
+            if (uploadPhotoId) {
+              await fetch("/api/upload/discard", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ photoId: uploadPhotoId }),
+              }).catch(() => undefined)
+            }
             setFailedUploads(f => [...f.filter(item => item.name !== file.name), {
               id: crypto.randomUUID(),
               name: file.name,

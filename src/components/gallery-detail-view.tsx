@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import {
   ArrowLeft,
@@ -54,8 +54,15 @@ export function GalleryDetailView({
   const [copiedLink, setCopiedLink] = useState(false)
   const [copiedFilenamesId, setCopiedFilenamesId] = useState<string | null>(null)
   const [isSavingSettings, setIsSavingSettings] = useState(false)
+  const [clientOrigin, setClientOrigin] = useState(baseUrl)
 
-  const shareUrl = `${baseUrl}/g/${gallery.slug}`
+  useEffect(() => {
+    if (typeof window !== "undefined" && window.location?.origin) {
+      setClientOrigin(window.location.origin)
+    }
+  }, [])
+
+  const shareUrl = `${clientOrigin || baseUrl}/g/${gallery.slug}`
   const isExpired = gallery.expiresAt ? new Date(gallery.expiresAt) < new Date() : false
   const isProtected = Boolean(gallery.passwordHash)
 
@@ -119,7 +126,8 @@ export function GalleryDetailView({
     : ""
 
   return (
-    <div className="space-y-8 pb-16">
+    <div className="h-full overflow-y-auto w-full">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10 w-full space-y-8 pb-16">
       {/* ── Top Navigation & Back Link ── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <Link
@@ -149,12 +157,22 @@ export function GalleryDetailView({
             <span>{copiedLink ? "Copied" : "Copy Link"}</span>
           </button>
           <Link
-            href={shareUrl}
+            href={`/dashboard/galleries/${gallery.id}/editor`}
+            className={cn(
+              buttonVariants({ size: "sm" }),
+              "gap-1.5 rounded-xl shadow-md text-xs font-bold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black flex-1 sm:flex-none justify-center"
+            )}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>AI Photo Studio</span>
+          </Link>
+          <Link
+            href={`/g/${gallery.slug}`}
             target="_blank"
-            className={cn(buttonVariants({ size: "sm" }), "gap-1.5 rounded-xl shadow-xs text-xs flex-1 sm:flex-none justify-center")}
+            className={cn(buttonVariants({ variant: "outline", size: "sm" }), "gap-1.5 rounded-xl shadow-xs text-xs flex-1 sm:flex-none justify-center")}
           >
             <ExternalLink className="h-3.5 w-3.5" />
-            <span>Open Client View</span>
+            <span>Client View</span>
           </Link>
         </div>
       </div>
@@ -413,18 +431,32 @@ export function GalleryDetailView({
                           </div>
                         </div>
 
-                        {/* Lightroom Filename Copy Button */}
-                        <button
-                          onClick={() => handleCopyLightroomFilenames(selection)}
-                          className={cn(
-                            buttonVariants({ variant: "outline", size: "sm" }),
-                            "gap-1.5 rounded-xl shrink-0 font-medium",
-                            isCopied && "border-emerald-500 text-emerald-600 dark:text-emerald-400"
-                          )}
-                        >
-                          {isCopied ? <Check className="h-3.5 w-3.5" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
-                          <span>{isCopied ? "Filenames Copied!" : "Copy Lightroom Filenames"}</span>
-                        </button>
+                        <div className="flex items-center gap-2">
+                          {/* AI Studio Action Button */}
+                          <Link
+                            href={`/dashboard/galleries/${gallery.id}/editor?selectionId=${selection.id}`}
+                            className={cn(
+                              buttonVariants({ size: "sm" }),
+                              "gap-1.5 rounded-xl shrink-0 font-bold bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black shadow-sm"
+                            )}
+                          >
+                            <Sparkles className="h-3.5 w-3.5" />
+                            <span>Edit in AI Studio ({photoCount})</span>
+                          </Link>
+
+                          {/* Lightroom Filename Copy Button */}
+                          <button
+                            onClick={() => handleCopyLightroomFilenames(selection)}
+                            className={cn(
+                              buttonVariants({ variant: "outline", size: "sm" }),
+                              "gap-1.5 rounded-xl shrink-0 font-medium",
+                              isCopied && "border-emerald-500 text-emerald-600 dark:text-emerald-400"
+                            )}
+                          >
+                            {isCopied ? <Check className="h-3.5 w-3.5" /> : <FileSpreadsheet className="h-3.5 w-3.5" />}
+                            <span>{isCopied ? "Copied" : "Copy Filenames"}</span>
+                          </button>
+                        </div>
                       </div>
 
                       {/* Photo Thumbnail Grid */}
@@ -627,6 +659,7 @@ export function GalleryDetailView({
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

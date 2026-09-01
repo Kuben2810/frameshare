@@ -1,13 +1,13 @@
 import { db } from "@/db"
 import { galleries, photos, stars } from "@/db/schema"
-import { eq, and, asc, inArray } from "drizzle-orm"
+import { eq, and, asc, inArray, or } from "drizzle-orm"
 import { cookies } from "next/headers"
 import { auth } from "@/auth"
 // @ts-expect-error archiver uses export = format
 import archiver from "archiver"
-import { PassThrough, Readable } from "stream"
-import { s3, BUCKET } from "@/lib/s3"
-import { GetObjectCommand } from "@aws-sdk/client-s3"
+import { PassThrough } from "stream"
+import { requireGalleryWorkspaceAccess } from "@/lib/workspace"
+import { getGalleryStorageConnection, streamMediaNodeReadable, streamMediaObject } from "@/lib/media-storage"
 
 export const dynamic = "force-dynamic"
 export const runtime = "nodejs"
@@ -18,12 +18,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   const type = searchParams.get("type") || "all"
   const section = searchParams.get("section") as "proofing" | "final" | null
   const clientId = searchParams.get("clientId")
+  const photoId = searchParams.get("photoId")
 
-  const gallery = await db.query.galleries.findFirst({ where: eq(galleries.slug, slug) })
+  const decodedSlug = decodeURIComponent(slug).trim()
+  const gallery = await db.query.galleries.findFirst({
+    where: or(eq(galleries.slug, decodedSlug), eq(galleries.id, decodedSlug)),
+  })
   if (!gallery) return new Response("Gallery not found", { status: 404 })
 
   const session = await auth()
-  const isOwner = !!(session?.user?.id && session.user.id === gallery.userId)
+  const isOwner = !!(session?.user?.id && await requireGalleryWorkspaceAccess(gallery.id, session.user.id))
 
   // Check expiry
   if (gallery.expiresAt && new Date(gallery.expiresAt) < new Date() && !isOwner) {
@@ -43,7 +47,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
   }
 
   let selectedPhotoIds: string[] | null = null
-  if (type === "starred" && clientId) {
+  if (photoId) {
+    selectedPhotoIds = [photoId]
+  } else if (type === "starred" && clientId) {
     const starredRows = await db.query.stars.findMany({
       where: and(eq(stars.galleryId, gallery.id), eq(stars.clientId, clientId)),
     })
@@ -67,12 +73,39 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
     return new Response("No photos available to download", { status: 404 })
   }
 
+  const isFullDownload = isOwner || gallery.downloadMode === "full"
+  let storageConnection
+  try {
+    storageConnection = await getGalleryStorageConnection(gallery.id)
+  } catch {
+    return new Response("Gallery storage is unavailable", { status: 409 })
+  }
+
+  if (photoId) {
+    const photo = galleryPhotos[0]
+    const key = isFullDownload ? photo.originalKey : photo.watermarkedKey
+    if (!key) return new Response("Download unavailable", { status: 404 })
+
+    try {
+      const object = await streamMediaObject(storageConnection, key)
+
+      const filename = photo.filename.replace(/[\\"\r\n]/g, "_")
+      return new Response(object.body, {
+        headers: {
+          "Content-Type": object.contentType,
+          "Content-Disposition": `attachment; filename="${filename}"`,
+          "Cache-Control": "no-cache",
+        },
+      })
+    } catch {
+      return new Response("Download unavailable", { status: 404 })
+    }
+  }
+
   const archive = archiver("zip", { zlib: { level: 5 } })
   const passThrough = new PassThrough()
 
   archive.pipe(passThrough)
-
-  const isFullDownload = isOwner || gallery.downloadMode === "full"
 
   // Process and append each photo asynchronously to the stream
   ;(async () => {
@@ -82,7 +115,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
       for (const photo of galleryPhotos) {
         const key = isFullDownload
           ? photo.originalKey
-          : (photo.displayKey || photo.watermarkedKey || photo.originalKey)
+          : (photo.watermarkedKey || photo.displayKey)
         if (!key) continue
 
         let name = photo.filename || `photo-${photo.id}.jpg`
@@ -95,10 +128,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ slug: st
         }
 
         try {
-          const s3Res = await s3.send(new GetObjectCommand({ Bucket: BUCKET, Key: key }))
-          if (s3Res.Body) {
-            archive.append(s3Res.Body as Readable, { name })
-          }
+          archive.append(await streamMediaNodeReadable(storageConnection, key), { name })
         } catch (err) {
           console.error(`Failed to stream photo ${photo.id} to zip:`, err)
         }

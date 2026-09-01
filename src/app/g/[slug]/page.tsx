@@ -1,12 +1,13 @@
 import { db } from "@/db"
-import { galleries, photos, stars, comments } from "@/db/schema"
-import { eq, and, asc, inArray } from "drizzle-orm"
+import { galleries, photos, stars, comments, workspaces } from "@/db/schema"
+import { eq, and, asc, inArray, or } from "drizzle-orm"
 import { notFound } from "next/navigation"
 import { cookies } from "next/headers"
 import { auth } from "@/auth"
 import { GalleryView } from "@/components/gallery-view"
 import { PasswordGate } from "@/components/password-gate"
-import { ensureColumnsMigrated } from "@/db/auto-migrate"
+import { toPublicGallery, toPublicPhoto } from "@/lib/public-gallery"
+import { requireGalleryWorkspaceAccess } from "@/lib/workspace"
 
 export default async function GallerySharePage({
   params,
@@ -15,13 +16,23 @@ export default async function GallerySharePage({
 }) {
   const { slug } = await params
 
-  await ensureColumnsMigrated()
 
-  const gallery = await db.query.galleries.findFirst({ where: eq(galleries.slug, slug) })
+  const decodedSlug = decodeURIComponent(slug).trim()
+
+  const gallery = await db.query.galleries.findFirst({
+    where: or(
+      eq(galleries.slug, decodedSlug),
+      eq(galleries.id, decodedSlug)
+    ),
+  })
   if (!gallery) notFound()
 
   const session = await auth()
-  const isOwner = !!(session?.user?.id && session.user.id === gallery.userId)
+  const isOwner = !!(session?.user?.id && await requireGalleryWorkspaceAccess(gallery.id, session.user.id))
+  const workspace = await db.query.workspaces.findFirst({
+    where: eq(workspaces.id, gallery.workspaceId),
+    columns: { logoKey: true, accentColor: true },
+  })
 
   // Check expiry
   if (gallery.expiresAt && new Date(gallery.expiresAt) < new Date()) {
@@ -47,10 +58,14 @@ export default async function GallerySharePage({
     }
   }
 
-  const galleryPhotos = await db.query.photos.findMany({
+  const PAGE = 60
+  const galleryPhotosRaw = await db.query.photos.findMany({
     where: and(eq(photos.galleryId, gallery.id), eq(photos.status, "ready")),
     orderBy: [asc(photos.sortOrder), asc(photos.createdAt)],
+    limit: PAGE + 1,
   })
+  const hasMore = galleryPhotosRaw.length > PAGE
+  const galleryPhotos = galleryPhotosRaw.slice(0, PAGE)
 
   const galleryStars = await db.query.stars.findMany({
     where: eq(stars.galleryId, gallery.id),
@@ -65,10 +80,16 @@ export default async function GallerySharePage({
 
   return (
     <GalleryView
-      gallery={gallery}
-      photos={galleryPhotos}
+      gallery={toPublicGallery({
+        ...gallery,
+        logoKey: gallery.logoKey ?? workspace?.logoKey ?? null,
+        accentColor: gallery.accentColor ?? workspace?.accentColor ?? null,
+      })}
+      photos={galleryPhotos.map(toPublicPhoto)}
       initialStars={galleryStars}
       initialComments={allComments}
+      gallerySlug={gallery.slug}
+      hasMore={hasMore}
     />
   )
 }

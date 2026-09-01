@@ -1,9 +1,11 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo, useCallback } from "react"
+import { decode as decodeBlurhash } from "blurhash"
 import { Star, MessageSquare, Send, X, User, MessageCircle } from "lucide-react"
 import type { InferSelectModel } from "drizzle-orm"
-import type { galleries, photos, stars, comments } from "@/db/schema"
+import type { stars, comments } from "@/db/schema"
+import type { PublicGallery, PublicPhoto } from "@/lib/public-gallery"
 import { useStar } from "@/lib/hooks/use-star"
 import { useComment } from "@/lib/hooks/use-comment"
 import { useSelection } from "@/lib/hooks/use-selection"
@@ -15,8 +17,8 @@ import { Lightbox } from "@/components/lightbox"
 import { Ribbon } from "@/components/ribbon"
 import { cn } from "@/lib/utils"
 
-type Gallery = InferSelectModel<typeof galleries>
-type Photo = InferSelectModel<typeof photos>
+type Gallery = PublicGallery
+type Photo = PublicPhoto
 type Star = InferSelectModel<typeof stars>
 type Comment = InferSelectModel<typeof comments>
 type Layout = "masonry" | "ribbon"
@@ -27,6 +29,27 @@ function imgUrl(key: string | null | undefined) {
   return `/api/s3/${key}`
 }
 
+function BlurHashPlaceholder({ hash }: { hash: string }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null)
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    try {
+      const pixels = decodeBlurhash(hash, 32, 32)
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return
+      const img = ctx.createImageData(32, 32)
+      img.data.set(pixels)
+      ctx.putImageData(img, 0, 0)
+    } catch { /* non-fatal */ }
+  }, [hash])
+  return (
+    <canvas ref={canvasRef} width={32} height={32}
+      style={{ position: "absolute", inset: 0, width: "100%", height: "100%", imageRendering: "pixelated", zIndex: 0 }}
+    />
+  )
+}
+
 const display = { fontFamily: "var(--font-oswald, 'Oswald', sans-serif)" }
 
 export function GalleryView({
@@ -34,15 +57,55 @@ export function GalleryView({
   photos,
   initialStars,
   initialComments,
+  gallerySlug,
+  hasMore: initialHasMore = false,
 }: {
   gallery: Gallery
   photos: Photo[]
   initialStars: Star[]
   initialComments: Comment[]
+  gallerySlug?: string
+  hasMore?: boolean
 }) {
+  // ── Infinite scroll state ──────────────────────────────────────────────────
+  const [morePhotos, setMorePhotos] = useState<Photo[]>([])
+  const [hasMorePages, setHasMorePages] = useState(initialHasMore)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+
+  const allPhotos = useMemo(() => [...photos, ...morePhotos], [photos, morePhotos])
+
+  const fetchMore = useCallback(async () => {
+    if (loadingMore || !hasMorePages || !gallerySlug) return
+    setLoadingMore(true)
+    try {
+      const offset = photos.length + morePhotos.length
+      const res = await fetch(`/api/galleries/${gallerySlug}/photos?offset=${offset}&limit=60`)
+      if (!res.ok) { setHasMorePages(false); return }
+      const data = await res.json()
+      setMorePhotos((prev) => [...prev, ...data.photos])
+      setHasMorePages(data.hasMore)
+    } finally {
+      setLoadingMore(false)
+    }
+  }, [loadingMore, hasMorePages, gallerySlug, photos.length, morePhotos.length])
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current
+    const container = scrollContainerRef.current
+    if (!sentinel || !container || !hasMorePages) return
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0]?.isIntersecting) fetchMore() },
+      { root: container, rootMargin: "400px", threshold: 0 },
+    )
+    observer.observe(sentinel)
+    return () => observer.disconnect()
+  }, [hasMorePages, loadingMore, fetchMore])
+
   // ── Split Photos by Section ────────────────────────────────────────────────
-  const proofingPhotos = photos.filter((p) => (p.section ?? "proofing") === "proofing")
-  const finalPhotos = photos.filter((p) => p.section === "final")
+  const proofingPhotos = allPhotos.filter((p) => (p.section ?? "proofing") === "proofing")
+  const finalPhotos = allPhotos.filter((p) => p.section === "final")
 
   const defaultSection =
     gallery.stage === "delivered" && finalPhotos.length > 0
@@ -148,6 +211,7 @@ export function GalleryView({
 
     return (
       <>
+        {photo.blurHash && <BlurHashPlaceholder hash={photo.blurHash} />}
         {imageSrc ? (
           <WebGLDistortion
             src={imageSrc}
@@ -268,7 +332,7 @@ export function GalleryView({
           <a className="ashade-logo min-w-0 pr-2" href="#" onClick={(e) => e.preventDefault()} data-cursor="link">
             {gallery.logoKey ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img src={imgUrl(gallery.logoKey)!} alt="" className="h-7 w-auto object-contain" />
+              <img src={imgUrl(gallery.logoKey)!} alt="" loading="lazy" className="h-7 w-auto object-contain" />
             ) : (
               <>
                 <span className="ashade-logo-text truncate max-w-[140px] xs:max-w-[180px] sm:max-w-xs md:max-w-md">
@@ -462,7 +526,7 @@ export function GalleryView({
       )}
 
       {/* ── Gallery main scroll area ── */}
-      <div className="ashade-gallery-main" style={{ position: "relative", zIndex: 2, minHeight: "100vh", overflowY: "auto" }}>
+      <div ref={scrollContainerRef} className="ashade-gallery-main" style={{ position: "relative", zIndex: 2, minHeight: "100vh", overflowY: "auto" }}>
         <div className="pt-2 pb-12">
 
           {/* Mobile Phase Switcher */}
@@ -566,6 +630,7 @@ export function GalleryView({
                 return (
                   <div key={photo.id} data-delay={Math.min(idx * 50, 400)}
                     className={`photo-card group relative cursor-pointer overflow-hidden ${starred ? "ring-2 ring-white ring-inset" : ""}`}
+                    style={{ contentVisibility: "auto", containIntrinsicSize: "0 400px" }}
                     onClick={() => openLightbox(idx)} data-cursor="zoom">
                     {cardInner(photo, false)}
                   </div>
@@ -577,6 +642,14 @@ export function GalleryView({
           {/* ── RIBBON ── */}
           {activePhotos.length > 0 && layout === "ribbon" && (
             <Ribbon photos={activePhotos} openLightbox={openLightbox} />
+          )}
+
+          {/* ── Infinite scroll sentinel ── */}
+          <div ref={sentinelRef} style={{ height: 1 }} />
+          {loadingMore && (
+            <div className="flex justify-center py-8">
+              <div className="w-6 h-6 rounded-full border-2 border-white/20 border-t-white/80 animate-spin" />
+            </div>
           )}
 
         </div>
@@ -637,6 +710,7 @@ export function GalleryView({
                   <img
                     src={imgUrl(quickCommentPhoto.thumbKey)!}
                     alt={quickCommentPhoto.filename}
+                    loading="lazy"
                     className="h-10 w-10 rounded-lg object-cover shrink-0 border border-white/15"
                   />
                 )}

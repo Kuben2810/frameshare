@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
-import * as THREE from "three"
+import type * as THREE from "three"
 
 const VERT = `
 varying vec2 vUv;
@@ -79,8 +79,9 @@ export function WebGLDistortion({
     setGlReady(false)
   }
 
-  const initGL = () => {
+  const initGL = async () => {
     if (disposeRef.current || !containerRef.current || !canvasRef.current) return
+    const THREE = await import('three')
     let isDisposed = false
     try {
       const container = containerRef.current
@@ -272,6 +273,7 @@ export function WebGLDistortion({
       <img
         src={src}
         alt={alt}
+        loading="lazy"
         style={{
           width: "100%",
           height: "100%",

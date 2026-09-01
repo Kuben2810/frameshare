@@ -5,6 +5,8 @@ import { photos, galleries } from "@/db/schema"
 import { eq, or } from "drizzle-orm"
 import { auth } from "@/auth"
 import { cookies } from "next/headers"
+import { requireGalleryWorkspaceAccess } from "@/lib/workspace"
+import { getGalleryStorageConnection, streamMediaObject } from "@/lib/media-storage"
 
 export async function GET(_req: Request, { params }: { params: Promise<{ key: string[] }> }) {
   const { key } = await params
@@ -19,23 +21,17 @@ export async function GET(_req: Request, { params }: { params: Promise<{ key: st
     return serveS3Object(s3Key, "public, max-age=31536000, immutable")
   }
 
-  // If the key is a photo (photos/<photoId>/...)
-  if (key[0] === "photos") {
-    const photoId = key[1]
-    let photo = photoId
-      ? await db.query.photos.findFirst({ where: eq(photos.id, photoId) })
-      : null
-
-    if (!photo) {
-      photo = await db.query.photos.findFirst({
-        where: or(
-          eq(photos.originalKey, s3Key),
-          eq(photos.thumbKey, s3Key),
-          eq(photos.displayKey, s3Key),
-          eq(photos.watermarkedKey, s3Key)
-        ),
-      })
-    }
+  // Photo keys are opaque locators. Managed media uses photos/<id>/..., while
+  // Drive media uses drive/<file-id>; both stay behind this authorization gate.
+  if (key[0] === "photos" || key[0] === "drive") {
+    const photo = await db.query.photos.findFirst({
+      where: or(
+        eq(photos.originalKey, s3Key),
+        eq(photos.thumbKey, s3Key),
+        eq(photos.displayKey, s3Key),
+        eq(photos.watermarkedKey, s3Key),
+      ),
+    })
 
     if (!photo) {
       return new Response("Not found", { status: 404 })
@@ -50,7 +46,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ key: st
     }
 
     const session = await auth()
-    const isOwner = !!(session?.user?.id && session.user.id === gallery.userId)
+    const isOwner = !!(session?.user?.id && await requireGalleryWorkspaceAccess(gallery.id, session.user.id))
 
     // Check expiry
     const isExpired = gallery.expiresAt && new Date(gallery.expiresAt) < new Date()
@@ -67,7 +63,30 @@ export async function GET(_req: Request, { params }: { params: Promise<{ key: st
       }
     }
 
-    return serveS3Object(s3Key, "private, max-age=3600")
+    // Non-owners may view only the variants intentionally exposed by the
+    // gallery. Original and final-master keys are never browser-accessible;
+    // the gallery download route authorizes and streams them separately.
+    const isDisplayAsset = s3Key === photo.thumbKey || s3Key === photo.displayKey
+    if (!isOwner && (photo.status !== "ready" || !isDisplayAsset)) {
+      return new Response("Forbidden", { status: 403 })
+    }
+
+    const isPublic = !gallery.passwordHash && !isExpired
+    const cacheControl = isPublic
+      ? "public, max-age=86400, stale-while-revalidate=604800"
+      : "private, max-age=3600"
+    try {
+      const storageConnection = await getGalleryStorageConnection(gallery.id)
+      const object = await streamMediaObject(storageConnection, s3Key)
+      return new Response(object.body, {
+        headers: {
+          "Content-Type": object.contentType,
+          "Cache-Control": cacheControl,
+        },
+      })
+    } catch {
+      return new Response("Not found", { status: 404 })
+    }
   }
 
   return new Response("Not found", { status: 404 })

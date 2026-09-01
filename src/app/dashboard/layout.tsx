@@ -13,12 +13,14 @@ import {
 import { ThemeToggle } from "@/components/theme-toggle"
 import { FrameshareLogo } from "@/components/frameshare-logo"
 import { Images, Settings, LogOut, ExternalLink, Sparkles } from "lucide-react"
+import { ensureActiveWorkspace } from "@/lib/workspace"
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
-  if (!session?.user) redirect("/login")
+  if (!session?.user?.id) redirect("/login")
+  const { workspace } = await ensureActiveWorkspace(session.user.id)
 
-  const initials = session.user.name
+  const initials = workspace.name
     ?.split(" ")
     .map((n) => n[0])
     .join("")
@@ -26,9 +28,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
     .slice(0, 2) ?? "FS"
 
   return (
-    <div className="min-h-screen bg-background flex flex-col selection:bg-primary/20">
+    <div className="h-screen max-h-screen bg-background flex flex-col overflow-hidden selection:bg-primary/20">
       {/* ── Studio Navigation Header ── */}
-      <header className="sticky top-0 z-40 w-full border-b border-border/70 bg-card/80 backdrop-blur-md transition-colors">
+      <header className="sticky top-0 z-40 w-full border-b border-border/70 bg-card/80 backdrop-blur-md transition-colors shrink-0">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-4">
           {/* Brand Logo & Studio Nav */}
           <div className="flex items-center gap-6 md:gap-8">
@@ -43,6 +45,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
               >
                 <Images className="h-3.5 w-3.5" />
                 Collections
+              </Link>
+              <Link
+                href="/dashboard/prototype"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold tracking-wide text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 transition-colors flex items-center gap-1.5"
+              >
+                <Sparkles className="h-3.5 w-3.5 text-amber-400" />
+                <span>AI Studio (Prototype)</span>
               </Link>
               <Link
                 href="/dashboard/settings"
@@ -61,7 +70,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <DropdownMenu>
               <DropdownMenuTrigger className="rounded-full outline-none focus:ring-2 focus:ring-primary/40 transition-all ml-1">
                 <Avatar className="h-8 w-8 cursor-pointer ring-1 ring-border/80 hover:ring-primary/50 transition-all">
-                  {session.user.image && <AvatarImage src={session.user.image} alt={session.user.name ?? ""} />}
+                  {session.user.image && <AvatarImage src={session.user.image} alt={workspace.name} />}
                   <AvatarFallback className="text-xs bg-primary text-primary-foreground font-semibold">
                     {initials}
                   </AvatarFallback>
@@ -70,7 +79,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
               <DropdownMenuContent align="end" className="w-56 p-1.5 rounded-xl shadow-xl border-border/80">
                 <DropdownMenuLabel className="font-normal px-2 py-1.5">
                   <div className="flex flex-col space-y-0.5">
-                    <p className="text-sm font-semibold text-foreground truncate">{session.user.name}</p>
+                    <p className="text-sm font-semibold text-foreground truncate">{workspace.name}</p>
                     <p className="text-xs text-muted-foreground truncate">{session.user.email}</p>
                   </div>
                 </DropdownMenuLabel>
@@ -103,10 +112,9 @@ export default async function DashboardLayout({ children }: { children: React.Re
       </header>
 
       {/* ── Main Content Area ── */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10">
+      <main className="flex-1 flex flex-col w-full min-h-0 overflow-hidden">
         {children}
       </main>
     </div>
   )
 }
-

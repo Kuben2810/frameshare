@@ -46,3 +46,5 @@ next-env.d.ts
 # test artifacts
 .playwright-mcp/
 *.png
+.env*
+scripts/migrate-data.mjs

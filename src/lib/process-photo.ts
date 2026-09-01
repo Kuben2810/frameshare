@@ -1,11 +1,12 @@
 import { db } from "@/db"
-import { photos, users } from "@/db/schema"
+import { galleries, photos, workspaces } from "@/db/schema"
 import { eq } from "drizzle-orm"
-import { uploadBuffer, downloadBuffer, deleteKey } from "@/lib/s3"
 import { s3Keys } from "@/lib/s3-keys"
+import { downloadMediaBuffer, getGalleryStorageConnection, uploadMediaBuffer } from "@/lib/media-storage"
 import { getDecodableImageBuffer, extractRawOrientation } from "@/lib/raw-decoder"
 import { adjustStorageQuota } from "@/lib/db-guards"
 import sharp from "sharp"
+import { encode as blurhashEncode } from "blurhash"
 
 // Configure Sharp for low-memory environments (prevents container OOM kills on 24MP+ RAW files)
 sharp.cache(false)
@@ -71,10 +72,13 @@ export async function processPhoto(photoId: string): Promise<void> {
   const photo = await db.query.photos.findFirst({ where: eq(photos.id, photoId) })
   if (!photo) throw new Error(`Photo ${photoId} not found`)
 
-  const user = await db.query.users.findFirst({ where: eq(users.id, photo.userId) })
-  const photographerName = user?.name ?? "Frameshare"
+  const gallery = await db.query.galleries.findFirst({ where: eq(galleries.id, photo.galleryId) })
+  if (!gallery) throw new Error(`Gallery for photo ${photoId} not found`)
+  const storageConnection = await getGalleryStorageConnection(gallery.id)
+  const workspace = await db.query.workspaces.findFirst({ where: eq(workspaces.id, gallery.workspaceId) })
+  const photographerName = workspace?.name ?? "Frameshare"
 
-  const rawOriginal = await downloadBuffer(photo.originalKey)
+  const rawOriginal = await downloadMediaBuffer(storageConnection, photo.originalKey)
   // Convert or extract decodable image buffer for RAW (CR2, NEF, ARW, DNG) or standard images
   const original = await getDecodableImageBuffer(rawOriginal, photo.filename)
 
@@ -93,7 +97,8 @@ export async function processPhoto(photoId: string): Promise<void> {
   // Rotator helper: rotates explicitly if RAW IFD orientation exists, or uses Sharp auto-rotate
   const rotateBuffer = (buf: Buffer) => (rotateAngle !== undefined ? sharp(buf).rotate(rotateAngle) : sharp(buf).rotate())
 
-  // Step 1: Decode raw original ONCE and resize to clean 2560px master image
+  // Step 1: Decode the private source master once and derive a 2560px preview.
+  // The source object remains private at originalKey for final rendering.
   const masterBase = await rotateBuffer(original)
     .resize(2560, 2560, {
       fit: "inside",
@@ -107,16 +112,23 @@ export async function processPhoto(photoId: string): Promise<void> {
   const masterW = masterMeta.width ?? 1200
   const masterH = masterMeta.height ?? 800
 
-  // Step 2: Derive crisp grid thumbnail (1200px Lanczos3 WebP) from masterBase
+  // Step 2: Derive crisp grid thumbnail (700px Lanczos3 WebP) from masterBase
   const thumb = await sharp(masterBase)
-    .resize(1200, 1200, {
+    .resize(700, 700, {
       fit: "inside",
       withoutEnlargement: true,
       kernel: sharp.kernel.lanczos3,
     })
     .sharpen({ sigma: 0.75, m1: 0.5, m2: 1.5 })
-    .webp({ quality: 90, effort: 4 })
+    .webp({ quality: 82, effort: 4 })
     .toBuffer()
+
+  // Compute blur hash from a tiny 32px version of the thumb for LQIP placeholders
+  let blurHash: string | undefined
+  try {
+    const tiny = await sharp(thumb).resize(32, 32, { fit: "inside" }).raw().toBuffer({ resolveWithObject: true })
+    blurHash = blurhashEncode(new Uint8ClampedArray(tiny.data), tiny.info.width, tiny.info.height, 4, 3)
+  } catch { /* non-fatal */ }
 
   // Step 3: Derive display variant from masterBase
   let display: Buffer
@@ -149,48 +161,28 @@ export async function processPhoto(photoId: string): Promise<void> {
     .jpeg({ quality: 88, mozjpeg: true })
     .toBuffer()
 
-  const thumbKey       = keys.thumb()
-  const displayKey     = keys.display()
-  const watermarkedKey = keys.watermarked()
-
-  await Promise.all([
-    uploadBuffer(thumbKey, thumb, "image/webp"),
-    uploadBuffer(displayKey, display, "image/webp"),
-    uploadBuffer(watermarkedKey, watermarked, "image/jpeg"),
+  const storageName = (managedKey: string, driveName: string) =>
+    storageConnection.provider === "managed" ? managedKey : driveName
+  const [thumbKey, displayKey, watermarkedKey] = await Promise.all([
+    uploadMediaBuffer(storageConnection, storageName(keys.thumb(), `Frameshare-${photo.id}-thumb.webp`), thumb, "image/webp"),
+    uploadMediaBuffer(storageConnection, storageName(keys.display(), `Frameshare-${photo.id}-display.webp`), display, "image/webp"),
+    uploadMediaBuffer(storageConnection, storageName(keys.watermarked(), `Frameshare-${photo.id}-watermarked.jpg`), watermarked, "image/jpeg"),
   ])
 
-  let finalOriginalKey = photo.originalKey
-  let finalFileSizeBytes = photo.fileSizeBytes
-
-  // For proofing photos, delete the heavy original raw file from S3 to conserve storage space.
-  // The raw files remain stored in Lightroom on the photographer's local workstation.
-  if (isProofing) {
-    try {
-      if (photo.originalKey && photo.originalKey !== displayKey) {
-        await deleteKey(photo.originalKey)
-      }
-      finalOriginalKey = displayKey
-      const totalWebBytes = thumb.length + display.length + watermarked.length
-      const diffBytes = photo.fileSizeBytes - totalWebBytes
-      if (diffBytes > 0) {
-        await adjustStorageQuota(photo.userId, -diffBytes)
-      }
-      finalFileSizeBytes = totalWebBytes
-    } catch (cleanupErr) {
-      console.warn("Proofing storage optimization notice:", cleanupErr)
-    }
-  }
-
-  await db.update(photos)
-    .set({
-      originalKey: finalOriginalKey,
-      thumbKey,
-      displayKey,
-      watermarkedKey,
-      width: masterW,
-      height: masterH,
-      fileSizeBytes: finalFileSizeBytes,
-      status: "ready",
-    })
-    .where(eq(photos.id, photoId))
+  const variantBytes = thumb.length + display.length + watermarked.length
+  await db.transaction(async (tx) => {
+    await adjustStorageQuota(gallery.workspaceId, variantBytes, tx)
+    await tx.update(photos)
+      .set({
+        thumbKey,
+        displayKey,
+        watermarkedKey,
+        blurHash,
+        width: masterW,
+        height: masterH,
+        fileSizeBytes: photo.fileSizeBytes + variantBytes,
+        status: "ready",
+      })
+      .where(eq(photos.id, photoId))
+  })
 }

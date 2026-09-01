@@ -1,23 +1,18 @@
 import { auth } from "@/auth"
-import { db } from "@/db"
-import { galleries } from "@/db/schema"
-import { eq, and } from "drizzle-orm"
-import { notFound, redirect } from "next/navigation"
+import { redirect } from "next/navigation"
 import { updateGallery, deleteGallery } from "@/app/actions/galleries"
 import { ArrowLeft, Trash2, SlidersHorizontal, Lock, Calendar, Download } from "lucide-react"
 import Link from "next/link"
 import { buttonVariants } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
+import { requireGalleryOwned } from "@/lib/db-guards"
 
 export default async function GallerySettingsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const session = await auth()
   if (!session?.user?.id) redirect("/login")
 
-  const gallery = await db.query.galleries.findFirst({
-    where: and(eq(galleries.id, id), eq(galleries.userId, session.user.id)),
-  })
-  if (!gallery) notFound()
+  const gallery = await requireGalleryOwned(id, session.user.id)
 
   const updateAction = updateGallery.bind(null, id) as unknown as (fd: FormData) => Promise<void>
   const deleteAction = deleteGallery.bind(null, id) as unknown as () => Promise<void>
@@ -59,6 +54,25 @@ export default async function GallerySettingsPage({ params }: { params: Promise<
               required
               className="w-full px-4 py-2.5 bg-background border border-border rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary/40 font-medium"
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <label htmlFor="slug" className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Custom Proofing URL Slug
+            </label>
+            <div className="flex items-center gap-1.5 px-4 py-2.5 bg-background border border-border rounded-xl text-sm focus-within:ring-2 focus-within:ring-primary/40">
+              <span className="text-muted-foreground font-mono text-xs select-none">/g/</span>
+              <input
+                id="slug"
+                name="slug"
+                defaultValue={gallery.slug}
+                placeholder="vanity-slug-name"
+                className="w-full bg-transparent text-sm focus:outline-none font-mono"
+              />
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              Direct client link: <span className="font-mono text-primary">/g/{gallery.slug}</span>
+            </p>
           </div>
 
           <div className="space-y-1.5">

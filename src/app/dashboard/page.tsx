@@ -1,45 +1,41 @@
 import { auth } from "@/auth"
 import { db } from "@/db"
-import { galleries, photos, selections, users, stars } from "@/db/schema"
+import { galleries, photos, selections, stars, workspaces } from "@/db/schema"
 import { eq, and, asc, desc } from "drizzle-orm"
 import { redirect } from "next/navigation"
 import { DashboardClientView, DashboardGallery } from "@/components/dashboard-client-view"
 import { getBaseUrl } from "@/lib/utils"
-import { ensureColumnsMigrated } from "@/db/auto-migrate"
+import { ensureActiveWorkspace } from "@/lib/workspace"
 
 export default async function DashboardPage() {
   const session = await auth()
   if (!session?.user?.id) redirect("/login")
 
-  await ensureColumnsMigrated()
+  const { workspace } = await ensureActiveWorkspace(session.user.id)
+  if (!workspace.onboardingCompletedAt) redirect("/onboarding")
 
-  const [user, userGalleries] = await Promise.all([
-    db.query.users.findFirst({ where: eq(users.id, session.user.id) }),
-    db.query.galleries.findMany({
-      where: eq(galleries.userId, session.user.id),
-      orderBy: [desc(galleries.createdAt)],
-      with: {
-        photos: {
-          where: eq(photos.status, "ready"),
-          orderBy: [asc(photos.sortOrder), asc(photos.createdAt)],
-          columns: { thumbKey: true },
-          limit: 4,
-        },
-        selections: {
-          columns: { id: true },
-          with: {
-            selectionPhotos: {
-              columns: { photoId: true },
-            },
+  const userGalleries = await db.query.galleries.findMany({
+    where: eq(galleries.workspaceId, workspace.id),
+    orderBy: [desc(galleries.createdAt)],
+    with: {
+      photos: {
+        where: eq(photos.status, "ready"),
+        orderBy: [asc(photos.sortOrder), asc(photos.createdAt)],
+        columns: { thumbKey: true },
+        limit: 4,
+      },
+      selections: {
+        columns: { id: true },
+        with: {
+          selectionPhotos: {
+            columns: { photoId: true },
           },
         },
       },
-    }),
-  ])
+    },
+  })
 
-  if (!user) redirect("/login")
-
-  const [totalPhotosPerGallery, starsPerGallery] = await Promise.all([
+  const [totalPhotosPerGallery, starsPerGallery, storagePhotos] = await Promise.all([
     Promise.all(
       userGalleries.map((g) =>
         db.query.photos.findMany({
@@ -56,16 +52,22 @@ export default async function DashboardPage() {
         })
       )
     ),
+    db
+      .select({ fileSizeBytes: photos.fileSizeBytes })
+      .from(photos)
+      .innerJoin(galleries, eq(photos.galleryId, galleries.id))
+      .where(eq(galleries.workspaceId, workspace.id)),
   ])
 
-  // Compute exact storage from active ready photos and auto-sync with user record
-  const readyPhotosTotalBytes = totalPhotosPerGallery.reduce(
-    (sum, pList) => sum + pList.reduce((pSum, p) => pSum + (p.fileSizeBytes || 0), 0),
-    0
+  // Pending/error rows retain a reservation until they are retried or stale
+  // cleanup removes them, so they must be included in the source of truth.
+  const storedPhotosTotalBytes = storagePhotos.reduce(
+    (sum, photo) => sum + (photo.fileSizeBytes || 0),
+    0,
   )
 
-  if (user.storageUsedBytes !== readyPhotosTotalBytes) {
-    await db.update(users).set({ storageUsedBytes: readyPhotosTotalBytes }).where(eq(users.id, user.id))
+  if (workspace.storageUsedBytes !== storedPhotosTotalBytes) {
+    await db.update(workspaces).set({ storageUsedBytes: storedPhotosTotalBytes, updatedAt: new Date() }).where(eq(workspaces.id, workspace.id))
   }
 
   const dashboardGalleries: DashboardGallery[] = userGalleries.map((g, index) => {
@@ -96,12 +98,12 @@ export default async function DashboardPage() {
     }
   })
 
-  const storageUsedBytes = readyPhotosTotalBytes
-  const storageLimitBytes = Number(process.env.STORAGE_LIMIT_BYTES ?? 10_737_418_240)
+  const storageUsedBytes = storedPhotosTotalBytes
+  const storageLimitBytes = workspace.storageQuotaBytes
 
   return (
     <DashboardClientView
-      userName={user?.name ?? session.user.name ?? "Photographer"}
+      userName={workspace.name}
       galleries={dashboardGalleries}
       storageUsedBytes={storageUsedBytes}
       storageLimitBytes={storageLimitBytes}

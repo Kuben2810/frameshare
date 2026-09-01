@@ -97,7 +97,8 @@ export function DashboardClientView({
   async function handleCopy(gallery: DashboardGallery, e: React.MouseEvent) {
     e.preventDefault()
     e.stopPropagation()
-    const url = `${baseUrl}/g/${gallery.slug}`
+    const origin = typeof window !== "undefined" && window.location?.origin ? window.location.origin : baseUrl
+    const url = `${origin}/g/${gallery.slug}`
     await navigator.clipboard.writeText(url)
     setCopiedId(gallery.id)
     toast.success("Proofing link copied to clipboard")
@@ -121,7 +122,8 @@ export function DashboardClientView({
   }
 
   return (
-    <div className="space-y-8 pb-12">
+    <div className="h-full overflow-y-auto w-full">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 md:py-10 w-full space-y-8 pb-12">
       {/* ── Studio Header & KPI Strip ── */}
       <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-card via-card/90 to-card/50 border border-border/70 p-6 md:p-8 shadow-sm">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-6">
@@ -138,16 +140,29 @@ export function DashboardClientView({
             </p>
           </div>
 
-          <Link
-            href="/dashboard/galleries/new"
-            className={cn(
-              buttonVariants({ size: "lg" }),
-              "gap-2 shadow-md hover:shadow-lg transition-all rounded-xl font-medium"
-            )}
-          >
-            <Plus className="h-4 w-4" />
-            <span>New Collection</span>
-          </Link>
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link
+              href="/dashboard/prototype"
+              className={cn(
+                buttonVariants({ variant: "outline", size: "lg" }),
+                "gap-2 border-amber-500/40 bg-amber-500/10 text-amber-500 hover:bg-amber-500/20 hover:text-amber-400 transition-all rounded-xl font-semibold shadow-xs"
+              )}
+            >
+              <Sparkles className="h-4 w-4 text-amber-500" />
+              <span>AI Studio (Prototype) ✨</span>
+            </Link>
+
+            <Link
+              href="/dashboard/galleries/new"
+              className={cn(
+                buttonVariants({ size: "lg" }),
+                "gap-2 shadow-md hover:shadow-lg transition-all rounded-xl font-medium"
+              )}
+            >
+              <Plus className="h-4 w-4" />
+              <span>New Collection</span>
+            </Link>
+          </div>
         </div>
 
         {/* Quick KPI Strip */}
@@ -409,7 +424,7 @@ export function DashboardClientView({
                       )}
                     </button>
                     <Link
-                      href={`${baseUrl}/g/${gallery.slug}`}
+                      href={`/g/${gallery.slug}`}
                       target="_blank"
                       className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                       title="Open client preview"
@@ -505,7 +520,7 @@ export function DashboardClientView({
                       {copiedId === gallery.id ? <Check className="h-4 w-4 text-emerald-500" /> : <Copy className="h-4 w-4" />}
                     </button>
                     <Link
-                      href={`${baseUrl}/g/${gallery.slug}`}
+                      href={`/g/${gallery.slug}`}
                       target="_blank"
                       className="p-2 rounded-lg hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
                       title="Client preview"
@@ -525,6 +540,7 @@ export function DashboardClientView({
           })}
         </div>
       )}
+      </div>
     </div>
   )
 }
