@@ -10,6 +10,7 @@
     "db:migrate": "node scripts/migrate.mjs",
     "clean": "node -e \"['.next', 'tsconfig.tsbuildinfo', 'node_modules/.cache'].forEach(p => { try { fs.rmSync(p, { recursive: true, force: true }); } catch {} })\"",
     "set-cors": "node scripts/set-bucket-cors.mjs",
+    "test": "node --test tests/*.test.mjs",
     "lint": "eslint"
   },
   "dependencies": {
