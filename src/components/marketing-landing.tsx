@@ -117,9 +117,18 @@ export function MarketingLanding({ userSession }: MarketingLandingProps) {
           {/* CTAs */}
           <div className="flex items-center gap-3">
             {userSession ? (
-              <AnimatedLaunchButton href="/dashboard" size="sm" variant="primary">
-                Studio Dashboard
-              </AnimatedLaunchButton>
+              <>
+                {/* plain <a>: a <Link> would prefetch and sign the user out */}
+                <a
+                  href="/signout"
+                  className="inline-flex px-3.5 py-2 rounded-xl text-xs font-semibold uppercase tracking-wider text-white/70 hover:text-white transition-colors"
+                >
+                  Sign out
+                </a>
+                <AnimatedLaunchButton href="/dashboard" size="sm" variant="primary">
+                  Studio Dashboard
+                </AnimatedLaunchButton>
+              </>
             ) : (
               <>
                 <Link

@@ -14,10 +14,12 @@ import { ThemeToggle } from "@/components/theme-toggle"
 import { FrameshareLogo } from "@/components/frameshare-logo"
 import { Images, Settings, LogOut, ExternalLink, Sparkles } from "lucide-react"
 import { ensureActiveWorkspace } from "@/lib/workspace"
+import { requireAuth } from "@/lib/require-auth"
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth()
   if (!session?.user?.id) redirect("/login")
+  await requireAuth() // sends stale sessions (deleted user) to /signout
   const { workspace } = await ensureActiveWorkspace(session.user.id)
 
   const initials = workspace.name

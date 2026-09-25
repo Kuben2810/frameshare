@@ -13,9 +13,7 @@ export async function requireAuth(): Promise<string> {
     columns: { id: true },
   })
 
-  if (!user) {
-    redirect("/login")
-  }
+  if (!user) redirect("/signout")
 
   return session.user.id
 }
